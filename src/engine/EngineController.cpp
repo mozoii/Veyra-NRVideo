@@ -3030,13 +3030,14 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                             }
                             // Real B owns captureArrival. Generated A/B frames and
                             // paused cached frames must not invent input anchors.
-                            if(didPresent&&testReplayAsCard&&!generated&&!rereadCached)
+                            if(didPresent){
 #ifdef VEYRA_ENABLE_MOONLIGHT
-                            if(didPresent&&moon)moon->videoPresented(double(item.pts100ns)/10000,host100ns());
+                                if(moon)moon->videoPresented(double(item.pts100ns)/10000,host100ns());
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-                            if(didPresent&&xb)xb->videoPresented(double(item.pts100ns)/10000,host100ns(),!generated&&!rereadCached);
+                                if(xb)xb->videoPresented(double(item.pts100ns)/10000,host100ns(),!generated&&!rereadCached);
 #endif
+                            }
                             if(didPresent&&!generated&&!rereadCached){
                                 const auto returned=host100ns();
                                 flow->latency(captureArrival,returned);
