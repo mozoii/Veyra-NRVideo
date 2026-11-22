@@ -22,3 +22,13 @@ This is the fork's working state, not a release note. The parent project's relea
 - Negotiation findings: `docs/xbox-1440p-negotiation.md`
 - PS5-era historical records: `docs/history/` (kept for audit; not current-state claims)
 - Parent-project release notes: `docs/history/releases/`
+
+## Docs translation stop (2026-11-22)
+
+The first-party prose sweep was deliberately stopped at the user-facing/current
+docs and code-of-truth files, not at every historical record:
+
+- **Done**: `src/`, `include/`, `apps/`, `qml/`, `tests/`, `scripts/` (except historical records), `tools/`, root `README*.md`, `THIRD_PARTY_NOTICES.md`, `AGENTS.md`, `docs/CURRENT_STATUS.md`, `docs/DEVELOPMENT.md`, `docs/README.md`, `docs/ARCHITECTURE.md`, `docs/xbox-1440p-negotiation.md`, `CMakeLists.txt` comments, `i18n/` runtime and scripts (English source keys), the Xbox 1440p tier files and tests.
+- **Left in place, deliberately**: dated historical records (`docs/history/`, `docs/WORKLOG.md`, `docs/HISTORY.md`, most `docs/` dated plans/reports/worklogs), the `loop/` loop journal/evidence/prompts, the `prototypes/ui-redesign-2026-09-25/` prototype sources, the two root technical contracts (`VEYRA_PRODUCT_SPEC_V1.md`, `VEYRA_AGENT_EXECUTION_PLAYBOOK_V1.md`) — all Chinese, all historical or design records. The two root contracts are the one real gap: they are the current product/technical boundary and should be translated with the user's sign-off, not silently machine-translated.
+- **PS5-specific historical docs** were deleted (PS5/Chiaki surfaces); non-PS5 history is kept for audit.
+- `i18n-scripts/` is a stale duplicate of `scripts/i18n/` and is intentionally untracked; the sweep helpers (`scripts/i18n/translate-cjk.py`, `zh-map.json`) remain untracked as sweep tooling; `scan-cjk.py` is committed as the detection tool.
