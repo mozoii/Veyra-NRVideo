@@ -877,6 +877,7 @@ VPage {
                               : "—"
                         color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                     }
                     Text { text: qsTr("Output"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                     Text {
@@ -884,6 +885,7 @@ VPage {
                         text: veyra.outputSummary.length > 0 ? veyra.outputSummary : "—"
                         color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                     }
                     Text { text: qsTr("Optical flow"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                     Text {
@@ -891,6 +893,7 @@ VPage {
                         text: veyra.flowBackend.length > 0 ? veyra.flowBackend : qsTr("Not run")
                         color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
                     }
                     Text { text: qsTr("Color"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
                     Text {
@@ -916,6 +919,12 @@ VPage {
                         text: veyra.vrrSummary + (veyra.displayRefreshHz > 0 ? " · " + veyra.displayRefreshHz.toFixed(0) + " Hz" : "")
                         color: veyra.vrrState >= 4 ? Theme.ok : Theme.t1; font.family: Theme.fontMono; font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
+                        // "Unavailable now · 240 Hz" is wider than the value column: it wraps
+                        // onto a second line instead of losing the refresh rate, as the
+                        // network row above already does. A single long translation word
+                        // ("недоступно") is broken rather than run over the label column.
+                        wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                        maximumLineCount: 2
                         elide: Text.ElideRight
                     }
                     // Network / server playback (#48): buffer, download speed, reconnects.

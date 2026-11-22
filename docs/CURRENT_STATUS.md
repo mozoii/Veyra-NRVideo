@@ -17,6 +17,14 @@ This is the fork's working state, not a release note. The parent project's relea
 - **Executable validation** — no toolchain in this environment; catalog and Unicode checks run, unit/QML tests are not built here.
 - **Release** — no fork release has been published or tagged. Do not claim 1440p delivery or any 2.3.0 version.
 
+## QML text layout (2026-11-22)
+
+The English-source conversion left several QML slots measured for Chinese strings: node
+card titles, the timing strip, the home source-card subtitle, the display-state value and
+the save dialog's node column were cut or overlapped. They now size to their text. The
+measured audit (58 page/dialog samples, English, 1280x800 and 1024x700 clean) and the
+remaining gaps are in `docs/QML_TEXT_LAYOUT_2026-11-22.md`.
+
 ## What lives outside this file
 
 - Negotiation findings: `docs/xbox-1440p-negotiation.md`

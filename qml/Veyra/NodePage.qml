@@ -176,8 +176,13 @@ VPage {
             x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h)
         }
         x0 -= 20; y0 -= 20; x1 += 20; y1 += 20
+        // The floating canvas overlays sit over the bottom of the canvas: the timing
+        // strip (12px margin + 18px) and the tools bar (36px margin + about 40px).
+        // 90px of bottom reserve let the tallest card's last row slide under the tools
+        // bar once English text made it taller, so the reserve covers both.
+        const floatBottom = 36 + 40 + 8
         const k = Math.max(0.25, Math.min(1.0, Math.min((canvasCard.width - 40) / (x1 - x0),
-                                                        (canvasCard.height - 90) / (y1 - y0))))
+                                                        (canvasCard.height - 30 - floatBottom) / (y1 - y0))))
         zoom = k
         panX = (canvasCard.width - (x1 - x0) * k) / 2 - x0 * k
         panY = 30 - y0 * k
@@ -223,7 +228,8 @@ VPage {
         const r = list.map(b => ({ key: b.key, index: b.index, x: b.x, y: b.y, w: b.w, h: b.h }))
         const linked = new Set(pathIds().map(id => "n" + id))
         const moved = new Set()
-        for (let pass = 0; pass < 80; ++pass) {
+        // Wider English cards need more passes to separate on a small canvas.
+        for (let pass = 0; pass < 200; ++pass) {
             let any = false
             for (let i = 0; i < r.length; ++i) for (let j = i + 1; j < r.length; ++j) {
                 const a = r[i], b = r[j]
@@ -256,7 +262,20 @@ VPage {
             if (b.index !== undefined) veyra.setEffectPosition(b.index, b.x, b.y)
             else veyra.setNodeAnchor(b.key, b.x, b.y)
         }
-        if (moved.size) veyra.logUi("ui-node", "settle moved=" + Array.from(moved).join(","))
+        if (moved.size) {
+            veyra.logUi("ui-node", "settle moved=" + Array.from(moved).join(","))
+            // The cards are wider and taller than they were for Chinese names, so a chain
+            // that fitted before can now run past the canvas and under the floating
+            // tools bar and timing strip. Bring the view back to fit instead.
+            let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9
+            for (const b of r) {
+                x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y)
+                x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h)
+            }
+            const fits = (x1 - x0) * zoom <= canvasCard.width - 40 &&
+                         (y1 - y0) * zoom <= canvasCard.height - 30 - 84
+            if (!fits) fitView()
+        }
     }
     // Replace an output's or an input's existing wire rather than refusing; if
     // the engine rejects the new link, the old wiring is put back.
@@ -1085,9 +1104,42 @@ VPage {
                 readonly property int waiting: segments.filter(g => !g.measured).length
                 readonly property real scale: Math.max(measuredTotal, veyra.stageBudgetMs)
                 readonly property real spare: veyra.stageBudgetMs > measuredTotal && measuredTotal > 0 ? veyra.stageBudgetMs - measuredTotal : 0
+                // One label for both the strip and the width it needs: the English state
+                // words ("Waiting for samples") are about twice the Chinese ones, so a
+                // fixed 72px slot cut every waiting segment to "NR enhancemen…".
+                FontMetrics { id: stripLabelMetrics; font.family: Theme.fontUi; font.pixelSize: 10; font.weight: Font.DemiBold }
+                // A segment is as wide as its own GPU time, so its label can never be
+                // guaranteed to fit. A waiting segment therefore shows the node name only
+                // ("NR enhancement · layer 1" fits a sixth of the strip; the English
+                // "… Waiting for samples" suffix did not, and every slot was cut to
+                // "NR enhancemen…"). The state word is the tooltip's second line.
+                function segmentText(g) {
+                    return g.measured ? g.label + " " + g.ms.toFixed(1) + " ms" : g.label
+                }
+                function stateText(g) {
+                    return g.state === "failed" ? qsTr("Failed to enable")
+                        : g.state === "sdk" ? qsTr("SDK internal")
+                        : g.state === "fused" ? qsTr("Merge into input")
+                        : g.state === "pending" ? qsTr("Waiting for samples")
+                        : g.state === "stopped" ? qsTr("Not playing")
+                        : g.reason || qsTr("No timing for this node yet")
+                }
+                readonly property real waitingWidth: {
+                    let w = 72
+                    for (const g of segments)
+                        if (!g.measured) w = Math.max(w, Math.ceil(stripLabelMetrics.advanceWidth(segmentText(g))) + 10)
+                    return w
+                }
                 function widthOf(g) {
-                    const free = width - 2 - waiting * 74 - Math.max(0, segments.length - 1)
-                    if (!g.measured) return 72
+                    const gaps = Math.max(0, segments.length - 1)
+                    const room = width - 2 - gaps
+                    // A timed bar keeps 40px; waiting slots share the rest up to the width
+                    // their own name needs, and give it back when the strip is that narrow.
+                    const timedRoom = (segments.length - waiting) * 40
+                    const waitingSlot = Math.max(40, Math.min(waitingWidth,
+                        (room - timedRoom) / Math.max(1, waiting)))
+                    if (!g.measured) return waitingSlot
+                    const free = Math.max(0, room - waiting * waitingSlot)
                     return scale > 0 ? Math.max(40, free * g.ms / scale) : 40
                 }
                 Row {
@@ -1114,9 +1166,7 @@ VPage {
                                 width: parent.width - 6
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
-                                text: modelData.label + " " + (modelData.measured ? modelData.ms.toFixed(1) + " ms"
-                                      : modelData.state === "failed" ? qsTr("Failed to enable")
-                                      : modelData.state === "sdk" ? qsTr("SDK internal") : modelData.state === "fused" ? qsTr("Merge into input") : qsTr("Waiting for samples"))
+                                text: timingStrip.segmentText(modelData)
                                 color: modelData.measured ? Qt.rgba(0, 0, 0, 0.8) : Theme.t3
                                 font.family: Theme.fontUi
                                 font.pixelSize: 10
@@ -1124,7 +1174,8 @@ VPage {
                             }
                             HoverHandler { id: segHover; cursorShape: Qt.PointingHandCursor }
                             ToolTip.visible: segHover.hovered
-                            ToolTip.text: modelData.label + "：" + (modelData.measured ? modelData.ms.toFixed(2) + qsTr(" ms (GPU, last-second average)") : modelData.reason || qsTr("No timing for this node yet"))
+                            ToolTip.text: modelData.label + "：" + (modelData.measured ? modelData.ms.toFixed(2) + qsTr(" ms (GPU, last-second average)")
+                                : timingStrip.stateText(modelData) + (modelData.reason.length > 0 && modelData.reason !== timingStrip.stateText(modelData) ? " · " + modelData.reason : ""))
                             TapHandler {
                                 gesturePolicy: TapHandler.WithinBounds
                                 onTapped: root.focusNode(modelData.id)
@@ -1226,7 +1277,13 @@ VPage {
         onHeightChanged: { wires.requestPaint(); if (!headDrag.active) settleTimer.restart() }
         onWidthChanged: settleTimer.restart()
         z: root.selectedId === node.id ? 3 : (headDrag.active ? 4 : 1)
-        width: node.type === "color" ? 360 : ["nr", "protection", "exclusion"].indexOf(node.type)>=0 ? 320 : 272
+        width: Math.max(baseWidth, headerWidth)
+        // 272 / 320 / 360 were measured for Chinese node names. English ones run about
+        // twice as wide ("DLSS Frame Generation"), and the fixed widths cut them to
+        // "DLSS Frame…". The header's own implicit width is the honest minimum.
+        readonly property real baseWidth: node.type === "color" ? 360 : ["nr", "protection", "exclusion"].indexOf(node.type)>=0 ? 320 : 272
+        // Capped so a very long custom name cannot make one card wider than the canvas.
+        readonly property real headerWidth: Math.min(460, Math.ceil(headRow.implicitWidth) + 12)
         height: body.implicitHeight
         radius: 10
         color: Theme.shade(29, 29, 34)
@@ -1378,6 +1435,7 @@ VPage {
                 }
                 }
                 RowLayout {
+                    id: headRow
                     anchors.fill: parent
                     anchors.leftMargin: 6
                     anchors.rightMargin: 6
@@ -1403,17 +1461,23 @@ VPage {
                     }
                     // .ms badge: this node's own GPU cost, or why there is none.
                     Rectangle {
-                        implicitWidth: msText.implicitWidth + 12
+                        implicitWidth: msText.width + 12
                         implicitHeight: 18
                         radius: 5
                         color: Qt.rgba(0, 0, 0, 0.35)
                         HoverHandler { id: timingHover }
-                        ToolTip.visible: timingHover.hovered && !!msText.timing.reason
-                        ToolTip.text: msText.timing.reason || ""
+                        ToolTip.visible: timingHover.hovered
+                        ToolTip.text: msText.timing.reason || msText.text
                         ToolTip.delay: 400
                         Text {
                             id: msText
                             objectName: "node-ms-" + card.node.id
+                            // A long status ("SDR display, not converted") must not push the
+                            // node name out of the header: it is capped and elided, and the
+                            // tooltip carries the whole phrase. 118 fits every status word in
+                            // the interface languages except that one phrase.
+                            width: Math.min(implicitWidth, 118)
+                            elide: Text.ElideRight
                             readonly property var timing: veyra.nodeTimings[String(card.node.id)] || ({})
                             anchors.centerIn: parent
                             text: {

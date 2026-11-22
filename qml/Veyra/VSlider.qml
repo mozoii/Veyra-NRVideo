@@ -269,7 +269,9 @@ Item {
         ToolTip.text: qsTr("Reset to default: %1").arg(slider.defaultValue)
         contentItem: Text {
             text: parent.text; color: parent.enabled ? Theme.t2 : Theme.t3
-            font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+            // 14px, not 16: the glyph's line box at 16 was 22px in a 20px control, so
+            // its top and bottom were cut by the row it sits in.
+            font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle { radius: 4; color: parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
         onClicked: {

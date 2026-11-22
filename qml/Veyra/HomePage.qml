@@ -297,6 +297,11 @@ VPage {
                             Text {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
+                                // English subtitles run about twice the Chinese length ("Account
+                                // sign-in · experimental"): two lines in the tall card, one in
+                                // the 80px compact card.
+                                wrapMode: Text.Wrap
+                                maximumLineCount: root.compact ? 1 : 2
                                 elide: Text.ElideRight
                                 id: sourceSubtitle
                                 text: srcGrid.cardSub(modelData.act)

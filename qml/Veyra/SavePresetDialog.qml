@@ -33,6 +33,14 @@ DialogLayer {
     }
     readonly property bool nameTaken: presetNameField.text.trim().length > 0 &&
         veyra.presets.some(p => p.name === presetNameField.text.trim())
+    // The name column fits the longest node name in the interface language: a fixed
+    // 110px cut "NR protected areas" and "DLSS Frame Generation".
+    FontMetrics { id: nodeNameMetrics; font.family: Theme.fontUi; font.pixelSize: 12; font.weight: Font.DemiBold }
+    readonly property real nameColumn: {
+        let w = 110
+        if (shown) for (const n of veyra.chain) w = Math.max(w, Math.ceil(nodeNameMetrics.advanceWidth(nodeLabel(n))) + 4)
+        return Math.min(w, 200)
+    }
     property var chosen: ({})
     property var parts: []
     function resetForOpen() {
@@ -120,7 +128,7 @@ DialogLayer {
                         color: modelData.enabled ? Theme.ok : Qt.rgba(1, 1, 1, 0.25)
                     }
                     Text {
-                        Layout.preferredWidth: 110
+                        Layout.preferredWidth: saveDialog.nameColumn
                         text: saveDialog.nodeLabel(modelData)
                         color: modelData.enabled ? Theme.t1 : Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 12
