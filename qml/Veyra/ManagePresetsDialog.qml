@@ -7,8 +7,8 @@ DialogLayer {
     id: manageDialog
     key: "manage"
     glyph: "settings"
-    title: qsTr("管理预设")
-    sub: qsTr("导出页和极简模式都从这里的预设中选择")
+    title: qsTr("Manage presets")
+    sub: qsTr("The Export page and Minimal mode both pick from these presets")
     dialogWidth: 620
     property string mode: "list"
     property string feedback: ""
@@ -21,44 +21,44 @@ DialogLayer {
         else if (action === "default") ok = veyra.setDefaultPreset(index)
         feedbackError = !ok
         if (action === "rename")
-            feedback = ok ? qsTr("预设已改名") : qsTr("改名失败：名称不能为空、超过48字或与已有预设重复")
+            feedback = ok ? qsTr("Preset renamed") : qsTr("Rename failed: the name cannot be empty, longer than 48 characters, or the same as another preset")
         else if (action === "duplicate")
-            feedback = ok ? qsTr("预设已复制") : qsTr("复制失败：预设数量可能已达上限")
+            feedback = ok ? qsTr("Preset copied") : qsTr("Copy failed: the preset limit may have been reached")
         else if (action === "delete")
-            feedback = ok ? qsTr("预设已删除") : qsTr("删除预设失败")
+            feedback = ok ? qsTr("Preset deleted") : qsTr("Could not delete the preset")
         else if (action === "default")
-            feedback = ok ? (index < 0 ? qsTr("已取消启动默认预设") : qsTr("已设为启动默认预设")) : qsTr("启动默认预设保存失败")
+            feedback = ok ? (index < 0 ? qsTr("Startup default preset removed") : qsTr("Set as the startup default preset")) : qsTr("Could not save the startup default preset")
         return ok
     }
-    actions: [{ label: qsTr("完成"), primary: true }]
+    actions: [{ label: qsTr("Done"), primary: true }]
     onActionTriggered: dialogHost.close()
 
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 8
-        // presets.js manage: the mode toggle, then 导入 / 导出 on the right.
+        // presets.js manage: the mode toggle, then Import / Export on the right.
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
             VSeg {
                 objectName: "preset-manage-mode"
-                options: [{ id: "list", label: qsTr("列表预设") }, { id: "node", label: qsTr("节点预设") }]
+                options: [{ id: "list", label: qsTr("List presets") }, { id: "node", label: qsTr("Node presets") }]
                 current: manageDialog.mode
                 onPicked: mode => { manageDialog.mode = mode; manageDialog.feedback = "" }
             }
             Item { Layout.fillWidth: true }
-            VButton { objectName: "preset-import"; ghost: true; iconName: "import"; text: qsTr("导入"); onClicked: veyra.importPresetDialog() }
+            VButton { objectName: "preset-import"; ghost: true; iconName: "import"; text: qsTr("Import"); onClicked: veyra.importPresetDialog() }
             VButton {
                 id: presetExportBtn
                 objectName: "preset-export"
-                ghost: true; iconName: "upload"; text: qsTr("导出")
+                ghost: true; iconName: "upload"; text: qsTr("Export")
                 enabled: presetRows.count > 0
                 onClicked: presetExportMenu.openAt(presetExportBtn, "down")
             }
         }
         Text {
             visible: presetRows.count === 0
-            text: qsTr("这个模式还没有预设。")
+            text: qsTr("This mode has no presets yet.")
             color: Theme.t3
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsSmall
@@ -122,30 +122,30 @@ DialogLayer {
                         Text {
                             Layout.fillWidth: true
                             text: modelData.note.length > 0 ? modelData.note
-                                  : (modelData.nodeMode ? qsTr("节点预设") : qsTr("列表预设"))
+                                  : (modelData.nodeMode ? qsTr("Node presets") : qsTr("List presets"))
                             color: Theme.t3
                             font.family: Theme.fontUi
                             font.pixelSize: 11
                             elide: Text.ElideRight
                         }
                     }
-                    VTag { objectName: "preset-default-tag-" + modelData.index; visible: presetRow.isDefault; kind: "acc"; text: qsTr("启动默认") }
+                    VTag { objectName: "preset-default-tag-" + modelData.index; visible: presetRow.isDefault; kind: "acc"; text: qsTr("Startup default") }
                     VButton {
                         objectName: "preset-default-" + modelData.index
                         icon: true; ghost: true; iconName: "home"
-                        tip: presetRow.isDefault ? qsTr("取消启动默认") : qsTr("设为启动默认")
+                        tip: presetRow.isDefault ? qsTr("Remove startup default") : qsTr("Set as startup default")
                         onClicked: manageDialog.runAction("default", presetRow.isDefault ? -1 : modelData.index)
                     }
                     VButton {
                         objectName: "preset-duplicate-" + modelData.index
                         icon: true; ghost: true; iconName: "dup"
-                        tip: qsTr("复制")
+                        tip: qsTr("Copy")
                         onClicked: manageDialog.runAction("duplicate", modelData.index)
                     }
                     VButton {
                         objectName: "preset-delete-" + modelData.index
                         icon: true; ghost: true; iconName: "trash"
-                        tip: qsTr("删除")
+                        tip: qsTr("Delete")
                         enabled: !modelData.builtin
                         onClicked: presetRow.remove()
                     }
@@ -155,7 +155,7 @@ DialogLayer {
         VMenu {
             id: presetExportMenu
             objectName: "preset-export-menu"
-            title: qsTr("导出预设")
+            title: qsTr("Export preset")
             items: veyra.presets.filter(p => p.nodeMode === (manageDialog.mode === "node"))
                 .map(p => ({ label: p.name, note: p.note, icon: "upload", preset: p.index }))
             onPicked: (i, o) => veyra.exportPresetDialog(o.preset)

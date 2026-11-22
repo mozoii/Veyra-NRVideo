@@ -33,9 +33,9 @@ PortableUpdate::PortableUpdate(const QString& version, QObject* parent)
         DeleteFileW(status.c_str());
         if (!result.empty()) QTimer::singleShot(0, this, [this, result] {
             qInfo().noquote() << "[portable-update-result]" << QString::fromStdString(result).trimmed();
-            if (result == "installed\n") emit notice(tr("Veyra 已更新"), false);
-            else if (result == "windows-blocked\n") emit notice(tr("Windows 已阻止本次更新，请查看保护历史"), true);
-            else emit notice(tr("更新未完成，已打开可用版本"), true);
+            if (result == "installed\n") emit notice(tr("Veyra has been updated"), false);
+            else if (result == "windows-blocked\n") emit notice(tr("Windows blocked the update. Check Protection History."), true);
+            else emit notice(tr("Update did not complete. A working version was opened."), true);
         });
     }
 
@@ -107,23 +107,23 @@ void PortableUpdate::request(const QUrl& url, int buffer, int idleMs) {
 void PortableUpdate::downloadAndSchedule() {
     if (!available() || reply_) return;
     if (!QDir().mkpath(pathString(updates_)) || !plainPath(updates_, true)) {
-        emit notice(tr("无法写入更新目录"), true);
+        emit notice(tr("Cannot write to the update folder"), true);
         return;
     }
     for (const auto name : {L"download.zip", L"pending.json"}) {
         const auto path = updates_ / name;
         if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES && !plainPath(path, false)) {
-            emit notice(tr("无法写入更新目录"), true);
+            emit notice(tr("Cannot write to the update folder"), true);
             return;
         }
     }
     const QStorageInfo storage(pathString(updates_));
     if (!storage.isReady() || storage.bytesAvailable() < package_->archiveBytes + package_->expandedBytes + (32ll << 20)) {
-        emit notice(tr("磁盘空间不足，无法下载并解压更新"), true);
+        emit notice(tr("Insufficient disk space to download and extract the update"), true);
         return;
     }
     if (!requestArchive(route_)) {
-        emit notice(tr("无法写入更新目录"), true);
+        emit notice(tr("Cannot write to the update folder"), true);
         return;
     }
     emit changed();
@@ -198,10 +198,10 @@ void PortableUpdate::finish() {
     download_.reset();
     if (scheduled_) {
         qInfo().noquote() << "[portable-update]" << package_->version << "scheduled";
-        emit notice(tr("更新已就绪，将在退出后安装"), false);
+        emit notice(tr("Update ready. It will be installed after exit."), false);
     } else {
         discardDownload();
-        if (!cancelled_) emit notice(tr("更新下载或校验失败，请重试"), true);
+        if (!cancelled_) emit notice(tr("Update download or verification failed. Try again."), true);
     }
     emit changed();
 }
@@ -221,7 +221,7 @@ void PortableUpdate::cancel() {
     } else if (scheduled_) {
         const auto pending = updates_ / L"pending.json";
         if (plainPath(pending, false) && !DeleteFileW(pending.c_str())) {
-            emit notice(tr("无法写入更新目录"), true);
+            emit notice(tr("Cannot write to the update folder"), true);
             return;
         }
         scheduled_ = false;

@@ -42,28 +42,28 @@ docs=('PLAYBACK_SMOOTHNESS_PLAN_2026-10-04.md','SUBTITLE_ENGINE_2026-09-16.md',
       'RTSS_RESTART_LOOP_PLAN_2026-10-04.md','RTSS_COMPAT_2026-10-03.md')
 for name in docs:
     dst=APP/'docs'/name;dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(ROOT/'docs'/name,dst)
-(APP/'本地修复说明.md').write_text('''# Veyra 2.0.3-smoothfix 本地测试包（NVIDIA）
+(APP/'LOCAL-FIX.md').write_text('''# Veyra 2.0.3-smoothfix local test package (NVIDIA)
 
-运行本目录的 veyra_qml_ui.exe，基础依赖与已审计运行组件齐全。
+Run this directory's veyra_qml_ui.exe; base dependencies and already-audited runtime components are complete.
 
-- 自定义文件播放速度 0.25～4.00 倍，支持两位小数，保持原有音调。
-- 修复内嵌字幕正文逗号被吃掉、两行/三行字幕缺失及 VTT 的 CRLF。
-- 能力查询不再随播放快照反复访问磁盘/重建菜单，保留替换组件发现与灰色入口。
-- 专业模式只在顶部保留输入信息，输出分辨率放在旁边；窄窗口进度与按钮分行。
-- 修复倍速菜单裁剪/提示覆盖；自定义窗口可接受键盘输入。
-- 最大化窗口退出全屏后恢复最大化，普通窗口恢复原尺寸。
-- 包含此前本地 RTSS 误报与兼容重启循环修复。
+- Custom file playback speed 0.25x-4.00x, supporting two decimals, keeping the original pitch.
+- Fixes: embedded subtitle body comma eaten, two-line/three-line subtitles missing, and VTT CRLF.
+- Capability queries no longer hit the disk/rebuild menus repeatedly with each playback snapshot; replacement component discovery and gray entries are kept.
+- Professional mode keeps only the input info at the top, with output resolution next to it; narrow windows wrap progress and buttons.
+- Fixes: playback-speed menu clipping/tip overlap; custom windows accept keyboard input.
+- Window maximized and then exited fullscreen restores maximized state; normal windows restore their original size.
+- Includes the earlier local RTSS false-positive and compatibility restart-loop fixes.
 
-RTX5070 / 616.56 短测：音频18组、字幕30个作者cue、硬件能力56组，
-真实Qt播放/自定义倍速/字幕/菜单/720–1600宽度/全屏恢复均通过。
-软件UI后台DLSS6X提交约180fps、UI计时采样中位16ms；VFG4X提交中位约115fps。
-这些是软件提交/计时指标，不能当作屏幕实际刷新率或端到端延迟。
-用户报告的严重后台掉帧尚未复现，未找到根因；显示ETW采集被本机权限拒绝。
-新增焦点/吞吐/系统进程节流日志可辅助进一步定位。未新增AMD实卡验收。
+RTX5070 / 616.56 short test: audio 18 groups, subtitle 30 author cues, hardware capability 56 groups,
+real Qt playback/custom speed/subtitle/menu/720-1600 width/fullscreen restore all pass.
+Software UI background DLSS6X submission ~180fps, UI timing sample median 16ms; VFG4X submission median ~115fps.
+These are software submission/timing metrics, cannot be taken as actual screen refresh rate or end-to-end latency.
+The user-reported severe background dropped frames did not reproduce; no root cause was found; display ETW capture was rejected by local permissions.
+Added focus/throughput/system-process throttling logs can help further location. No new AMD physical-card acceptance.
 
-此包未合入 main，未上传/替换 GitHub 2.0.3；与原正式包分开保存。
-运行库字节、许可证与GPU分包规则保持；不包含AMD NR、SDK、测试媒体、个人配置或日志。
-源码ZIP在上级目录，原依赖源码沿用已发布2.0.3资产。完整证据在本机logs任务目录。
+This package was not merged into main, not uploaded or replaced GitHub 2.0.3; kept separate from the original official package.
+Runtime bytes, license and GPU split rules kept; does not include AMD NR, SDK, test media, personal config or logs.
+The source ZIP is in the parent directory, the original dependency source is reused from the published 2.0.3 assets. Full evidence in the local logs task directory.
 ''',encoding='utf8')
 names=vendor.check_vendor(APP,'NVIDIA')
 for name in names:

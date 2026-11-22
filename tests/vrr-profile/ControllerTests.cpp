@@ -98,7 +98,7 @@ private slots:
         controller.check(); QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 5000);
         QVERIFY(controller.canRepair());
         controller.repair(); QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 5000);
-        QVERIFY(!controller.canRepair()); QVERIFY(controller.detail().contains(QStringLiteral("数据目录")));
+        QVERIFY(!controller.canRepair()); QVERIFY(controller.detail().contains(QStringLiteral("application data directory")));
         const std::lock_guard lock(driver.mutex);
         QCOMPARE(driver.inspections, 1); QCOMPARE(driver.repairs, 0);
     }
@@ -109,7 +109,7 @@ private slots:
         { const std::lock_guard lock(driver.mutex); driver.repairStatus = -175; }
         QSignalSpy notices(&controller, &ui::NvidiaVrrProfileController::notice);
         controller.repair(); QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 5000);
-        QVERIFY(controller.summary().contains(QStringLiteral("管理员"))); QVERIFY(controller.canRestore());
+        QVERIFY(controller.summary().contains(QStringLiteral("Administrator"))); QVERIFY(controller.canRestore());
         QCOMPARE(notices.count(), 1); QVERIFY(notices.front()[1].toBool());
         QVERIFY(!record(directory).isEmpty());
         controller.restore(); QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 5000);

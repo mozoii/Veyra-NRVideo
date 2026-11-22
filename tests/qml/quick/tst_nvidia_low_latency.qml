@@ -27,8 +27,8 @@ Item {
             for(const editor of [list,node]){
                 const control=choice(editor)
                 compare(control.options.length,2)
-                compare(control.options[0].id,"0");compare(control.options[0].label,"关")
-                compare(control.options[1].id,"1");compare(control.options[1].label,"开")
+                compare(control.options[0].id,"0");compare(control.options[0].label,"Off")
+                compare(control.options[1].id,"1");compare(control.options[1].label,"On")
                 compare(control.current,"0")
                 compare(findChild(editor,editor.namePrefix+"-nvidia-low-latency-row").hint,"")
             }
@@ -51,7 +51,7 @@ Item {
             bridge.nvidiaLowLatency=1;bridge.nvidiaLowLatencyAvailable=false
             for(const editor of [list,node]){
                 compare(choice(editor).enabled,false);compare(choice(editor).current,"0")
-                compare(findChild(editor,editor.namePrefix+"-nvidia-low-latency-row").hint,"需要 NVIDIA 显卡")
+                compare(findChild(editor,editor.namePrefix+"-nvidia-low-latency-row").hint,"Requires an NVIDIA GPU")
             }
             compare(bridge.nvidiaLowLatency,1,"hardware visibility does not rewrite the retained setting")
         }

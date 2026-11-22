@@ -329,7 +329,7 @@ inline HdrPeakWarning hdrPeakWarning(unsigned sourcePeakNits, bool sourceIsHdr, 
 //
 // The three dials are the same idea for manual tuning: each level maps onto the
 // existing parameters, and the inverse lookup picks the nearest level, so the
-// panel can show "暗部提亮 3" instead of "shadowLiftEv100 30". The exact technical
+// panel can show "shadow lift 3" instead of "shadowLiftEv100 30". The exact technical
 // values stay visible under the advanced section.
 // ---------------------------------------------------------------------------
 struct HdrContentPreset {
@@ -359,7 +359,7 @@ inline constexpr unsigned kHdrEnvironmentDarkShift = 0;      // no compensation:
 // ambient-adaptive HDR does (a very dark scene in a very bright room gets the most
 // correction, a dark room needs little). It stays at the bottom end on purpose: the
 // highlight fields remain the content axis business.
-// Matched to the legacy "明亮环境" preset (0.30 EV over 30 nits) so the two preset
+// Matched to the legacy "bright room" preset (0.30 EV over 30 nits) so the two preset
 // systems describe a bright room the same way.
 inline constexpr int kHdrEnvironmentBrightLiftEv100 = 30;
 inline constexpr unsigned kHdrEnvironmentBrightLiftRangeNits = 30;

@@ -9,11 +9,11 @@ enum class CaptureBufferMode { Auto = 0, Minimum = 1, DriverDefault = 2 };
 
 constexpr std::wstring_view captureBufferModeName(CaptureBufferMode mode) {
     switch (mode) {
-    case CaptureBufferMode::Minimum: return L"最小（1 帧缓冲）";
-    case CaptureBufferMode::DriverDefault: return L"驱动默认（不干预）";
+    case CaptureBufferMode::Minimum: return L"Minimum (1-frame buffer)";
+    case CaptureBufferMode::DriverDefault: return L"Driver default (no override)";
     case CaptureBufferMode::Auto: break;
     }
-    return L"自动（按分辨率）";
+    return L"Auto (by resolution)";
 }
 
 // Narrow key for logs and CLI parsing.

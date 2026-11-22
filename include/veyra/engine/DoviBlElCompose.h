@@ -1,15 +1,15 @@
 #pragma once
-// Dolby Vision Profile 7 双层重建（BL + EL），按 ETSI GS CCM 001 V1.1.1 5.4 实现。
+// Dolby Vision Profile 7 dual-layer reconstruction (BL + EL), per ETSI GS CCM 001 V1.1.1 5.4.
 //
-// 这是一个**参考实现**：纯函数、可单测，和 PresentBlit 里的 GPU 版逐句对应。
-// 之所以先写 CPU 版：规范只给伪代码，任何一处移位/位深错一位，画面就会偏，
-// 而 GPU 上很难逐步对账。这里先用真实 RPU 参数把每个分支跑对，GPU 版照着搬。
+// This is a **reference implementation**: pure functions, unit-testable, and line-for-line with the GPU version in PresentBlit.
+// It was written on the CPU first because the spec only gives pseudo-code: one wrong shift or bit-depth and the picture is off,
+// and it is hard to reconcile on the GPU step by step. Here the real RPU parameters run every branch first, and the GPU version follows.
 //
-// 参数来源：FFmpeg 的 AVDOVIRpuDataHeader / AVDOVIDataMapping（av_dovi_get_header /
-// av_dovi_get_mapping）。本样本（Dolby FEL Test）实测：luma 逆映射恒等
-// （polyOrder 1、斜率 1.0）、coef_log2_denom=23、bit depth 10/10/12、NLQ LINEAR_DZ。
+// Parameter source: FFmpeg's AVDOVIRpuDataHeader / AVDOVIDataMapping (av_dovi_get_header /
+// av_dovi_get_mapping). Measured on this sample (Dolby FEL Test): luma inverse mapping identity
+// (polyOrder 1, slope 1.0), coef_log2_denom=23, bit depth 10/10/12, NLQ LINEAR_DZ.
 //
-// Custom addition for the P5 work; 播放路径在 GPU 版完成前不调用它。
+// Custom addition for the P5 work; the playback path does not call it before the GPU version is done.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -21,7 +21,7 @@ extern "C" {
 
 namespace veyra::engine {
 
-// 反量化后的 EL 样本：规范要求 17 位有符号。
+// The EL sample after inverse quantization: the spec requires a 17-bit signed value.
 inline int64_t doviNlq(const AVDOVIDataMapping& mapping, int cmp, int elBitDepth,
                        int coefLog2Denom, int64_t e) {
     const auto& n = mapping.nlq[cmp];
@@ -38,7 +38,7 @@ inline int64_t doviNlq(const AVDOVIDataMapping& mapping, int cmp, int elBitDepth
     return dq >> (coefLog2Denom - 5 - elBitDepth);
 }
 
-// 分段函数落在哪一段：pivot[i] <= s < pivot[i+1]。
+// Which segment the piecewise function lands in: pivot[i] <= s < pivot[i+1].
 inline int doviPivotIndex(const AVDOVIReshapingCurve& curve, int64_t s) {
     const int pieces = curve.num_pivots > 0 ? int(curve.num_pivots) - 1 : 0;
     for (int i = 0; i < pieces; ++i)
@@ -46,10 +46,10 @@ inline int doviPivotIndex(const AVDOVIReshapingCurve& curve, int64_t s) {
     return s < int64_t(curve.pivots[0]) ? 0 : std::max(0, pieces - 1);
 }
 
-// 5.4.2.3.2 多项式映射（luma）。
+// 5.4.2.3.2 Polynomial mapping (luma).
 inline uint16_t doviPolyMapping(const AVDOVIReshapingCurve& curve, int piece, int64_t s,
                                 int blBitDepth, int coefLog2Denom) {
-    // 规范伪代码：for (i = 0; i <= poly_order_minus1 + 1; i++)
+    // Spec pseudo-code: for (i = 0; i <= poly_order_minus1 + 1; i++)
     const int terms = int(curve.poly_order[piece]) + 2;
     int64_t ss = 1;
     int shift = 20;                                  // 2 * maximum BL bit depth
@@ -64,7 +64,7 @@ inline uint16_t doviPolyMapping(const AVDOVIReshapingCurve& curve, int piece, in
     return uint16_t(std::min<int64_t>(v, 0xffff));
 }
 
-// 5.4.2.3.3 MMR 映射（chroma）。s0 必须是**下采样后**的 BL luma。
+// 5.4.2.3.3 MMR mapping (chroma). s0 must be the **downsampled** BL luma.
 inline uint16_t doviMmrMapping(const AVDOVIReshapingCurve& curve, int piece,
                                int64_t s0, int64_t s1, int64_t s2,
                                int blBitDepth, int coefLog2Denom) {
@@ -110,13 +110,13 @@ inline uint16_t doviMmrMapping(const AVDOVIReshapingCurve& curve, int piece,
     return uint16_t(std::min<int64_t>(v, 0xffff));
 }
 
-// 5.4.2：BL 逆映射，返回 16 位域的 v。
+// 5.4.2: BL inverse mapping, returning v in the 16-bit domain.
 inline uint16_t doviInverseMap(const AVDOVIDataMapping& mapping, const AVDOVIRpuDataHeader& header,
                                int cmp, int64_t s0, int64_t s1, int64_t s2) {
     const auto& curve = mapping.curves[cmp];
     const int piece = doviPivotIndex(curve, s0);
-    // 分段边界的 clip（规范在两种映射前都会做）。num_pivots 为 0 的曲线只可能来自
-    // 解析失败的 RPU，此时不做 clip，避免读 pivots[-1]。
+    // Clip at the piece boundary (the spec does this before both mappings). A curve with
+    // num_pivots 0 can only come from a failed RPU parse, so no clip is done to avoid reading pivots[-1].
     auto clampToCurve = [](int64_t v, const AVDOVIReshapingCurve& c) {
         if (c.num_pivots == 0) return v;
         return std::clamp<int64_t>(v, c.pivots[0], c.pivots[c.num_pivots - 1]);
@@ -129,7 +129,7 @@ inline uint16_t doviInverseMap(const AVDOVIDataMapping& mapping, const AVDOVIRpu
     return doviMmrMapping(curve, piece, c0, c1, c2, header.bl_bit_depth, header.coef_log2_denom);
 }
 
-// 5.4.3.3：重建。BL 是 ST 2084 时 5.5 整段省略（规范原文），所以直接输出 12 位。
+// 5.4.3.3: reconstruction. When BL is ST 2084 the whole 5.5 section is omitted (spec text), so the output is 12 bits directly.
 inline uint16_t doviReconstruct(uint16_t v, int64_t residual, bool residualEnabled, int outBitDepth) {
     const int64_t maxOut = (int64_t(1) << outBitDepth) - 1;
     int64_t h = int64_t(v);
@@ -139,7 +139,7 @@ inline uint16_t doviReconstruct(uint16_t v, int64_t residual, bool residualEnabl
     return uint16_t(std::clamp<int64_t>(h, 0, maxOut));
 }
 
-// 一次算完一个样本（luma）。s0 = BL luma，el = EL luma。
+// One sample at a time (luma). s0 = BL luma, el = EL luma.
 inline uint16_t doviComposeLumaSample(const AVDOVIDataMapping& mapping, const AVDOVIRpuDataHeader& header,
                                       int64_t blLuma, int64_t elLuma) {
     const uint16_t v = doviInverseMap(mapping, header, 0, blLuma, blLuma, blLuma);
@@ -147,7 +147,7 @@ inline uint16_t doviComposeLumaSample(const AVDOVIDataMapping& mapping, const AV
     return doviReconstruct(v, r, header.disable_residual_flag == 0, header.vdr_bit_depth);
 }
 
-// 一次算完一个样本（chroma）。三个分量都要传，因为 MMR 用 luma 与另一路的 chroma。
+// One sample at a time (chroma). All three components are passed because MMR uses luma and the other component's chroma.
 inline uint16_t doviComposeChromaSample(const AVDOVIDataMapping& mapping, const AVDOVIRpuDataHeader& header,
                                         int cmp, int64_t blLumaDown, int64_t blCb, int64_t blCr,
                                         int64_t elChroma) {

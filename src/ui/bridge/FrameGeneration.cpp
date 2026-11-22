@@ -18,13 +18,13 @@ QString QmlPlayerBridge::fgBackendName() const {
 }
 QVariantList QmlPlayerBridge::fgBackendChoices() const {
     QVariantList choices = {
-        QVariantMap{{"id","anr"},{"label",tr("ANR FG（极差质量） · 本地实验")},{"danger",true}},
-        QVariantMap{{"id","dlss"},{"label",tr("DLSS 帧生成")}},
-        QVariantMap{{"id","xess"},{"label",tr("Intel XeSS · 实验")}},
+        QVariantMap{{"id","anr"},{"label",tr("ANR FG (Very poor quality) · Local experiment")},{"danger",true}},
+        QVariantMap{{"id","dlss"},{"label",tr("DLSS Frame Generation")}},
+        QVariantMap{{"id","xess"},{"label",tr("Intel XeSS · experimental")}},
         QVariantMap{{"id","fsr3"},{"label",tr("FSR 3.1 · 2X")}},
         QVariantMap{{"id","fsr4"},{"label",tr("FSR 4 ML · RX 9000")}},
-        QVariantMap{{"id","amdfrc"},{"label",tr("AMD FRC · 视频补帧 · 2X")}},
-        QVariantMap{{"id","vfg"},{"label",tr("NVIDIA VFG 👑（顶级补帧质量） · RTX 30（实验）/ 40 / 50")},{"gold",true}}
+        QVariantMap{{"id","amdfrc"},{"label",tr("AMD FRC · video frame interpolation · 2X")}},
+        QVariantMap{{"id","vfg"},{"label",tr("NVIDIA VFG 👑 (Top-tier frame generation quality) · RTX 30 (experimental) / 40 / 50")},{"gold",true}}
     };
     const auto caps = effectCapabilities();
     for (auto& choice : choices) {
@@ -37,23 +37,23 @@ QVariantList QmlPlayerBridge::fgBackendChoices() const {
     return choices;
 }
 QString QmlPlayerBridge::fgProviderText() const {
-    if(fgBackendName()==QLatin1String("anr"))return tr("Apex Neural Rendering · 2X～6X · 视频估算输入，效果与速度以实际运行结果为准");
+    if(fgBackendName()==QLatin1String("anr"))return tr("Apex Neural Rendering · 2X–6X · Estimated video inputs; quality and speed depend on actual results");
     const auto& s=impl_->snapshot;
     if(fgBackendName()==QLatin1String("vfg")){
-        if(!vfgHardwarePossible())return tr("VFG 需要 NVIDIA RTX 30 / 40 / 50（30 系为实验兼容）");
-        if(!effectCapabilities().value("vfg").toMap().value("available").toBool())return tr("未找到 VFG 运行组件，请在组件页核对路径");
-        if(effectGpu().ampere)return tr("RTX 30 VFG 为实验兼容，复用现有模型；支持 2X～8X，实际画质与速度需实卡验证");
-        return tr("VFG 支持 2X～8X 和低 / 中 / 高质量；6X～8X 为实验档，高倍高质量会增加处理时间");
+        if(!vfgHardwarePossible())return tr("VFG requires NVIDIA RTX 30 / 40 / 50 (RTX 30 compatibility is experimental)");
+        if(!effectCapabilities().value("vfg").toMap().value("available").toBool())return tr("VFG runtime components were not found. Check their paths on the Components page.");
+        if(effectGpu().ampere)return tr("RTX 30 VFG compatibility is experimental and reuses existing models; 2X–8X, with image quality and speed requiring hardware validation");
+        return tr("VFG supports 2X–8X and Low / Medium / High quality. 6X–8X are experimental; higher multipliers and quality take more processing time.");
     }
     if(engine::fsrFrameGeneration(s.applied.frameGenerationBackend)&&s.applied.multiplier>1&&!s.fsrProviderVersion.empty())
-        return tr("实际运行：FSR %1 · 2X").arg(QString::fromStdString(s.fsrProviderVersion));
-    if(fgBackendName()==QLatin1String("amdfrc"))return tr("AMD 驱动自带的视频补帧（AMF FRC），只用前后两帧画面估算运动，固定 2X");
-    if(fgBackendName()==QLatin1String("fsr4"))return tr("FSR 4 ML 需要支持的 RX 9000 和驱动，不可用时自动改用 FSR 3.1；尚未在 RX 9000 实卡上验证");
-    if(fgBackendName()==QLatin1String("fsr3"))return tr("FSR 3.1 跨厂商补帧 · 最高 2X");
+        return tr("Actually running: FSR %1 · 2X").arg(QString::fromStdString(s.fsrProviderVersion));
+    if(fgBackendName()==QLatin1String("amdfrc"))return tr("Video frame interpolation built into the AMD driver (AMF FRC); it estimates motion from the two pictures only, fixed at 2X");
+    if(fgBackendName()==QLatin1String("fsr4"))return tr("FSR 4 ML needs a supported RX 9000 and driver and switches to FSR 3.1 when unavailable; not yet verified on an actual RX 9000");
+    if(fgBackendName()==QLatin1String("fsr3"))return tr("FSR 3.1 cross-vendor frame generation · up to 2X");
     if(fgBackendName()==QLatin1String("xess"))
-        return fgMaxMultiplier()<4?tr("当前 XeSS 模块未匹配 3X / 4X 解锁版本；2X 可用，请在组件页核对版本"):
-            tr("2X 为原生路径，3X / 4X 为实验解锁；失败原因见诊断");
-    return tr("NVIDIA RTX 补帧；倍率以运行库实际能力为准");
+        return fgMaxMultiplier()<4?tr("The current XeSS module does not match the 3X / 4X unlock version; 2X works. Check the version on the components page"):
+            tr("2X is the native path; 3X / 4X are experimental unlocks. See diagnostics for failures");
+    return tr("NVIDIA RTX frame generation; the multiplier depends on what the runtime supports");
 }
 // XeSS ceiling (SettingsWindow): 4X with the audited unlock provider, else 2X,
 // or a running session's reported interpolation count above 2X.
@@ -71,7 +71,7 @@ int xessCeiling(const engine::PlayerSnapshot& s) {
     return std::max(cap, seen);
 }
 void QmlPlayerBridge::setFgBackendName(const QString& value) {
-    if(value!=QLatin1String("anr")&&value!=QLatin1String("dlss")&&value!=QLatin1String("xess")&&value!=QLatin1String("fsr3")&&value!=QLatin1String("fsr4")&&value!=QLatin1String("vfg")&&value!=QLatin1String("amdfrc")){emit notice(tr("未知补帧后端"),true);return;}
+    if(value!=QLatin1String("anr")&&value!=QLatin1String("dlss")&&value!=QLatin1String("xess")&&value!=QLatin1String("fsr3")&&value!=QLatin1String("fsr4")&&value!=QLatin1String("vfg")&&value!=QLatin1String("amdfrc")){emit notice(tr("Unknown frame generation backend"),true);return;}
     const auto availability = effectCapabilities().value(value).toMap();
     if (!availability.value("available").toBool()) { emit notice(availability.value("reason").toString(), true); emit settingsChanged(); return; }
     auto s = settings();
@@ -84,11 +84,11 @@ void QmlPlayerBridge::setFgBackendName(const QString& value) {
                     : engine::FrameGenerationBackend::Dlss;
     if (s.frameGenerationBackend == want) return;
     if(want==engine::FrameGenerationBackend::Vfg&&(!vfgHardwarePossible()||!pipeline::VfgBackend::runtimeAvailable(runtime::localRuntimeDirectory().wstring()))){
-        emit notice(!vfgHardwarePossible()?tr("VFG 需要 NVIDIA RTX 30 / 40 / 50（30 系为实验兼容）"):tr("未找到 VFG 运行组件，请在组件页核对路径"),true);emit settingsChanged();return;
+        emit notice(!vfgHardwarePossible()?tr("VFG requires NVIDIA RTX 30 / 40 / 50 (RTX 30 compatibility is experimental)"):tr("VFG runtime components were not found. Check their paths on the Components page."),true);emit settingsChanged();return;
     }
     if (want == engine::FrameGenerationBackend::Fsr4 && !fsr4Possible()) {
         // Keep the previous choice; the menu snaps back to it.
-        emit notice(tr("FSR 4 ML 补帧只支持 AMD RX 9000 显卡，当前显卡不能使用，已保持原来的补帧方式"), true);
+        emit notice(tr("FSR 4 ML frame generation only supports AMD RX 9000 GPUs; this GPU cannot use it, so the current frame generation is kept"), true);
         emit settingsChanged();
         return;
     }
@@ -103,9 +103,9 @@ void QmlPlayerBridge::setFgBackendName(const QString& value) {
     const bool clamped = chain.fgMultiplier != beforeMultiplier;
     if(!impl_->commit(s)){
         chain.fgMultiplier = beforeMultiplier;
-        emit notice(tr("补帧后端切换未被接受，原设置保留"),true);return;
+        emit notice(tr("The frame generation backend change was not accepted; previous setting kept"),true);return;
     }
-    if (clamped) emit notice(tr("所选补帧后端的倍率已调整为 %1X").arg(chain.fgMultiplier), false);
+    if (clamped) emit notice(tr("The selected frame-generation backend adjusted the multiplier to %1X.").arg(chain.fgMultiplier), false);
     emit settingsChanged();
     emitChainChanged();
 }
@@ -152,7 +152,7 @@ int QmlPlayerBridge::vfgQuality()const{return int(settings().vfgQuality);}
 void QmlPlayerBridge::setVfgQuality(int value){
     if(value<0||uint32_t(value)>=engine::kVfgQualityCount)return;auto s=settings();if(s.vfgQuality==uint32_t(value))return;
     s.vfgQuality=uint32_t(value);
-    if(!impl_->commit(s)){emit notice(tr("VFG 质量设置未被接受，原设置保留"),true);return;}
+    if(!impl_->commit(s)){emit notice(tr("VFG quality was not accepted; the previous setting was kept."),true);return;}
     emit settingsChanged();emitChainChanged();
 }
 
@@ -169,7 +169,7 @@ void QmlPlayerBridge::setFgStrict(bool value) {
     emitChainChanged();
 }
 
-// 低延迟队列 is the presentation queue (1.4.4 PresentationSettings.enabled),
+// The low-latency queue is the presentation queue (1.4.4 PresentationSettings.enabled),
 // not EnhancementSettings::lowLatency, which means "NR before SR".
 bool QmlPlayerBridge::fgLowQueue() const { return impl_->presentation.enabled; }
 void QmlPlayerBridge::setFgLowQueue(bool value) {
@@ -205,7 +205,7 @@ void QmlPlayerBridge::setFlowQuality(int value) {
     auto s = settings();
     if (int(s.flow) == value) return;
     s.flow = static_cast<engine::FlowQuality>(value);
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受运动估算质量，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept the motion estimation quality; previous setting kept"), true); return; }
     emit settingsChanged();
 }
 bool QmlPlayerBridge::amdFlowHalf() const { return settings().amdFlowHalfResolution; }
@@ -213,7 +213,7 @@ void QmlPlayerBridge::setAmdFlowHalf(bool value) {
     auto s = settings();
     if (s.amdFlowHalfResolution == value) return;
     s.amdFlowHalfResolution = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受 AMD 性能档，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept AMD performance mode; previous setting kept"), true); return; }
     emit settingsChanged();
 }
 bool QmlPlayerBridge::edgeAegis() const { return settings().fgMotionRefine; }
@@ -221,7 +221,7 @@ void QmlPlayerBridge::setEdgeAegis(bool value) {
     auto s = settings();
     if (s.fgMotionRefine == value) return;
     s.fgMotionRefine = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受边缘神盾，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept Edge Aegis; previous setting kept"), true); return; }
     impl_->prefs[QStringLiteral("edgeAegis")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "edge aegis not saved");
     emit settingsChanged();
@@ -231,7 +231,7 @@ void QmlPlayerBridge::setDlssgLite(bool value) {
     auto s = settings();
     if (s.dlssgLite == value) return;
     s.dlssgLite = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受 DLSS 性能模式，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept the DLSS performance mode; the previous setting is kept"), true); return; }
     impl_->prefs[QStringLiteral("dlssgPerformance")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "DLSS performance mode not saved");
     emit settingsChanged();
@@ -241,7 +241,7 @@ void QmlPlayerBridge::setVfgAutoRegulate(bool value) {
     auto s = settings();
     if (s.vfgAutoRegulate == value) return;
     s.vfgAutoRegulate = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受 VFG 自动调控，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept VFG auto regulation; the previous setting is kept"), true); return; }
     impl_->prefs[QStringLiteral("vfgAutoRegulate")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "VFG auto regulation not saved");
     emit settingsChanged();
@@ -254,7 +254,7 @@ void QmlPlayerBridge::setFgAdaptive(bool value) {
     auto s = settings();
     if (s.fgAdaptive == value) return;
     s.fgAdaptive = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受自适应倍率，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept the adaptive multiplier; the previous setting is kept"), true); return; }
     impl_->prefs[QStringLiteral("fgAdaptive")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "adaptive multiplier not saved");
     emit settingsChanged();
@@ -264,7 +264,7 @@ void QmlPlayerBridge::setPacingRepair(bool value) {
     auto s = settings();
     if (s.pacingRepair == value) return;
     s.pacingRepair = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受帧节奏修复，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept frame pacing repair; the previous setting is kept"), true); return; }
     impl_->prefs[QStringLiteral("pacingRepair")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "frame pacing repair not saved");
     emit settingsChanged();
@@ -274,7 +274,7 @@ void QmlPlayerBridge::setHudLock(bool value) {
     auto s = settings();
     if (s.hudLock == value) return;
     s.hudLock = value;
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受 HUD 自动锁定，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine did not accept auto HUD lock; the previous setting is kept"), true); return; }
     impl_->prefs[QStringLiteral("hudLock")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "HUD lock not saved");
     emit settingsChanged();
@@ -284,11 +284,11 @@ bool QmlPlayerBridge::dlssgLiteAvailable() const {
     return present;
 }
 QString QmlPlayerBridge::dlssgLiteHint() const {
-    if (!dlssgLiteAvailable()) return tr("此软件包没有附带性能模式所需的 DLSS 帧生成 310.9.16 运行库");
+    if (!dlssgLiteAvailable()) return tr("This package does not include the DLSS Frame Generation 310.9.16 runtime the performance mode needs");
     const auto& s = impl_->snapshot;
-    if (s.running && s.dlssgLiteState == 3) return tr("目前只支持 RTX 50 系列：40/30 系的多帧解锁只适用于原版运行库");
-    if (s.running && s.dlssgLiteState == 1) return tr("生效中：NVIDIA DLSS 帧生成性能模式（测试版）");
-    return tr("NVIDIA 新增的性能模式（测试版）：补帧更省 GPU，高倍率更稳，画质可能略降；导出仍用标准模式");
+    if (s.running && s.dlssgLiteState == 3) return tr("RTX 50 series only for now: the RTX 40/30 multi-frame unlock works with the standard runtime only");
+    if (s.running && s.dlssgLiteState == 1) return tr("Active: NVIDIA DLSS Frame Generation performance mode (beta)");
+    return tr("NVIDIA's new performance mode (beta): frame generation uses less GPU and holds high multipliers better, possibly at slightly lower quality; export keeps the standard mode");
 }
 int QmlPlayerBridge::contentRate() const { return int(engine::currentContentRate(settings().content)); }
 void QmlPlayerBridge::setContentRate(int value) {
@@ -297,7 +297,7 @@ void QmlPlayerBridge::setContentRate(int value) {
     auto s = settings();
     if (int(s.content) == value) return;
     s.content = static_cast<engine::ContentRate>(value);
-    if (!impl_->commit(std::move(s))) { emit notice(tr("引擎未接受去除重复帧设置，原设置保留"), true); return; }
+    if (!impl_->commit(std::move(s))) { emit notice(tr("The engine rejected the duplicate-removal setting. The previous setting was kept."), true); return; }
     // Shared cadence stays in shell preferences and can be included in presets.
     impl_->prefs[QStringLiteral("contentRate")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "content cadence not saved");
@@ -358,29 +358,29 @@ void QmlPlayerBridge::recheckDisplay() {
 }
 QString QmlPlayerBridge::vrrHint() const { return vrrHintText(impl_->vrrState); }
 QString QmlPlayerBridge::vrrSummary() const { return vrrSummaryText(impl_->vrrState); }
-// The 信号 card's short form of vrrHintText.
+// The signal card's short form of vrrHintText.
 QString QmlPlayerBridge::vrrSummaryText(int level) const {
     switch (level) {
-    case 0: return tr("无法检测");
-    case 1: return tr("不支持");
-    case 2: return tr("当前不可用");
-    case 3: return impl_->presentation.variableRefresh && impl_->snapshot.running ? tr("已请求") : tr("可用");
-    default: return tr("生效中");
+    case 0: return tr("Cannot detect");
+    case 1: return tr("Not supported");
+    case 2: return tr("Unavailable now");
+    case 3: return impl_->presentation.variableRefresh && impl_->snapshot.running ? tr("Requested") : tr("Available");
+    default: return tr("Active");
     }
 }
 QString QmlPlayerBridge::vrrHintText(int level) const {
-    // The 可变刷新 switch is available (not grey) from level 2: the monitor
+    // The Variable Refresh Rate switch is available (not grey) from level 2: the monitor
     // can do VRR even if the driver setting is still off.
     const bool on = impl_->presentation.variableRefresh, running = impl_->snapshot.running;
     switch (level) {
-    case 0: return tr("无法检测屏幕是否支持（目前只支持 NVIDIA 显卡）");
-    case 1: return tr("当前屏幕不支持可变刷新");
-    case 2: return tr("屏幕支持可变刷新，但当前显示模式不可用；请检查连接、刷新率及驱动设置");
+    case 0: return tr("Cannot detect whether the display supports it (NVIDIA GPUs only for now)");
+    case 1: return tr("This display does not support variable refresh");
+    case 2: return tr("The display supports VRR, but it is unavailable in the current display mode. Check the connection, refresh rate and driver settings.");
     case 3:
-        if (!on) return tr("屏幕跟着画面刷新：不撕裂，也几乎不用等刷新");
-        return running ? tr("已请求可变刷新，驱动尚未确认生效；可检查窗口/全屏 G-SYNC 设置，当前状态不代表驱动已关闭")
-                       : tr("已开启，将在播放时请求可变刷新；是否生效以驱动报告为准");
-    default: return on ? tr("生效中：屏幕跟着画面刷新") : tr("屏幕正处于可变刷新（驱动已开启）");
+        if (!on) return tr("The display refreshes when each frame arrives: no tearing and almost no waiting");
+        return running ? tr("VRR presentation requested; the driver has not confirmed activation. Check windowed/fullscreen G-SYNC settings. This does not mean the driver setting is off.")
+                       : tr("Enabled. VRR will be requested during playback; activation is confirmed by the driver.");
+    default: return on ? tr("Active: the display refreshes with each frame") : tr("The display is in variable refresh (enabled by the driver)");
     }
 }
 QString QmlPlayerBridge::fgDisplayHint() const { return impl_->fgDisplayHint; }
@@ -392,7 +392,7 @@ void QmlPlayerBridge::setOutputRateMode(int value) {
 }
 double QmlPlayerBridge::outputCustomFps() const { return impl_->presentation.customFps; }
 void QmlPlayerBridge::setOutputCustomFps(double value) {
-    if (!std::isfinite(value) || value < 1.0 || value > 1000.0) { emit notice(tr("输出上限需在 1–1000 fps 之间"), true); return; }
+    if (!std::isfinite(value) || value < 1.0 || value > 1000.0) { emit notice(tr("The output cap must be between 1 and 1000 fps"), true); return; }
     if (std::abs(impl_->presentation.customFps - value) < 1e-6) return;
     impl_->presentation.customFps = value;
     applyPresentation();
@@ -418,16 +418,16 @@ namespace {
 double fgAutoTargetRate(const engine::PresentationSettings& effective,
                                const engine::PresentationSettings& requested,
                                double reportedRefreshHz) {
-    // 引擎解析过的有效值优先（跟随显示器时那里已经是真实 Hz）。
+    // Prefer the engine-parsed effective value (when following the display, that is the real Hz).
     if (effective.outputRate == engine::OutputRateMode::Custom ||
         effective.outputRate == engine::OutputRateMode::FollowDisplay)
         return effective.customFps;
-    // 打开片源之前引擎还没解析过，用待下发的请求值。
+    // Before a source is opened the engine has not parsed yet, so the pending request value is used.
     if (requested.outputRate == engine::OutputRateMode::Custom)
         return requested.customFps;
     if (requested.outputRate == engine::OutputRateMode::FollowDisplay)
         return requested.customFps > 0.01 ? requested.customFps : reportedRefreshHz;
-    // 两处都说「关闭」：按显示器实际刷新率算。
+    // Both say "Off": calculate by the monitor's actual refresh rate.
     return reportedRefreshHz;
 }
 } // namespace
@@ -435,29 +435,29 @@ double fgAutoTargetRate(const engine::PresentationSettings& effective,
 void QmlPlayerBridge::maybeApplyFgAutoMultiplier() {
     const auto& s = impl_->snapshot;
     if (!s.running || s.sessionId == 0) return;
-    // 本会话已经决定过：不再动。会话号变化才重新算。
+    // This session has already decided: leave it alone. Recalculate only when the session number changes.
     if (impl_->fgAutoSession == s.sessionId) return;
     if (!impl_->chain.fgAutoMultiplier) { impl_->fgAutoSession = s.sessionId; return; }
     const auto backend = settings().frameGenerationBackend;
     if (!fgAutoMultiplierAvailable()) { impl_->fgAutoSession = s.sessionId; return; }
-    // 补帧节点不存在才放弃；节点存在但被关着必须继续决策 —— 上一个片源可能按规则
-    // 把补帧关掉了（源帧率超过上限），下一个低帧率片源要能重新打开它。
+    // Give up only when the frame-generation node is missing; a node that exists but is off must still be re-decided - the previous source may have
+    // turned frame generation off (source frame rate above the cap), and the next low-frame-rate source must be able to switch it back on.
     const auto* node = impl_->chain.firstOf(engine::EffectType::FrameGeneration);
     if (!node) { impl_->fgAutoSession = s.sessionId; return; }
 
-    // 目标帧率：输出上限为自定义/跟随显示器时用它的值；关闭时用显示器实际刷新率，
-    // 自动选倍数照常工作（用户 2026-10-24 要求）。
+    // Target frame rate: when the output cap is Custom/Follow the display, use its value; when off, use the monitor's actual refresh rate,
+    // auto-multiplier selection keeps working (user requirement 2026-10-24).
     const double targetFps = fgAutoTargetRate(s.presentationEffective, s.presentationEffective,
                                               s.displayFgRefreshHz);
     if (!(targetFps > 0.01)) {
-        // 显示器刷新率也没拿到：下一帧再试（不擅自改设置）。
+        // The monitor refresh rate is unknown: try again next frame (never change settings on one's own).
         veyra::log::info("fg-auto", std::format("waiting for a target rate cap={} refresh={:.3f}",
             int(s.presentationEffective.outputRate), s.displayFgRefreshHz));
         return;
     }
     const double sourceFps = s.nominalSourceFps;
     if (!(sourceFps > 0.01)) {
-        // 源帧率还没就绪：下一帧再试。
+        // The source frame rate is not ready yet: try again next frame.
         veyra::log::info("fg-auto", std::format("waiting for source rate target={:.3f}", targetFps));
         return;
     }
@@ -466,7 +466,7 @@ void QmlPlayerBridge::maybeApplyFgAutoMultiplier() {
     const int before = fgMultiplier();
     const uint64_t session = s.sessionId;
 
-    // 源帧率高于/等于输出上限：补了也显示不出来，关闭补帧。
+    // Source frame rate above or equal to the output cap: frame generation would not be visible anyway, so close it.
     if (sourceFps >= targetFps / engine::kDisplayFgFitTolerance) {
         veyra::log::info("fg-auto", std::format("session={} backend={} source={:.3f} target={:.3f} chosen=off previous={} (source at/above the cap: frame generation off)",
             session, engine::frameGenerationBackendName(backend), sourceFps, targetFps, before));
@@ -479,7 +479,7 @@ void QmlPlayerBridge::maybeApplyFgAutoMultiplier() {
         return;
     }
 
-    // 源帧率低于上限：按公式挑档，让它刚好打满上限。
+    // Source frame rate below the cap: pick the step by formula so it just fills the cap.
     const unsigned ceiling = unsigned(std::clamp(fgMaxMultiplier(), 2, 8));
     const unsigned wanted = engine::displayFgAutoMultiplier(backend, sourceFps, targetFps, ceiling);
     if (wanted == 0) {
@@ -499,24 +499,24 @@ void QmlPlayerBridge::maybeApplyFgAutoMultiplier() {
     });
 }
 
-// 自动选择倍率 的运行时决策（用户 2026-10-24 定稿）。
-// 开关关闭：完全按作者原版逻辑，倍率就是用户选的那个数字档，这里什么都不做。
-// 开关开启：
-//   · 源帧率低于输出上限 → 按公式挑档（ceil(上限 ÷ (源帧率×1.02))，档位向上取）
-//   · 源帧率高于/等于输出上限 → 关闭补帧（节点 enabled=false，开关也跟着关）
-//   · 输出上限为「关闭」→ 用显示器实际刷新率当目标，照样自动选
-// 只在每个会话首次进入播放时算一次：改倍率要重建 GPU 管线，播放中改会卡顿。
+// The runtime decision for Auto-select multiplier (user-settled 2026-10-24).
+// Switch off: follow the upstream logic exactly, the multiplier is the user's numeric step, nothing here.
+// Switch on:
+//   · Source frame rate below the output cap -> pick the step by formula (ceil(cap / (sourceFps*1.02)), rounding up)
+//   · Source frame rate above or equal to the output cap -> close frame generation (node enabled=false, switch follows)
+//   · Output cap "Off" -> use the monitor's actual refresh rate as the target, auto-select still applies
+// Calculated once per session on playback entry only: changing the multiplier rebuilds the GPU pipeline, and changing it mid-playback stalls.
 
 void QmlPlayerBridge::setFgAutoMultiplier(bool value) {
     if (!fgAutoMultiplierAvailable()) {
-        if (value) emit notice(tr("自动倍率只支持 DLSS 帧生成和 NVIDIA VFG"), true);
+        if (value) emit notice(tr("Automatic multiplier supports DLSS Frame Generation and NVIDIA VFG only"), true);
         return;
     }
     if (impl_->chain.fgAutoMultiplier == value) return;
     const auto before = impl_->chain.fgAutoMultiplier;
     impl_->chain.fgAutoMultiplier = value;
-    // 两条链都要改：currentSession() 用的是 activeRuntime()，节点模式下那是 acceptedChain。
-    // 只改 chain 会让 persistSession() 认为「没变化」而提前返回，重启后自动档退回手动。
+    // Both chains must change: currentSession() uses activeRuntime(), and in node mode that is acceptedChain.
+    // Changing only chain would make persistSession() conclude "no change" and return early, so the auto step would fall back to manual on restart.
     // Both chains: currentSession() reads activeRuntime(), which is acceptedChain in node
     // mode; changing only `chain` made persistSession() take its early return.
     impl_->acceptedChain.fgAutoMultiplier = value;
@@ -527,11 +527,11 @@ void QmlPlayerBridge::setFgAutoMultiplier(bool value) {
         impl_->revalidate();
         emit notice(uiText(error), true); return;
     }
-    // 打开自动选择时，若补帧正被关着就抬到 2X，让下一次播放有档可用。
-    // 注意：不覆盖用户已选的具体档位（关闭自动后仍按那个档跑）。
+    // When auto-select is opened and frame generation is still off, raise it to 2X so the next playback has a step available.
+    // Note: do not overwrite the user's chosen concrete step (after the switch is off, it keeps that step).
     if (value && impl_->chain.fgMultiplier < 2) impl_->chain.fgMultiplier = 2;
-    // 重新打开必须让它再决策一次：fgAutoSession 记的是"本会话已经算过档位"，
-    // 用户中途关掉再打开时，不清这个标记就不会重新生效（2026-10-24 实测）。
+    // Reopening must force a re-decision: fgAutoSession records "this session already calculated a step",
+    // so when the user closes and reopens mid-session, the marker must be cleared or the decision will not take effect (verified 2026-10-24).
     if (value) impl_->fgAutoSession = 0;
     veyra::log::info("ui-fg-auto", std::format("auto={} backend={} multiplier={}{}",
         value, engine::frameGenerationBackendName(settings().frameGenerationBackend), impl_->chain.fgMultiplier,
@@ -539,23 +539,23 @@ void QmlPlayerBridge::setFgAutoMultiplier(bool value) {
     emit settingsChanged(); emitChainChanged();
 }
 
-// 目标帧率：输出上限 = 自定义/跟随显示器 时用它的值，关闭时用显示器实际刷新率。
-// 打开片源之前也要能算（那时 snapshot 还没有本会话的数据），所以两个入口共用它：
-// 一个读引擎已解析的 snapshot，一个读待下发的 presentation + 最近一次上报的刷新率。
+// Target frame rate: the output cap equals Custom/Follow the display -> use its value; when off, the monitor's actual refresh rate.
+// It must also be computable before a source is opened (snapshot has no session data then), so both entry points share it:
+// one reads the engine-parsed snapshot, the other reads the pending presentation + the most recent reported refresh rate.
 
-// 打开片源之前先把倍率定下来，避开播放中重建管线导致的 ~2 秒卡顿。
-// sourceFps 来自容器/DASH 元数据；拿不到就返回 false，由首帧后的决策兜底。
+// Decide the multiplier before the source opens, avoiding the ~2 s stall from rebuilding the pipeline mid-playback.
+// sourceFps comes from container/DASH metadata; if it cannot be obtained, return false and let the first-frame decision handle it.
 
 void QmlPlayerBridge::applyFgMultiplier(int multiplier) {
     const auto choices=settings().frameGenerationBackend==engine::FrameGenerationBackend::Vfg?
         std::span<const uint32_t>(engine::kVfgMultiplierChoices):std::span<const uint32_t>(engine::kFgMultiplierChoices);
     const bool legal = std::find(choices.begin(),choices.end(),uint32_t(std::max(multiplier,0)))!=choices.end();
     if (!legal || multiplier > fgMaxMultiplier()) {
-        emit notice(tr("补帧倍率超出当前后端范围"), true); return;
+        emit notice(tr("The frame generation multiplier is outside the current backend's range"), true); return;
     }
     auto& chain = impl_->chain;
     auto* node = chain.firstOf(engine::EffectType::FrameGeneration);
-    if (!node) { if (multiplier > 1) emit notice(tr("请先添加补帧节点"), true); return; }
+    if (!node) { if (multiplier > 1) emit notice(tr("Add a frame generation node first"), true); return; }
     const bool enabled = multiplier > 1;
     if (node->enabled == enabled && (!enabled || chain.fgMultiplier == uint32_t(multiplier))) return;
     const auto beforeMultiplier = chain.fgMultiplier; const auto beforeEnabled = node->enabled;

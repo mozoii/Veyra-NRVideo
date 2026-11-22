@@ -53,7 +53,7 @@ ColumnLayout {
     VSeg {
         objectName: "colour-curve-channels"
         Layout.fillWidth: true
-        options: [{id:"0",label:"RGB"},{id:"1",label:qsTr("红")},{id:"2",label:qsTr("绿")},{id:"3",label:qsTr("蓝")}]
+        options: [{id:"0",label:"RGB"},{id:"1",label:qsTr("Red")},{id:"2",label:qsTr("Green")},{id:"3",label:qsTr("Blue")}]
         current: String(root.channel)
         onPicked: id => root.channel = Number(id)
     }
@@ -184,7 +184,7 @@ ColumnLayout {
         }
     }
     RowLayout {
-        Text { Layout.fillWidth: true; Layout.minimumWidth: 0; wrapMode: Text.Wrap; text: qsTr("单击曲线加点并拖动 · 右键删点 · 最多 8 点"); color: Theme.t3; font.pixelSize: 11 }
-        VButton { text: qsTr("还原通道"); ghost: true; onClicked: root.edited(root.channel, [{x:0,y:0},{x:1,y:1}]) }
+        Text { Layout.fillWidth: true; Layout.minimumWidth: 0; wrapMode: Text.Wrap; text: qsTr("Click the curve to add a point and drag · right-click to remove · up to 8 points"); color: Theme.t3; font.pixelSize: 11 }
+        VButton { text: qsTr("Reset channel"); ghost: true; onClicked: root.edited(root.channel, [{x:0,y:0},{x:1,y:1}]) }
     }
 }

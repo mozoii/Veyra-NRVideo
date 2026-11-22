@@ -31,17 +31,17 @@ for folder in ['qml','i18n']:
             copy(tested,Path(folder)/p.relative_to(R/folder))
 for name in ['CAPTURE_AUDIO_MAIN_REPORT_2026-10-25.md','EXPORT_NR_SCALE_REPORT_2026-10-25.md','FG_SCHEDULING_REPAIR_REPORT_2026-10-24.md']:copy(R/'docs'/name,Path('docs')/name)
 for name in ['LICENSE','THIRD_PARTY_NOTICES.md']:copy(R/name,name)
-(P/'README-INT1.zh-CN.md').write_text('''# Veyra 2.1.0-int1 本地整合更新
+(P/'README-INT1.en.md').write_text('''# Veyra 2.1.0-int1 local integration update
 
-需要已有完整2.1.0 NVIDIA或AMD便携包。先退出播放器，再把本目录内容复制到原包根目录（veyra_qml_ui.exe所在目录）覆盖同名文件。保留原包即可回退。本更新只有共同程序/UI/说明，不含任何DLL、模型、驱动、用户配置或日志，不是完整便携包。NVIDIA和AMD使用同一个EXE，原包各自的运行组件保持原样；原package-manifest仅代表底包，更新程序身份见LOCAL_UPDATE.json。
+Requires the existing complete 2.1.0 NVIDIA or AMD portable package. First close the player, then copy this directory's contents to the original package root (where veyra_qml_ui.exe lives), overwriting same-name files. Keeping the original package is enough for fallback. This update contains only the common program/UI/readme, no DLL, model, driver, user config or log, and is not a complete portable package. NVIDIA and AMD share the same EXE; each original package keeps its own runtime components; the original package-manifest only represents the base package, update program identity is in LOCAL_UPDATE.json.
 
-包含：录制/AMD超分关闭、90°旋转、NR25%–100%手动比例、后台VRR查询、NR视频导出固定/百分比尺寸、#67 NR关闭生命周期、全屏按钮/Esc/播放列表键归属、采集无时戳预备样本正常接收与诊断。
+Includes: recording/AMD super-resolution off, 90-degree rotation, NR 25%-100% manual ratio, background VRR query, NR video export fixed/percentage size, #67 NR-close lifecycle, fullscreen button/Esc/playlist key ownership, capture with untimed-stem samples received normally and diagnostics.
 
-CV710修复的是已确认的接收错误：缺时戳样本不再向驱动返回失败，不伪造PTS。没有CV710原卡复测，不能保证这就是原卡现场根因。若仍卡住，请保留新日志，capture-video-delivery/time能区分驱动没送视频与样本接收问题。原3090关闭问题也需原机复测。Lecram仍暂停。
+The CV710 fix addresses the confirmed receive error: untimed samples no longer return failure to the driver and do not fabricate PTS. There is no CV710 original-card re-test, so this cannot be guaranteed to be the original-card root cause. If still stuck, please keep the new log; capture-video-delivery/time distinguishes driver-not-sending-video from sample-receive problems. The original 3090-close issue also needs original-machine re-test. Lecram remains paused.
 
-本轮通过Windows构建、9个定向目标、115项QtQuick、5070真实NR切换/开启状态关闭/重开、4K37%+NVOF六帧导出、软件/GPU界面原生全屏操作。本机G50视频与48k音频仅短接收，不代表CV710或稳定60fps/长期验收。AMD新NR实卡/HDR/长期未重测，原AMD SR关/录制验证沿用对应提交证据。详见docs整合报告。
+This round passed Windows build, 9 targeted targets, 115 QtQuick items, real 5070 NR switch/open-state close/reopen, 4K37%+NVOF six-frame export, software/GPU interface native fullscreen operations. This machine G50 video and 48k audio only short-receive, does not represent CV710 or stable 60fps/long-term acceptance. AMD new-NR physical card/HDR/long-term not re-tested, original AMD SR-off/recording verification reuses the corresponding commit evidence. See docs integration report.
 
-仅本地main整合，未push/Release。显示版本2.1.0-int1，不改变正式发布版本。
+Only local main integration, no push/Release. Display version 2.1.0-int1, not changing the official release version.
 ''','utf8')
 files=[dict(path=p.relative_to(P).as_posix(),bytes=p.stat().st_size,sha256=sha(p)) for p in sorted(P.rglob('*')) if p.is_file()]
 assert not any(Path(e['path']).suffix.lower() in ['.dll','.onnx','.tflite','.lib','.pdb','.hsaco','.dxil','.log'] for e in files)

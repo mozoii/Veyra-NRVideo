@@ -7,9 +7,9 @@ enum class FailedBackend { None, Infrastructure, OpticalFlow, NgxCore, Nr, Sr, F
 // universal minimum driver. Preserve the real result and suggest recovery.
 constexpr const wchar_t* ngxFailureHint(uint64_t result) {
     switch(uint32_t(result)) {
-    case 0xBAD00002:return L"平台或驱动初始化失败；请更新 NVIDIA 驱动或选择兼容运行库";
-    case 0xBAD00001:return L"显卡、驱动或运行库不支持所选功能";
-    default:return L"初始化失败；详细原因见诊断日志";
+    case 0xBAD00002:return L"Platform or driver initialization failed; update the NVIDIA driver or choose a compatible runtime";
+    case 0xBAD00001:return L"The GPU, driver or runtime does not support the selected feature";
+    default:return L"Initialization failed; see the diagnostic log for details";
     }
 }
 // amdNr: the adapter is AMD, where NR runs on the lmxxf runtime (the graph
@@ -41,14 +41,14 @@ inline bool nvidiaOnlyStagesRequested(bool nr,bool sr,bool fg,const EnhancementS
 }
 inline const wchar_t* backendFailureName(FailedBackend backend) {
     switch(backend){
-    case FailedBackend::OpticalFlow:return L"光流";
-    case FailedBackend::NgxCore:return L"NGX 核心";
+    case FailedBackend::OpticalFlow:return L"Optical flow";
+    case FailedBackend::NgxCore:return L"NGX core";
     case FailedBackend::Nr:return L"NR";
-    case FailedBackend::Sr:return L"超分";
-    case FailedBackend::Fg:return L"帧生成";
+    case FailedBackend::Sr:return L"SR";
+    case FailedBackend::Fg:return L"Frame generation";
     case FailedBackend::VideoHdr:return L"RTX Video HDR";
     case FailedBackend::Dlaa:return L"DLAA";
-    default:return L"GPU / 输入 / 显示资源";
+    default:return L"GPU / input / display resources";
     }
 }
 // Disable only the failed feature and its consumers. Never substitute zero

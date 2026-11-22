@@ -44,12 +44,12 @@ constexpr CaptureFormatTier captureFormatTier(CapturePacking packing) {
 
 constexpr std::wstring_view captureFormatTierLabel(CaptureFormatTier tier) {
     switch (tier) {
-    case CaptureFormatTier::Low: return L"低延迟";
-    case CaptureFormatTier::Medium: return L"中延迟";
-    case CaptureFormatTier::High: return L"高延迟·需 CPU 拆包";
+    case CaptureFormatTier::Low: return L"low latency";
+    case CaptureFormatTier::Medium: return L"medium latency";
+    case CaptureFormatTier::High: return L"high latency · needs CPU unpacking";
     case CaptureFormatTier::Decoded: break;
     }
-    return L"需系统解码·较高延迟";
+    return L"needs system decoding · higher latency";
 }
 
 // One-time hint when the user selects a high-cost or decoder-backed format.

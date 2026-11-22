@@ -9,35 +9,35 @@ int QmlPlayerBridge::imageBatchTotal() const { return int(impl_->imageFiles.size
 int QmlPlayerBridge::imageBatchFailures() const { return impl_->imageFailures; }
 QString QmlPlayerBridge::imageBatchStatus() const { return impl_->imageStatus; }
 void QmlPlayerBridge::saveFrameDialog() {
-    if(!impl_->pendingFrameExport.isEmpty()||!impl_->pendingScreenshot.isEmpty()||imageBatchActive()){emit notice(tr("请等待当前图片导出完成"),true);return;}
-    if (!hasSource()) { emit notice(tr("没有可保存的画面"), true); return; }
+    if(!impl_->pendingFrameExport.isEmpty()||!impl_->pendingScreenshot.isEmpty()||imageBatchActive()){emit notice(tr("Wait for the current image export to finish"),true);return;}
+    if (!hasSource()) { emit notice(tr("No picture to save"), true); return; }
     if (impl_->chain.mode == engine::ChainMode::Node) {
-        emit notice(tr("图片导出只接受列表模式；请切回列表模式再导出"), true); return;
+        emit notice(tr("Image export works in list mode only; switch back to list mode to export"), true); return;
     }
     const QString suggested = QDir(screenshotDirectory()).filePath(
         QFileInfo(QString::fromStdWString(impl_->sourceLabel)).completeBaseName() + QStringLiteral("-veyra.png"));
-    const QString path = QFileDialog::getSaveFileName(nullptr, tr("导出当前画面"), suggested,
-                                                      tr("PNG 图片 (*.png);;JPEG 图片 (*.jpg)"));
+    const QString path = QFileDialog::getSaveFileName(nullptr, tr("Export the current picture"), suggested,
+                                                      tr("PNG image (*.png);;JPEG image (*.jpg)"));
     if (path.isEmpty()) return;
-    if (QFileInfo::exists(path)) { emit notice(tr("目标文件已存在，请换一个文件名"), true); return; }
+    if (QFileInfo::exists(path)) { emit notice(tr("The target file already exists; choose another file name"), true); return; }
     impl_->engine.saveFrame(wideOf(QDir::toNativeSeparators(path)));
     impl_->pendingFrameExport=path;impl_->pendingFrameDeadline=QDateTime::currentMSecsSinceEpoch()+30000;
-    emit notice(tr("正在保存：%1").arg(QDir::toNativeSeparators(path)), false);
+    emit notice(tr("Saving: %1").arg(QDir::toNativeSeparators(path)), false);
 }
 void QmlPlayerBridge::exportImagesDialog() {
-    const auto files = QFileDialog::getOpenFileNames(nullptr, tr("选择要处理的图片"), QString(),
-        tr("图片 (*.png *.jpg *.jpeg)"));
+    const auto files = QFileDialog::getOpenFileNames(nullptr, tr("Choose images to process"), QString(),
+        tr("Images (*.png *.jpg *.jpeg)"));
     if (files.isEmpty()) return;
-    const QString folder = QFileDialog::getExistingDirectory(nullptr, tr("保存到"), QFileInfo(files.front()).absolutePath());
+    const QString folder = QFileDialog::getExistingDirectory(nullptr, tr("Save to"), QFileInfo(files.front()).absolutePath());
     if (!folder.isEmpty()) startImageBatch(files, folder);
 }
 bool QmlPlayerBridge::startImageBatch(const QStringList& files, const QString& folder) {
     auto& i = *impl_;
-    if (i.imagePhase != Impl::ImagePhase::Idle) { emit notice(tr("已有一批图片在处理"), true); return false; }
+    if (i.imagePhase != Impl::ImagePhase::Idle) { emit notice(tr("A batch of images is already being processed"), true); return false; }
     if (i.chain.mode == engine::ChainMode::Node) {
-        emit notice(tr("图片导出只接受列表模式；请切回列表模式再导出"), true); return false;
+        emit notice(tr("Image export works in list mode only; switch back to list mode to export"), true); return false;
     }
-    if (files.isEmpty() || !QFileInfo(folder).isDir()) { emit notice(tr("请选择图片和已存在的输出目录"), true); return false; }
+    if (files.isEmpty() || !QFileInfo(folder).isDir()) { emit notice(tr("Choose images and an existing output folder"), true); return false; }
     i.imageFiles = files; i.imageFolder = folder;
     i.imageIndex = -1; i.imageDone = 0; i.imageFailures = 0;
     i.imagePhase = Impl::ImagePhase::Opening; i.imageWaits = 0;
@@ -48,7 +48,7 @@ bool QmlPlayerBridge::startImageBatch(const QStringList& files, const QString& f
 void QmlPlayerBridge::cancelImageBatch() {
     if (impl_->imagePhase == Impl::ImagePhase::Idle) return;
     impl_->imagePhase = Impl::ImagePhase::Idle;
-    impl_->imageStatus = tr("已取消：完成 %1 / %2").arg(impl_->imageDone).arg(impl_->imageFiles.size());
+    impl_->imageStatus = tr("Cancelled: %1 / %2 done").arg(impl_->imageDone).arg(impl_->imageFiles.size());
     veyra::log::info("image-batch", "cancelled");
     emit imageBatchChanged();
 }
@@ -61,27 +61,27 @@ void QmlPlayerBridge::tickImageBatch() {
             i.lastScreenshot=written;i.pendingScreenshot.clear();
             veyra::log::info("ui-screenshot","saved path="+written.toStdString());
             emit preferencesChanged();
-            emit notice(tr("截图保存到：%1").arg(QDir::toNativeSeparators(written)),false);
+            emit notice(tr("Screenshots are saved to: %1").arg(QDir::toNativeSeparators(written)),false);
         }
         if(!i.pendingScreenshot.isEmpty()&&QDateTime::currentMSecsSinceEpoch()>i.pendingScreenshotDeadline){
-            i.pendingScreenshot.clear();emit notice(tr("图片保存未确认完成，请查看诊断"),true);
+            i.pendingScreenshot.clear();emit notice(tr("Image save not confirmed as complete; see diagnostics"),true);
         }
     }
     if(!i.pendingFrameExport.isEmpty()){
         QString path=i.pendingFrameExport;
         if(!QFileInfo(path).isFile())path=QFileInfo(path).path()+QLatin1Char('/')+QFileInfo(path).completeBaseName()+QStringLiteral(".jxr");
-        const bool reported=i.snapshot.status.find(L"已保存")!=std::wstring::npos;
+        const bool reported=i.snapshot.status.find(L"Saved")!=std::wstring::npos;
         if(reported&&QFileInfo(path).size()>0&&exportFileClosed(path)){
             const bool valid=path.endsWith(QStringLiteral(".jxr"),Qt::CaseInsensitive)||!QImageReader(path).read().isNull();
-            if(valid){i.pendingFrameExport.clear();exportCompletionNotice(exportCompletionSound(),++i.imageCompletionEvent,"image");emit notice(tr("图片导出完成：%1").arg(path),false);}
+            if(valid){i.pendingFrameExport.clear();exportCompletionNotice(exportCompletionSound(),++i.imageCompletionEvent,"image");emit notice(tr("Image export finished: %1").arg(path),false);}
         }
-        if(!i.pendingFrameExport.isEmpty()&&QDateTime::currentMSecsSinceEpoch()>i.pendingFrameDeadline){i.pendingFrameExport.clear();emit notice(tr("图片保存未确认完成，请查看诊断"),true);}
+        if(!i.pendingFrameExport.isEmpty()&&QDateTime::currentMSecsSinceEpoch()>i.pendingFrameDeadline){i.pendingFrameExport.clear();emit notice(tr("Image save not confirmed as complete; see diagnostics"),true);}
     }
     if (i.imagePhase == Impl::ImagePhase::Idle) return;
     auto fail = [&](const QString& why) {
         ++i.imageFailures;
         veyra::log::warn("image-batch", std::format("item failed index={} reason={}", i.imageIndex, why.toStdString()));
-        emit notice(tr("图片未导出：%1（%2）").arg(QFileInfo(i.imageFiles[i.imageIndex]).fileName(), why), true);
+        emit notice(tr("Image not exported: %1 (%2)").arg(QFileInfo(i.imageFiles[i.imageIndex]).fileName(), why), true);
         i.imagePhase = Impl::ImagePhase::Opening; i.imageSession = 0;
     };
     const auto& s = i.snapshot;
@@ -89,7 +89,7 @@ void QmlPlayerBridge::tickImageBatch() {
         // Next item.
         if (++i.imageIndex >= i.imageFiles.size()) {
             i.imagePhase = Impl::ImagePhase::Idle;
-            i.imageStatus = tr("完成 %1 张，失败 %2 张").arg(i.imageDone).arg(i.imageFailures);
+            i.imageStatus = tr("%1 done, %2 failed").arg(i.imageDone).arg(i.imageFailures);
             veyra::log::info("image-batch", std::format("finished done={} failed={}", i.imageDone, i.imageFailures));
             emit imageBatchChanged();
             emit notice(i.imageStatus, i.imageFailures > 0);
@@ -98,10 +98,10 @@ void QmlPlayerBridge::tickImageBatch() {
         }
         const QString input = i.imageFiles[i.imageIndex];
         i.imageTarget = QDir(i.imageFolder).filePath(QFileInfo(input).completeBaseName() + QStringLiteral("-veyra.png"));
-        i.imageStatus = tr("正在处理 %1 / %2：%3").arg(i.imageIndex + 1).arg(i.imageFiles.size()).arg(QFileInfo(input).fileName());
+        i.imageStatus = tr("Processing %1 / %2: %3").arg(i.imageIndex + 1).arg(i.imageFiles.size()).arg(QFileInfo(input).fileName());
         emit imageBatchChanged();
-        if (!QFileInfo(input).isFile()) { fail(tr("文件不存在")); return; }
-        if (QFileInfo::exists(i.imageTarget)) { fail(tr("输出已存在，不覆盖")); return; }
+        if (!QFileInfo(input).isFile()) { fail(tr("The file does not exist")); return; }
+        if (QFileInfo::exists(i.imageTarget)) { fail(tr("The output already exists; not overwriting")); return; }
         openPath(input);
         i.imageSession = i.openingSessionId ? i.openingSessionId : UINT64_MAX;
         i.imageWaits = 0;
@@ -109,23 +109,23 @@ void QmlPlayerBridge::tickImageBatch() {
     }
     ++i.imageWaits;
     if (i.imagePhase == Impl::ImagePhase::Opening) {
-        if (s.sessionId == i.imageSession && s.failed) { fail(tr("无法打开")); return; }
+        if (s.sessionId == i.imageSession && s.failed) { fail(tr("Could not open")); return; }
         if (s.sessionId == i.imageSession && s.image && s.frames > 0 && !applying()) {
             impl_->engine.saveFrame(wideOf(QDir::toNativeSeparators(i.imageTarget)));
             i.imagePhase = Impl::ImagePhase::Saving; i.imageWaits = 0;
-        } else if (i.imageWaits > 60 * 20) { fail(tr("打开超时")); }
+        } else if (i.imageWaits > 60 * 20) { fail(tr("Opening timed out")); }
         return;
     }
     // Saving: the engine writes on its own thread; HDR output becomes .jxr.
     QString written = i.imageTarget;
     if (!QFileInfo(written).isFile()) written = QFileInfo(i.imageTarget).path() + QLatin1Char('/') + QFileInfo(i.imageTarget).completeBaseName() + QStringLiteral(".jxr");
-    if (QFileInfo(written).isFile() && QFileInfo(written).size() > 0 && s.status.find(L"已保存")!=std::wstring::npos && exportFileClosed(written)) {
+    if (QFileInfo(written).isFile() && QFileInfo(written).size() > 0 && s.status.find(L"Saved")!=std::wstring::npos && exportFileClosed(written)) {
         ++i.imageDone;
         veyra::log::info("image-batch", std::format("saved index={} path={}", i.imageIndex, written.toStdString()));
         i.imagePhase = Impl::ImagePhase::Opening; i.imageSession = 0;
         emit imageBatchChanged();
     } else if (i.imageWaits > 60 * 15) {
-        fail(tr("保存超时"));
+        fail(tr("Save timed out"));
     }
 }
 
@@ -191,7 +191,7 @@ void QmlPlayerBridge::setExportRateControl(int value) {
 }
 
 QString QmlPlayerBridge::exportPresetName() const {
-    return impl_->exportPresetName.empty() ? tr("当前播放设置") : utf8Of(impl_->exportPresetName);
+    return impl_->exportPresetName.empty() ? tr("Current playback settings") : utf8Of(impl_->exportPresetName);
 }
 
 int QmlPlayerBridge::exportSrTargetIndex() const {
@@ -241,7 +241,7 @@ QString QmlPlayerBridge::srTargetLabel() const {
     case 4: return QStringLiteral("5K");
     case 5: return QStringLiteral("6K");
     case 6: return QStringLiteral("7K");
-    default: return tr("源尺寸");
+    default: return tr("Source size");
     }
 }
 
@@ -280,13 +280,13 @@ QVariantList QmlPlayerBridge::presetChoices() const {
     // One list for both kinds; the label carries the distinction so the export page
     // can offer "any preset" without a second control.
     QVariantList out;
-    out << QVariantMap{{"id", QStringLiteral("-1")}, {"label", tr("当前播放设置")}};
+    out << QVariantMap{{"id", QStringLiteral("-1")}, {"label", tr("Current playback settings")}};
     const auto& entries = impl_->facade.presets().entries();
     for (size_t i = 0; i < entries.size(); ++i) {
         QVariantMap item;
         item["id"] = QString::number(i);
         item["label"] = utf8Of(entries[i].name)
-                        + (entries[i].kind == engine::ChainMode::Node ? tr(" · 节点") : QString());
+                        + (entries[i].kind == engine::ChainMode::Node ? tr(" · node") : QString());
         item["disabled"] = entries[i].kind == engine::ChainMode::Node;
         out << item;
     }
@@ -304,23 +304,23 @@ QString QmlPlayerBridge::diagnosticsReport() const {
     // Engine-reported values only. A diagnostic that guesses is worse than none.
     const auto& s = impl_->snapshot;
     QStringList lines;
-    lines << tr("状态: %1").arg(uiText(s.status));
-    lines << tr("源: %1x%2 旋转 %3° 标称 %4 fps")
+    lines << tr("Status: %1").arg(uiText(s.status));
+    lines << tr("Source: %1x%2 rotated %3° nominal %4 fps")
                  .arg(s.sourceWidth).arg(s.sourceHeight).arg(s.sourceRotationDegrees)
                  .arg(s.nominalSourceFps, 0, 'f', 2);
-    lines << tr("提交 FPS: %1").arg(s.submissionFps ? QString::number(*s.submissionFps, 'f', 2) : tr("未测量"));
-    lines << tr("晚点: 当前 %1 ms / P95 %2 ms").arg(s.lateMs, 0, 'f', 2).arg(s.lateP95Ms, 0, 'f', 2);
-    lines << tr("调度等待 P95: %1 ms").arg(s.schedulingWaitP95Ms, 0, 'f', 2);
-    lines << tr("处理 CPU P95: %1 ms").arg(s.processCpuP95Ms, 0, 'f', 2);
-    lines << tr("呈现 CPU P95: %1 ms").arg(s.presentCpuP95Ms, 0, 'f', 2);
-    lines << tr("帧: 已处理 %1 生成 %2").arg(s.frames).arg(s.generated);
-    lines << tr("NR 求值 %1 / NVOF %2").arg(s.nrEvaluated).arg(s.nvofExecuted);
+    lines << tr("Submit FPS: %1").arg(s.submissionFps ? QString::number(*s.submissionFps, 'f', 2) : tr("Not measured"));
+    lines << tr("Late: now %1 ms / P95 %2 ms").arg(s.lateMs, 0, 'f', 2).arg(s.lateP95Ms, 0, 'f', 2);
+    lines << tr("Scheduling wait P95: %1 ms").arg(s.schedulingWaitP95Ms, 0, 'f', 2);
+    lines << tr("Processing CPU P95: %1 ms").arg(s.processCpuP95Ms, 0, 'f', 2);
+    lines << tr("Present CPU P95: %1 ms").arg(s.presentCpuP95Ms, 0, 'f', 2);
+    lines << tr("Frames: processed %1, generated %2").arg(s.frames).arg(s.generated);
+    lines << tr("NR evaluate %1 / NVOF %2").arg(s.nrEvaluated).arg(s.nvofExecuted);
     if (s.capture) {
-        lines << tr("采集: 接收 %1 丢弃 %2 速率 %3 fps")
+        lines << tr("Capture: received %1, dropped %2, rate %3 fps")
                      .arg(s.captureReceived).arg(s.captureDropped).arg(s.captureFps, 0, 'f', 2);
     }
-    if (!s.backendWarning.empty()) lines << tr("后端告警: %1").arg(uiText(s.backendWarning));
-    if (!s.colorStatus.empty()) lines << tr("色彩: %1").arg(uiText(s.colorStatus));
+    if (!s.backendWarning.empty()) lines << tr("Backend warning: %1").arg(uiText(s.backendWarning));
+    if (!s.colorStatus.empty()) lines << tr("Color: %1").arg(uiText(s.colorStatus));
     if (!s.videoHdrStatus.empty()) lines << tr("Video HDR: %1").arg(uiText(s.videoHdrStatus));
     return lines.join(QLatin1Char('\n'));
 }

@@ -15,16 +15,16 @@ for q in ('low','medium','high'):
   text=(LOGS/f'{q}{m}-nr/player.log').read_text(encoding='utf8',errors='replace')
   assert not re.search(r'\[ERROR\s*\]|\[FATAL\s*\]',text),q+str(m)
   matrix.append({'quality':q,'multiplier':m,'fps':case['fps'],'status':case['status']})
-rows=['| 倍率 | 源30目标fps | Low 前→后 | Medium 前→后 | High 前→后 |','| --- | ---: | ---: | ---: | ---: |']
+rows=['| Multiplier | source30 target fps | Low before->after | Medium before->after | High before->after |','| --- | ---: | ---: | ---: | ---: |']
 for m in range(2,9):
  values=[]
  for q in ('low','medium','high'):
   old=read(BASE/'logs/vfg-diagnosis-20261007'/f'{q}{m}-nr/result.json');new=read(LOGS/f'{q}{m}-nr/result.json')
-  suffix='（降档）' if any('降档' in s for s in new['status']) else '（未满）' if new['fps']<30*m*.99 else ''
+  suffix=' (dropped)' if any('降档' in s for s in new['status']) else ' (unmet)' if new['fps']<30*m*.99 else ''
   values.append(f'{old["fps"]:g}→{new["fps"]:g}{suffix}')
  rows.append(f'| {m}X | {30*m} | '+' | '.join(values)+' |')
-rows+=['','“前”为上一轮正式2.0.5诊断参考，“后”为本轮最终候选21组。非相邻矩阵不用于精确归因百分比；下面相邻对照才用于计算收益。']
-controls=[];matched=['| 对照 | 原版fps | 候选fps | 提升 | 原版CPU滚动P95中位ms | 候选CPU滚动P95中位ms |','| --- | ---: | ---: | ---: | ---: | ---: |']
+rows+=['','"Before" is the previous official 2.0.5 diagnostic reference, "after" is this round final candidate 21 groups. Non-adjacent matrices are not used for precise causal attribution percentages; only the adjacent comparison below is used for gain calculation.']
+controls=[];matched=['| Comparison | original fps | candidate fps | gain | original CPU rolling P95 median ms | candidate CPU rolling P95 median ms |','| --- | ---: | ---: | ---: | ---: | ---: |']
 for name in ('medium4','high2'):
  old=read(LOGS/f'matched-old-{name}/analysis.json');new=read(LOGS/f'matched-new-{name}/analysis.json')
  assert old['result']['passed'] and new['result']['passed'] and new['result']['exeSha256']==exe
@@ -34,7 +34,7 @@ for name in ('medium4','high2'):
  controls.append({'case':name,'oldFps':oldfps,'newFps':newfps,'fpsGainPercent':gain,'oldCpuWindowP95Ms':a,'newCpuWindowP95Ms':b,'cpuWindowP95ReductionPercent':(1-b/a)*100,'oldCadence':old['submissionCadenceMs'],'newCadence':new['submissionCadenceMs'],'oldExpired':old['timing']['cumulativeDeltas']['expiredGenerated'],'newExpired':new['timing']['cumulativeDeltas']['expiredGenerated']})
  matched.append(f'| {name} | {oldfps:g} | {newfps:g} | {gain:.1f}% | {a:.3f} | {b:.3f} |')
 sync=read(LOGS/'matched-sync-medium4/result.json');assert sync['passed'] and sync['syncSubmit'] and sync['exeSha256']==exe
-matched+=['',f'同一候选仅强制同步提交的控制组Medium4为{sync["fps"]:g}fps；对应正常异步组为{controls[0]["newFps"]:g}fps，支持“送显线程被SDK调用占住”的因果解释。']
+matched+=['',f'The same candidate with only forced sync submission, control group Medium4, is {sync["fps"]:g}fps; the corresponding normal async group is {controls[0]["newFps"]:g}fps, supporting the causal explanation "the display thread was occupied by the SDK call".']
 native=read(LOGS/'candidate-native-720-v3.json');assert native['exit']==0
 native4k=read(LOGS/'async-native-4k-v2.json');assert native4k['exit']==0
 hashes=read(LOGS/'native-hash-comparison.json');assert hashes['allGpuPixelHashesIdentical'] and hashes['intermediateFrames']==168 and hashes['finalCandidateHashMatches'] and hashes['finalCandidateExeSha256']==exe
@@ -45,15 +45,15 @@ assert {x['phase'] for x in life}=={'run','restore','missing','failure'} and len
 assert 'unavailable saved backend=NVIDIA-VFG selected=AMD-FSR' in (LOGS/'lifecycle-edge-v3/missing-engine.log').read_text(encoding='utf8')
 gui=read(LOGS/'lifecycle-edge-v3/export-probe.json');guiVideo=next(x for x in gui['streams'] if x['codec_type']=='video');assert guiVideo['nb_read_frames']=='64' and guiVideo['r_frame_rate']=='240/1'
 settings=read(LOGS/'settings-v3.json');assert settings['exit']==0 and '331 checks, 0 failures' in (LOGS/'settings-v3.log').read_text(encoding='utf-8-sig')
-validation='\n'.join(['- 最终候选构建candidate-build-v3 exit0，EXE SHA256 `'+exe+'`，核心源码ddf71b1。',
- '- 21组原片正常播放、5组相邻/同步控制均采样与退出通过；是否跑满按上表判定。',
- '- 8/10位、三质量、2X–8X、切镜/相同CUDA地址刷新/反向运动/parity与2X→4X→8X恢复：720p同步、720p异步、4K异步各913项0失败，最终EXE再做720p检查通过；168张同步/异步插帧GPU像素哈希一致。',
- '- GUI热切换质量/倍率、VFG↔DLSS6X、暂停/seek/缩放、全屏进入/返回、列表/节点预设与重启通过；缺VFG运行库沿用原有启动迁移到FSR2X并继续播放，未修改该共享策略。异步Run拒绝后实际FG关闭、原帧继续，无等待悬挂。GUI独立导出worker保持同步SDK判定，8源帧输出64帧/240fps。',
- '- VFG设置/预设/会话及倍率/PTS单元测试331项0失败。',
- '- 21组720p三质量×2X–8X实际NVENC导出及4K GTA短片原生NR+VFG4导出通过；每组源8帧、输出8×倍率、HEVC/CFR与严格递增PTS核对，无源帧丢弃。边界hold仍按原导出合同计数，不能把所有输出都称神经生成帧。取消和缺运行库导出失败清理通过。',
- '- 失败记录保留：初次两个异步拒绝断言误把QML保存的fgEnabled请求当实际后端；首次缺运行库断言误以为旧策略必定关闭FG，实际已迁移FSR；首次八帧MP4导出断言未考虑微秒time_base取整（16帧、标称60fps，平均59.999925fps）。按实际接口和时间刻度修正测试后通过，没有为迁就测试改产品。settings-tests首次漏传必需的绝对输出目录而exit2，补齐参数后331项通过。'])
+validation='\n'.join(['- Final candidate build candidate-build-v3 exit0, EXE SHA256 `'+exe+'`, core source ddf71b1.',
+ '- 21 groups normal playback, all 5 adjacent/sync control sampling and exit pass; whether the target is met is judged by the table above.',
+ '- 8/10 bit, three qualities, 2X-8X, cut/same-CUDA-address refresh/reverse motion/parity and 2X->4X->8X restore: 720p sync, 720p async, 4K async each 913 checks 0 failures, final EXE re-checks 720p pass; the 168 sync/async generated-frame GPU pixel hashes match.',
+ '- GUI hot-switch quality/multiplier, VFG<->DLSS6X, pause/seek/scale, fullscreen enter/return, list/node preset and restart all pass; missing VFG runtime goes through the original launch migration to FSR2X and continues playback, not modifying that shared strategy. After an async Run rejection, the actual FG closes, original frames continue, no waiting hang. GUI-independent export worker keeps the sync SDK determination, 8 source frames out 64 frames/240fps.',
+ '- VFG settings/preset/session and multiplier/PTS unit tests 331 checks 0 failures.',
+ '- All 21 groups 720p three-quality x 2X-8X actual NVENC export and 4K GTA short film native NR+VFG4 export pass; per group 8 source frames, output 8x multiplier, HEVC/CFR and strictly increasing PTS verified, no source frames dropped. Edge hold still counts per the original export contract, not calling all outputs neural-generated frames. Cancel and missing-runtime export failure cleanup passes.',
+ '- Failure record kept: the first two async-rejection assertions mistook the QML-saved fgEnabled request for the actual backend; the first missing-runtime assertion wrongly assumed the old strategy always closes FG, actually it migrated to FSR; the first eight-frame MP4 export assertion did not consider the microsecond time_base rounding (16 frames, nominal 60fps, average 59.999925fps). Tests corrected against the actual interface and time scale, then passed, without changing the product to accommodate tests. settings-tests initially forgot the required absolute output directory and exited 2, after adding the parameter all 331 checks pass.'])
 path=ROOT/'docs/VFG_OPTIMIZATION_REPORT_2026-10-07.md';text=path.read_text(encoding='utf8')
-text=text.replace('状态：验收进行中，以下已完成证据不代表尚未执行的检查通过。','状态：本机VFG专项短测通过，已达到部分主要档位目标；更高倍率仍有明确限制。')
+text=text.replace('状态：验收进行中，以下已完成证据不代表尚未执行的检查通过。','Status: this machine VFG special short test passes, reaching some main-tier goals; higher multipliers still have clear limits.')
 assert all(marker in text for marker in ('<!-- MATRIX_TABLE -->','<!-- MATCHED_TABLE -->','<!-- VALIDATION -->'))
 text=text.replace('<!-- MATRIX_TABLE -->','\n'.join(rows)).replace('<!-- MATCHED_TABLE -->','\n'.join(matched)).replace('<!-- VALIDATION -->',validation)
 path.write_text(text,encoding='utf8')

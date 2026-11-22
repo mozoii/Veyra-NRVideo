@@ -39,15 +39,15 @@ struct DolbyVisionInfo {
         if(!present)return {};
         const auto layer=route();
         const wchar_t* name=layer==DolbyBaseLayer::Hdr10?L"HDR10":layer==DolbyBaseLayer::Hlg?L"HLG":L"SDR";
-        if(layer==DolbyBaseLayer::Unsupported)return L"Dolby Vision P"+std::to_wstring(profile)+L"：此类型需要 RPU 重建，当前不能正确显示";
+        if(layer==DolbyBaseLayer::Unsupported)return L"Dolby Vision P"+std::to_wstring(profile)+L": this type needs RPU reconstruction and cannot be shown correctly yet";
         // Profile 5 has no compatible base layer at all: its colour exists only
         // inside the RPU, so say what is actually happening rather than
         // claiming a base-layer compatibility that does not exist - and only
         // claim the conversion once its parameters are really in effect.
         if(profile==5)return profile5Converted
-            ? L"Dolby Vision P5 · IPT-PQ-C2 基础层按 RPU 转换（"+std::wstring(name)+L" 输出，增强层/RPU 动态元数据不参与输出）"
-            : L"Dolby Vision P5：还没有可用的 RPU 转换参数，无法正确转换（不会退回普通 YUV 解码）";
-        return L"Dolby Vision P"+std::to_wstring(profile)+L" · "+name+L" 基础层兼容（不应用 RPU/增强层，不输出原生 DV）";
+            ? L"Dolby Vision P5 · IPT-PQ-C2 base layer converted from the RPU ("+std::wstring(name)+L" output; the enhancement layer and RPU dynamic metadata are not part of the output)"
+            : L"Dolby Vision P5: no usable RPU conversion parameters yet, so the frame cannot be converted correctly (it does not fall back to plain YUV decoding)";
+        return L"Dolby Vision P"+std::to_wstring(profile)+L" · "+name+L" base-layer compatible (no RPU/enhancement layer, no native DV output)";
     }
     bool matches(const pipeline::ColorDescription& c) const {
         using namespace pipeline;

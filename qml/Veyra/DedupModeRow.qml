@@ -11,12 +11,12 @@ VRow {
         ? (Number(backend.contentRate)===5?5:Number(backend.contentRate)>0?1:0) : 0
     readonly property var modes: [
         {id:"5",label:"60→30"},
-        {id:"1",label:qsTr("自动去除")}
+        {id:"1",label:qsTr("Automatic removal")}
     ]
     onCurrentModeChanged: if(currentMode!==0)lastMode=currentMode
     Component.onCompleted: if(currentMode!==0)lastMode=currentMode
-    label: qsTr("去除重复帧")
-    hint: showHelp?qsTr("60→30：每两帧保留一帧，游戏不足30帧时跳过重复画面。自动去除：检测并跳过重复画面。"):""
+    label: qsTr("Remove duplicate frames")
+    hint: showHelp?qsTr("60→30 keeps every other frame and skips repeated images when the game runs below 30 fps. Automatic removal detects and skips duplicate images."):""
     hintBelow: true
     RowLayout {
         spacing: 8
@@ -28,7 +28,7 @@ VRow {
         VSelect {
             objectName: row.namePrefix+"-content-rate"
             implicitWidth: 136
-            title: qsTr("去除重复帧")
+            title: qsTr("Remove duplicate frames")
             enabled: row.currentMode!==0
             options: row.modes
             value: (row.modes.find(option=>Number(option.id)===(row.currentMode||row.lastMode))||row.modes[1]).label

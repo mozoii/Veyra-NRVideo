@@ -109,18 +109,18 @@ Item {
             id: actions
             anchors.centerIn: parent
             Text {
-                text: editor.ready ? qsTr("拖动边缘或移动裁剪框 · %1 × %2")
+                text: editor.ready ? qsTr("Drag the edges or move the crop · %1 × %2")
                                          .arg(veyra.sourceWidth - editor.cut.left - editor.cut.right)
                                          .arg(veyra.sourceHeight - editor.cut.top - editor.cut.bottom) : veyra.statusText
                 color: Theme.t1
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsSmall
             }
-            VButton { text: qsTr("重置"); onClicked: editor.begin({left:0, top:0, right:0, bottom:0}) }
-            VButton { text: qsTr("取消"); onClicked: { editor.editing = false; editor.cancelled() } }
+            VButton { text: qsTr("Reset"); onClicked: editor.begin({left:0, top:0, right:0, bottom:0}) }
+            VButton { text: qsTr("Cancel"); onClicked: { editor.editing = false; editor.cancelled() } }
             VButton {
                 objectName: "screen-crop-apply"
-                text: qsTr("应用裁剪")
+                text: qsTr("Apply crop")
                 primary: true
                 enabled: editor.ready
                 onClicked: {

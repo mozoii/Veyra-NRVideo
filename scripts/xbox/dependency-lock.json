@@ -8,7 +8,7 @@
     "checkout": "C:/veyra-deps/vcpkg",
     "commit": "30ef65cad98f08e7197c9a1656fbd871bcb72f2d",
     "triplet": "x64-windows-static",
-    "install_root": "C:/veyra-deps/xbox-installed (a copy of remoteplay-installed plus the packages below; same OpenSSL 3.6.4)",
+    "install_root": "C:/veyra-deps/xbox-installed (vcpkg packages below; same OpenSSL 3.6.4 tree)",
     "command": "vcpkg install \"libdatachannel[srtp]:x64-windows-static\" --overlay-ports=scripts/xbox/vcpkg-overlay --x-install-root=C:/veyra-deps/xbox-installed --classic",
     "packages": {
       "libdatachannel": { "version": "0.24.5", "license": "MPL-2.0", "features": ["srtp", "ws"] },

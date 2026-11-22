@@ -22,14 +22,14 @@ Rectangle {
     HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
     TapHandler { onTapped: rateMenu.openAt(control, "up") }
     ToolTip.visible: hover.hovered && !control.menuOpen
-    ToolTip.text: qsTr("播放速度")
+    ToolTip.text: qsTr("Playback speed")
     VMenu {
         id: rateMenu
         objectName: control.objectName + "-menu"
         aboveLimit: control.menuBottomLimit
-        title: qsTr("播放速度")
+        title: qsTr("Playback speed")
         items: [1, 1.5, 2, 3].map(r => ({ label: r + "×", rate: r, checked: Number(veyra.playbackRate || 1) === r }))
-            .concat([{ label: qsTr("自定义…"), custom: true, checked: [1,1.5,2,3].indexOf(Number(veyra.playbackRate)) < 0 }])
+            .concat([{ label: qsTr("Custom…"), custom: true, checked: [1,1.5,2,3].indexOf(Number(veyra.playbackRate)) < 0 }])
         onPicked: (i, o) => {
             if (o.custom) customRate.open()
             else veyra.playbackRate = o.rate

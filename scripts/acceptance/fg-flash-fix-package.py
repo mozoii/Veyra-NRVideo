@@ -28,27 +28,27 @@ for name in ('LICENSE','LICENSE.md','LICENSE.txt','THIRD_PARTY_NOTICES.md'):
  if (ROOT/name).is_file():shutil.copy2(ROOT/name,stage/name)
 for name,variant in [('01-Test-Compatible.cmd','Compatible'),('02-Test-Direct-Control.cmd','Direct')]:
  (stage/name).write_text('@echo off\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-HDR-Flash-Fix.ps1" -AppDirectory "%~dp0." -Variant '+variant+'\npause\n',encoding='ascii')
-text='''Veyra 2.0.6 · HDR补帧闪黑兼容候选（2026-10-09）
+text='''Veyra 2.0.6 - HDR frame-gen flicker-fix compatibility candidate (2026-10-09)
 
-这是可回退测试候选，本机验证通过；用户RTX5090/采集卡上的闪黑是否消失仍待复测，不能认定已经根治。
+This is a rollback-capable test candidate; verified locally; whether flicker disappears on the user RTX5090/capture card still awaits re-testing, cannot be called fully fixed.
 
-使用：
-1. 关闭所有Veyra。先把原目录的veyra_qml_ui.exe复制为veyra_qml_ui.original.exe.bak保留，再将本包覆盖到完整2.0.6 NVIDIA便携目录。不要改EXE名字，不要放到缺少Qt/运行库的空目录直接运行。
-2. 原版提前保存好同一输入与画质/补帧设置。双击01-Test-Compatible.cmd，使用原来会闪的4K HDR采集、源时间戳和补帧设置。默认不会定时退出，测完手动关闭即可。
-3. 双击02-Test-Direct-Control.cmd，用同一输入/设置再测。它运行同一个EXE、同一路径，只关闭新复制路径。两个启动器都从原设置复制到私有目录，测试内修改不会写回原设置；不要在两次之间改驱动配置。
-4. 日志与回执自动打包在logs/hdr-flash-*.zip，只包含日志，不含私有配置/凭据。把两次ZIP与是否闪的结果一起反馈。Compatible不闪、Direct闪才支持呈现路径假说；两者都不闪仍不能认定根治。
+Usage:
+1. Close all Veyra. First copy the original directory's veyra_qml_ui.exe to veyra_qml_ui.original.exe.bak and keep it, then overwrite the package into the complete 2.0.6 NVIDIA portable directory. Do not rename the EXE, do not run it in a bare directory missing Qt/runtime libraries.
+2. Beforehand, save the same input and picture-quality/frame-generation settings in the original build. Double-click 01-Test-Compatible.cmd and use the 4K HDR capture that used to flicker, source timestamps and frame-generation settings. It does not close itself by default; close manually when done.
+3. Double-click 02-Test-Direct-Control.cmd and re-test with the same input/settings. It runs the same EXE, same path, only closing the new copy path. Both launchers copy the original settings to a private directory, so in-test changes do not write back; do not change driver configuration between the two runs.
+4. Logs and receipts are automatically packaged in logs/hdr-flash-*.zip, containing only logs, no private config/credentials. Feedback: both ZIPs and whether flicker happened. Compatible no-flicker + Direct flicker supports the presentation-path hypothesis; both no-flicker still does not prove root-cause fix.
 
-改变：NVIDIA HDR10 + DLSS/VFG/应用侧FSR补帧，先GPU合成到独立纹理再复制到交换链。默认SDR、无补帧、AMD、XeSS保持直接呈现。没有像素采样、额外CPU等待或自动降倍率。4K额外纹理固定约31.9MiB。
-本机GTA6 4K输入/1080p原版NR/DLSS2X测试：两路径播放速率1.000、跳源0；1280×720合成GPU窗口P95中位数0.034→0.039ms。该数据不能外推5090或面板扫描。
+Changed: NVIDIA HDR10 + DLSS/VFG/app-side FSR frame-gen, first GPU-composite to a dedicated texture then copy to the swap chain. Default SDR, no frame-gen, AMD, XeSS keep direct presentation. No pixel sampling, extra CPU wait or automatic multiplier reduction. The 4K extra texture is fixed at about 31.9 MiB.
+This machine GTA6 4K input/1080p original NR/DLSS2X test: both paths playback rate 1.000, source skip 0; 1280x720 composite GPU window P95 median 0.034 -> 0.039 ms. This data cannot be extrapolated to 5090 or panel scan.
 
-基于当前main，包含此前已经合入的VFG优化。Direct只代表当前main原呈现路径，不能完全替代旧2.0.6整包对照。
-没有更换运行库/模型，没有修改NVIDIA App/RTSS或驱动设置。若只有改EXE名字就不闪，需要另查程序级配置，不能归功于本候选。
+Based on current main, includes the VFG optimization already merged earlier. Direct only represents the current main original presentation path and cannot fully replace the old 2.0.6 full-package comparison.
+No runtime/model swap, NVIDIA App/RTSS or driver-setting changes. If changing only the EXE name stops flicker, another program-level configuration needs to be investigated, not credited to this candidate.
 
-回退：关闭Veyra，把备份EXE复制回veyra_qml_ui.exe即可；DLL和原用户设置保持。标准双击EXE会按正常产品行为使用原设置，两个测试启动器则使用私有副本。
-精确完整源码：同包Veyra-2.0.6-HDR-flash-fix-source.zip；源码和构建身份见hdr-flash-fix-manifest.json。完整2.0.6依赖/许可证沿用原包。
+Rollback: close Veyra and copy the backup EXE back to veyra_qml_ui.exe; DLLs and original user settings are kept. Double-clicking the standard EXE uses the original settings per normal product behavior; the two test launchers use private copies.
+Exact complete source: same package Veyra-2.0.6-HDR-flash-fix-source.zip; source and build identity in hdr-flash-fix-manifest.json. Full 2.0.6 dependency/license: reused from the original package.
 '''
-(stage/'使用说明.txt').write_text(text,encoding='utf-8-sig')
-shutil.copy2(ROOT/'docs/FG_FLASH_FIX_REPORT_2026-10-09.md',stage/'排查与测试报告.md')
+(stage/'USAGE.txt').write_text(text,encoding='utf-8-sig')
+shutil.copy2(ROOT/'docs/FG_FLASH_FIX_REPORT_2026-10-09.md',stage/'INVESTIGATION-AND-TEST-REPORT.md')
 manifest={'kind':'local-hdr-flash-compatibility-candidate','version':'2.0.6','sourceCommit':commit,'baseMain':'dbfceabee804cd81bac4a4781f0b7b4cf272902e','baseProduct':'71723e0249a17764696796fd204a6eb69d6da276','executableSha256':sha(exe),'sourceArchive':source.name,'sourceSha256':sha(source),'runtimeIncluded':False,'pixelProbeIncluded':False,'field5090Validated':False}
 (stage/'hdr-flash-fix-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf8')
 files={p.name:sha(p) for p in stage.iterdir() if p.is_file()}

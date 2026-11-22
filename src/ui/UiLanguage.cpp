@@ -26,12 +26,13 @@ struct Pattern {
 };
 
 // Looks strings up by source text, whatever the context: QML gives the component
-// name and C++ the class name, and one table serves both.
+// name and C++ the class name, and one table serves both. English is the source:
+// the catalog key is the English string.
 class CatalogTranslator final : public QTranslator {
 public:
     QHash<QString, QString> exact;
     std::vector<Pattern> patterns;
-    // A disambiguation ("off" for 关闭 as a setting, against 关闭 = close a window)
+    // A disambiguation ("off" for Off as a setting, against Close = close a window)
     // is its own entry: key = source U+0004 disambiguation; the plain source otherwise.
     QString translate(const char*, const char* source, const char* disambiguation, int) const override {
         if (!source) return {};
@@ -48,15 +49,10 @@ public:
 
 std::mutex lock;                                  // text() runs on worker threads too
 std::unique_ptr<CatalogTranslator> active;
-QString currentCode = QStringLiteral("zh-CN");
+QString currentCode = QStringLiteral("en");
 QHash<QString, QString> cache;
 
-bool hasHan(const QString& s) {
-    for (const QChar c : s) if (c.unicode() >= 0x3400 && c.unicode() <= 0x9fff) return true;
-    return false;
-}
-
-// "主机搜索发生错误（{}），详情见日志" -> ^主机搜索发生错误（(.+?)），详情见日志$
+// "Host search failed ({}), see the log" -> ^Host search failed \((.+?)\), see the log$
 // std::format specs ({:.1f}, {:08X}) are slots too.
 QRegularExpression patternOf(const QString& source, int& slotCount) {
     static const QRegularExpression slot(QStringLiteral("\\{[^{}]*\\}"));
@@ -82,14 +78,14 @@ QStringList piecesOf(const QString& translation) {
 std::unique_ptr<CatalogTranslator> load(const QString& code) {
     QFile file(QStringLiteral(":/i18n/catalog.json"));
     if (!file.open(QIODevice::ReadOnly)) {
-        veyra::log::warn("i18n", "catalog resource missing; interface stays in the source language");
+        veyra::log::warn("i18n", "catalog resource missing; interface stays in English");
         return nullptr;
     }
     const auto doc = QJsonDocument::fromJson(file.readAll());
     auto t = std::make_unique<CatalogTranslator>();
     for (const auto value : doc.object().value(QStringLiteral("entries")).toArray()) {
         const auto e = value.toObject();
-        const QString source = e.value(QStringLiteral("zh")).toString();
+        const QString source = e.value(QStringLiteral("en")).toString();
         const QString translated = e.value(code).toString();
         if (source.isEmpty() || translated.isEmpty()) continue;
         const QString context = e.value(QStringLiteral("ctx")).toString();
@@ -97,7 +93,7 @@ std::unique_ptr<CatalogTranslator> load(const QString& code) {
         t->exact.insert(source, translated);
         const bool formatted = source.contains(QLatin1Char('{')) && source.contains(QLatin1Char('}'));
         // A message that ends in a colon is usually followed by a path or a reason.
-        const bool prefix = source.endsWith(QStringLiteral("：")) || source.endsWith(QStringLiteral(": "));
+        const bool prefix = source.endsWith(QStringLiteral(": ")) || source.endsWith(QStringLiteral(":"));
         if (formatted || prefix) {
             int slotCount = 0;
             const QString shape = prefix && !formatted ? source + QStringLiteral("{}") : source;
@@ -107,7 +103,7 @@ std::unique_ptr<CatalogTranslator> load(const QString& code) {
             if (slotCount > 0 && pieces.size() == slotCount + 1 && rx.isValid()) t->patterns.push_back({std::move(rx), std::move(pieces)});
         }
     }
-    // Longer patterns first: a short "…：{}" must not swallow a longer specific message.
+    // Longer patterns first: a short "…: {}" must not swallow a longer specific message.
     std::stable_sort(t->patterns.begin(), t->patterns.end(), [](const Pattern& a, const Pattern& b) {
         return a.match.pattern().size() > b.match.pattern().size();
     });
@@ -123,8 +119,9 @@ QString translateWhole(const CatalogTranslator& t, const QString& s) {
         QString out = p.pieces.front();
         for (int i = 1; i < p.pieces.size(); ++i) {
             const QString filled = m.captured(i);
-            // A slot holding Chinese text of its own (a nested message) is translated too.
-            out += hasHan(filled) ? translateWhole(t, filled) : filled;
+            // A slot holding text of its own (a nested message) is translated too.
+            const QString translated = translateWhole(t, filled);
+            out += translated.isEmpty() ? filled : translated;
             out += p.pieces[i];
         }
         return out;
@@ -135,23 +132,25 @@ QString translateWhole(const CatalogTranslator& t, const QString& s) {
 QString translatePieces(const CatalogTranslator& t, const QString& s, int depth) {
     if (const QString whole = translateWhole(t, s); !whole.isEmpty()) return whole;
     if (depth > 2) return s;
-    // A technical tag after the words ("低延迟 [format 16]") stays as it is.
+    // A technical tag after the words ("low latency [format 16]") stays as it is.
     static const QRegularExpression tagged(QStringLiteral("^(.*?)(\\s*\\[[^\\[\\]]*\\])$"));
-    if (const auto m = tagged.match(s); m.hasMatch() && hasHan(m.captured(1)))
-        return translatePieces(t, m.captured(1), depth + 1) + m.captured(2);
-    static const QString separators[] = {QStringLiteral("\n"), QStringLiteral("；"), QStringLiteral(" · ")};
+    if (const auto m = tagged.match(s); m.hasMatch()) {
+        const QString done = translatePieces(t, m.captured(1), depth + 1);
+        if (done != m.captured(1)) return done + m.captured(2);
+    }
+    // " · " before "; ": a " · "-joined status line is usually several whole pieces,
+    // and "; " inside one piece is translated by the recursion, not by this split.
+    static const QString separators[] = {QStringLiteral(" · "), QStringLiteral("; "), QStringLiteral("\n")};
     for (const auto& sep : separators) {
         if (!s.contains(sep)) continue;
         QStringList parts = s.split(sep);
         for (auto& part : parts) {
             const QString trimmed = part.trimmed();
-            if (!hasHan(trimmed)) continue;
             const QString done = translatePieces(t, trimmed, depth + 1);
+            if (done == trimmed) continue;
             part.replace(trimmed, done);
         }
-        // Full-width separators read oddly between Latin sentences.
-        const QString glue = sep == QStringLiteral("；") && (currentCode != QStringLiteral("ja") && !currentCode.startsWith(QStringLiteral("zh"))) ? QStringLiteral("; ") : sep;
-        return parts.join(glue);
+        return parts.join(sep);
     }
     return s;
 }
@@ -159,15 +158,17 @@ QString translatePieces(const CatalogTranslator& t, const QString& s, int depth)
 } // namespace
 
 QString resolve(const QString& preference) {
-    static const QStringList known{QStringLiteral("zh-CN"), QStringLiteral("zh-TW"), QStringLiteral("en"), QStringLiteral("ja"), QStringLiteral("ko"),
+    static const QStringList known{QStringLiteral("en"), QStringLiteral("zh"), QStringLiteral("zh-TW"), QStringLiteral("ja"), QStringLiteral("ko"),
                                    QStringLiteral("es"), QStringLiteral("fr"), QStringLiteral("de"), QStringLiteral("pt-BR"), QStringLiteral("ru")};
+    // The region tag the settings page stores maps onto the catalog key.
+    if (preference == QStringLiteral("zh-CN")) return QStringLiteral("zh");
     if (known.contains(preference)) return preference;
     const QLocale system = QLocale::system();
     if (system.language() == QLocale::Chinese) {
         const auto territory = system.territory();
         const bool traditional = system.script() == QLocale::TraditionalChineseScript || territory == QLocale::Taiwan ||
                                  territory == QLocale::HongKong || territory == QLocale::Macao;
-        return traditional ? QStringLiteral("zh-TW") : QStringLiteral("zh-CN");
+        return traditional ? QStringLiteral("zh-TW") : QStringLiteral("zh");
     }
     if (system.language() == QLocale::Japanese) return QStringLiteral("ja");
     if (system.language() == QLocale::Korean) return QStringLiteral("ko");
@@ -180,9 +181,10 @@ bool apply(const QString& code) {
     std::lock_guard guard(lock);
     if (active) { QCoreApplication::removeTranslator(active.get()); active.reset(); }
     cache.clear();
-    currentCode = QStringLiteral("zh-CN");
-    if (code == QStringLiteral("zh-CN")) { veyra::log::info("i18n", "interface language zh-CN (source)"); return true; }
-    active = load(code);
+    currentCode = QStringLiteral("en");
+    if (code == QStringLiteral("en")) { veyra::log::info("i18n", "interface language en (source)"); return true; }
+    const QString key = code == QStringLiteral("zh-CN") ? QStringLiteral("zh") : code;
+    active = load(key);
     if (!active) return false;
     QCoreApplication::installTranslator(active.get());
     currentCode = code;
@@ -197,7 +199,7 @@ QString current() {
 
 QString text(const QString& source) {
     std::lock_guard guard(lock);
-    if (!active || source.isEmpty() || !hasHan(source)) return source;
+    if (!active || source.isEmpty()) return source;
     if (const auto it = cache.constFind(source); it != cache.constEnd()) return *it;
     const QString out = translatePieces(*active, source, 0);
     if (cache.size() > 4096) cache.clear();

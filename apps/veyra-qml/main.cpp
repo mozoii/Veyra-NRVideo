@@ -112,8 +112,8 @@ enum class VideoProbeMode { Normal, Hidden, NoRegion, CoversOnly };
 VideoProbeMode g_videoProbe = VideoProbeMode::Normal;
 bool g_videoHiddenByProbe = false;
 // Set while a new source is opening: the window keeps the previous session's last
-// frame until the new one presents, so its region is emptied instead. A slow PS5
-// connect after a capture card left the card's last frame up for 20 s and the
+// frame until the new one presents, so its region is emptied instead. A slow
+// stream after a capture card left the card's last frame up for 20 s and the
 // window looked frozen (field report 2026-10-01).
 bool g_videoBlanked = false;
 
@@ -509,14 +509,14 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     veyra::engine::EngineWatchdog::setDumpDirectory(g_crashDumpDirectory);
     SetUnhandledExceptionFilter(crashFilter);
 
-    // Interface scale (设置 → 界面缩放) has to be fixed before Qt starts, so the
+    // Interface scale (Settings -> interface scale) has to be fixed before Qt starts, so the
     // preference file is read here, from the same data directory the bridge uses.
     // "Auto" leaves Qt following the Windows display scale.
     int uiScale = 0;
     bool obsGameCapture = false;
-    bool overlayCompatAuto = true;   // 设置 → 监控软件兼容: "auto" (default) or "off"
+    bool overlayCompatAuto = true;   // Settings -> monitoring software compatibility: "auto" (default) or "off"
     bool overlayCompatRestart = false;
-    bool gpuUiChosen = false;        // 设置 → 界面绘制: "software" (default) or "gpu"
+    bool gpuUiChosen = false;        // Settings -> interface rendering: "software" (default) or "gpu"
     {
         int count = 0;
         LPWSTR* args = CommandLineToArgvW(GetCommandLineW(), &count);
@@ -566,19 +566,19 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     // changes in server detection cannot turn that restart into another prompt.
     const bool rivaTuner = !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_RTSS", nullptr, 0)
                            && veyra::gfx::rivaTunerRunning();
-    // NVIDIA's in-game overlay and GamePP (游戏加加) hook every swapchain too; with the
+    // NVIDIA's in-game overlay and GamePP hook every swapchain too; with the
     // interface on D3D12 next to the video, the two presenting threads deadlocked in the
     // field (logs(15)) and GamePP broke every resize (see gfx/PresentationHooks.h).
     // VEYRA_TEST_IGNORE_NVIDIA_OVERLAY / VEYRA_TEST_IGNORE_GAMEPP start as if they were off.
     const bool nvidiaOverlay = !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_NVIDIA_OVERLAY", nullptr, 0)
                                && veyra::gfx::nvidiaOverlayRunning();
     const bool gamePP = !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_GAMEPP", nullptr, 0) && veyra::gfx::gamePPRunning();
-    // 抖音直播伴侣 captures the screen or this window while Veyra runs; with it the GPU
+    // The Douyin live companion captures the screen or this window while Veyra runs; with it the GPU
     // hung in the field (gfx/PresentationHooks.h). The interface leaves the GPU like for
     // the other capture and overlay tools; the bridge also lowers the GPU priority while
     // it runs. VEYRA_TEST_IGNORE_DOUYIN=1 starts as if it were not running.
     const bool douyin = !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_DOUYIN", nullptr, 0) && veyra::gfx::douyinLiveCompanionRunning();
-    // 设置 → 界面绘制 (software unless GPU is chosen) together with the compatibility
+    // Settings -> interface rendering (software unless GPU is chosen) together with the compatibility
     // rules above, which are unchanged: veyra/ui/InterfaceRenderer.h.
     const auto renderer = veyra::ui::decideInterfaceRenderer({gpuUiChosen, obsGameCapture, overlayCompatAuto,
         rivaTuner || nvidiaOverlay || gamePP || douyin, overlayCompatRestart, forcedRenderer[0] != 0});
@@ -600,7 +600,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         veyra::log::info("app", std::format("GPU UI: {}", forcedRenderer[0] ? "renderer forced by VEYRA_UI_RHI" : "interface drawing preference: GPU"));
     {
         // A GPU interface keeps RTSS from drawing in this process at all, so a RivaTuner
-        // started after Veyra (or kept with 监控软件兼容 off) cannot take the device down.
+        // started after Veyra (or kept with monitoring software compatibility off) cannot take the device down.
         // RTSS reads the variable when it loads its profile here; a software interface
         // leaves it out (and clears it after a restart from a GPU-interface run).
         wchar_t current[64]{};
@@ -643,7 +643,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     }
     app.setWindowIcon(appIcon);
     veyra::log::info("app-icon", std::format("embedded window icon sizes={}", appIcon.availableSizes().size()));
-    // A GPU interface (设置 → 界面绘制 = GPU, or VEYRA_UI_RHI) draws with Direct3D 12, like the video. Qt's default is Direct3D 11,
+    // A GPU interface (Settings -> interface rendering = GPU, or VEYRA_UI_RHI) draws with Direct3D 12, like the video. Qt's default is Direct3D 11,
     // and a D3D11 device in the process changed how overlays treat it: RivaTuner (MSI
     // Afterburner) then crashed in d3d11.dll inside its own hooks while drawing its OSD on
     // the XeSS swapchain through D3D11On12 (field dumps 2026-10-01). 1.4.4 drew its UI with
@@ -796,7 +796,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
             outcome.toStdString(), cache.digest.isEmpty() ? "none" : cache.digest.toStdString(), cache.files, cache.bytes, ms));
     }
 
-    // The 日落 startup music (StartupMusic.h): the user's file next to the program, if any.
+    // The dusk startup music (StartupMusic.h): the user's file next to the program, if any.
     // Declared before the engine, so it outlives every QML reference to it.
     ui::StartupMusic startupMusic(updateProbe ? QString{} :
         QCoreApplication::applicationDirPath() + QStringLiteral("/media/startup-music.mp3"));
@@ -826,7 +826,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     // reference without anyone clicking. They go to QML as `vyTest`, never to the
     // bridge's saved settings: a test run must not rewrite the user's preferences.
     //   --tab <quality|fg|color|audio|display>   professional-page tab
-    //   --dialog <capture|ps5|screen|subtitle|audio|save|manage|tonode>
+    //   --dialog <capture|screen|subtitle|audio|save|manage|tonode>
     //   --aspect <ratio>        cinema aspect, overriding the source's own
     //   --menu <source|preset>  professional-page popover menu open
     //   --dock-pinned           dock open and held open
@@ -922,13 +922,13 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
             });
         } else if (a == QLatin1String("--fg-auto")) {
             // Test switch: turn the automatic multiplier on (or off with `--fg-auto off`).
-            // Same entry point the 自动选择倍率 switch uses, so the decision path is real.
+            // Same entry point the Auto-select multiplier switch uses, so the decision path is real.
             bool on = true;
             if (hasValue && args.at(i + 1) == QLatin1String("off")) { on = false; ++i; }
             QTimer::singleShot(0, &bridge, [&bridge, on] { bridge.setFgAutoMultiplier(on); });
         } else if (a == QLatin1String("--fg-auto-toggle") && hasValue) {
             // Test switch: after N ms pick a manual multiplier, then switch the automatic
-            // selection back on `back-ms` later. Reproduces 「开→手动→开」without clicking.
+            // selection back on `back-ms` later. Reproduces "On -> Manual -> On" without clicking.
             // Format: --fg-auto-toggle <set-ms> <manual> <back-ms>
             const int setMs = args.at(++i).toInt();
             int manual = 4;
@@ -1094,7 +1094,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         // every animation frame can starve input and timers before any source opens.
         if (!bridge.hasSource()) {
             // The window stays up for the presenter, but empty: the QML stage and its
-            // "正在连接" pill show instead of the last source's frozen frame.
+            // The "Connecting" pill show instead of the last source's frozen frame.
             if (bridge.openingSource()) { blankVideo("opening"); return; }
             if (IsWindowVisible(g_video)) {
                 veyra::log::info("qml-window", "follow: hide video because source snapshot is inactive");
@@ -1125,8 +1125,8 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
             syncVideoCovers(window, host, sceneInsetFraction(window));
     };
     // Hold-to-compare (V by default) is the bridge's application event filter:
-    // the key is rebindable (设置 → 快捷键) and can be switched off (显示 →
-    // 按住 V 查看原画). A second hard-wired V filter here used to override both.
+    // the key is rebindable (Settings -> shortcuts) and can be switched off (Display ->
+    // Hold V to view original). A second hard-wired V filter here used to override both.
     QObject::connect(window, &QQuickWindow::afterAnimating, &app, follow);
     QObject::connect(&bridge, &ui::QmlPlayerBridge::snapshotChanged, &app, follow);
     // The first frame may come before the page layout settles; one pass after the
@@ -1309,7 +1309,7 @@ int main(int argc, char** argv) {
     if (result != 42 || program.isEmpty()) return result;
     // Player, QML engine and QApplication have all been destroyed.
     if (QProcess::startDetached(program, arguments)) return 0;
-    MessageBoxW(nullptr, L"设置已保存，但自动重启失败。请重新打开软件。\nSettings saved. Automatic restart failed; please reopen Veyra.",
+    MessageBoxW(nullptr, L"Settings saved. Automatic restart failed; please reopen Veyra.",
                 L"Veyra", MB_OK | MB_ICONERROR);
     return 1;
 }

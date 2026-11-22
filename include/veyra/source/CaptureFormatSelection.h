@@ -85,7 +85,7 @@ inline bool captureMjpegFormat(const CaptureFormat& format){
     return pixel==L"MJPEG"||pixel==L"MJPG";
 }
 inline std::wstring captureResolutionLabel(const CaptureFormat& format){
-    if(format.automatic)return L"自动检测实际信号";
+    if(format.automatic)return L"Detect the input signal automatically";
     return std::format(L"{} × {}",format.width,format.height);
 }
 // The rates people pick. A driver rate counts as one of them within 0.15 %, which also covers
@@ -96,20 +96,20 @@ inline bool captureCommonFrameRate(double fps){
     return std::any_of(std::begin(common),std::end(common),[fps](double rate){return std::abs(fps-rate)<=rate*0.0015;});
 }
 inline std::wstring captureFrameRateLabel(const CaptureFormat& format){
-    if(format.automatic)return L"跟随实际信号";
-    if(format.fps<=0)return L"设备默认帧率";
+    if(format.automatic)return L"Follow the input signal";
+    if(format.fps<=0)return L"Device default frame rate";
     auto label=std::format(L"{:.3f} fps",format.fps);
     if(!format.scan.empty())label+=L" · "+format.scan;
     return label;
 }
 inline std::wstring capturePixelLabel(const CaptureFormat& format,bool ambiguous){
-    std::wstring label=format.pixel.empty()?L"未知格式":format.pixel;
+    std::wstring label=format.pixel.empty()?L"Unknown format":format.pixel;
     if(ambiguous){
         if(!format.scan.empty())label+=L" · "+format.scan;
         label+=std::format(L" [format {}] · {} x100ns",format.index,format.interval100ns);
     }
-    if(format.driverCurrent)label+=L" · 驱动默认";
-    if(!format.supported)label+=L" · 当前播放器不支持";
+    if(format.driverCurrent)label+=L" · Driver default";
+    if(!format.supported)label+=L" · Unsupported by this player";
     return label;
 }
 inline std::vector<CaptureFormatOption> captureResolutionOptions(std::span<const CaptureFormat> formats){
@@ -139,7 +139,7 @@ inline std::vector<CaptureFormatOption> captureFrameRateOptions(std::span<const 
     return out;
 }
 // Some drivers list every rate from 1 to 120 fps for each format (logs(18)). The menu shows
-// one row per common rate; the rest wait behind 显示全部可用帧率. The selected rate is always
+// one row per common rate; the rest wait behind "show all available frame rates". The selected rate is always
 // listed, and a resolution offering no common rate lists everything. Either list runs from the
 // highest rate down (signal-following/default rows first; progressive before interlaced).
 // `hidden` counts the rows the short list leaves out (0 when there is nothing more to show).

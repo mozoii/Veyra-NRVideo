@@ -8,15 +8,15 @@ DialogLayer {
     objectName: "screen-dialog"
     key: "screen"
     glyph: "monitor"
-    title: qsTr("屏幕捕获")
-    sub: qsTr("把一个窗口或整块显示器作为片源")
+    title: qsTr("Screen capture")
+    sub: qsTr("Use a window or a whole display as the source")
     dialogWidth: 700
     actions: [
-        { label: qsTr("取消") },
-        { label: qsTr("开始捕获"), primary: true }
+        { label: qsTr("Cancel") },
+        { label: qsTr("Start capture"), primary: true }
     ]
     onActionTriggered: label => {
-        if (label !== qsTr("开始捕获")) { dialogHost.close(); return }
+        if (label !== qsTr("Start capture")) { dialogHost.close(); return }
         if (veyra.startScreenCapture()) { dialogHost.close(); dialogHost.startScreen() }
     }
     Connections {
@@ -40,25 +40,25 @@ DialogLayer {
         return null
     }
 
-    DialogSection { text: qsTr("目标") }
+    DialogSection { text: qsTr("Target") }
     DialogGroup {
         VRow {
-            label: qsTr("类型")
+            label: qsTr("Type")
             VSeg {
                 objectName: "screen-kind"
-                options: [{ id: "0", label: qsTr("窗口") }, { id: "1", label: qsTr("显示器") }]
+                options: [{ id: "0", label: qsTr("Window") }, { id: "1", label: qsTr("Display") }]
                 current: String(screenDialog.o.kind)
                 onPicked: id => veyra.setScreenOption("kind", Number(id))
             }
         }
         VRow {
-            label: qsTr("捕获目标")
+            label: qsTr("Capture target")
             hint: {
-                if (veyra.screenTargets.length === 0) return qsTr("未找到可捕获的窗口或显示器")
+                if (veyra.screenTargets.length === 0) return qsTr("No window or display found to capture")
                 const lines = []
-                if (screenDialog.otherDesktopTarget) lines.push(qsTr("这个窗口在其他虚拟桌面上，不用切换桌面即可捕获；部分程序在所在桌面不显示时会暂停绘制"))
+                if (screenDialog.otherDesktopTarget) lines.push(qsTr("This window is on another virtual desktop and can be captured without switching to it; some programs stop drawing while their desktop is not shown"))
                 const gpu = screenDialog.otherGpuTarget
-                if (gpu) lines.push(qsTr("这个目标所在的显示器接在 %1 上，Veyra 在 %2 上处理：每帧画面都要由 Windows 在两块显卡之间复制，延迟更高。双显卡分工时，建议把显示器接到处理用的显卡上（笔记本可开独显直连）").arg(gpu.displayGpu).arg(gpu.processingGpu))
+                if (gpu) lines.push(qsTr("The display this target is on is connected to %1, while Veyra processes on %2: Windows copies every frame between the two GPUs, which adds latency. When two GPUs share the work, connect the display to the processing GPU (on a laptop, turn on the discrete-GPU-only (MUX) mode)").arg(gpu.displayGpu).arg(gpu.processingGpu))
                 return lines.join("\n")
             }
             RowLayout {
@@ -70,19 +70,19 @@ DialogLayer {
                     options: veyra.screenTargets
                     onPicked: id => veyra.screenTargetId = id
                 }
-                VButton { text: qsTr("刷新"); ghost: true; onClicked: veyra.refreshCaptureTargets() }
+                VButton { text: qsTr("Refresh"); ghost: true; onClicked: veyra.refreshCaptureTargets() }
             }
         }
     }
-    DialogSection { text: qsTr("游戏") }
+    DialogSection { text: qsTr("Game") }
     DialogGroup {
         VRow {
-            label: qsTr("游戏模式")
+            label: qsTr("Game mode")
             hint: screenDialog.o.kind === 0 && screenDialog.otherDesktopTarget && screenDialog.o.passthrough === true
-                  ? qsTr("游戏模式需要窗口和 Veyra 在同一个虚拟桌面：请把窗口移到当前桌面，或关闭游戏模式后直接捕获")
+                  ? qsTr("Game mode needs the window on the same virtual desktop as Veyra: move the window to the current desktop, or turn game mode off and capture it directly")
                   : screenDialog.o.kind === 1
-                  ? qsTr("开始后 Veyra 在这块屏幕上全屏，键鼠和手柄直接操作屏幕上的程序；%1 调整画面，%2 退出").arg(veyra.shortcuts.gamePanel).arg(veyra.shortcuts.gameExit)
-                  : qsTr("贴合原窗口时可精确穿透鼠标；填满或拉伸支持键盘和手柄，鼠标点击会被拦截以免错位。%1 调整画面，%2 退出；独占全屏请改为无边框窗口").arg(veyra.shortcuts.gamePanel).arg(veyra.shortcuts.gameExit)
+                  ? qsTr("Veyra opens fullscreen on this display. Keyboard, mouse and controller operate its programs; %1 adjusts the picture and %2 exits.").arg(veyra.shortcuts.gamePanel).arg(veyra.shortcuts.gameExit)
+                  : qsTr("Original-window alignment supports precise mouse passthrough. Fill/stretch supports keyboard and gamepad; mouse clicks are blocked to prevent misalignment. %1 adjusts the picture; %2 exits. Use borderless instead of exclusive fullscreen.").arg(veyra.shortcuts.gamePanel).arg(veyra.shortcuts.gameExit)
             VSwitch {
                 objectName: "screen-game-mode"
                 checked: screenDialog.o.passthrough === true
@@ -90,11 +90,11 @@ DialogLayer {
             }
         }
     }
-    DialogSection { text: qsTr("采集") }
+    DialogSection { text: qsTr("Capture") }
     DialogGroup {
         VRow {
-            label: qsTr("采集方式")
-            hint: screenDialog.o.kind === 1 ? qsTr("DXGI 为显示器兼容方式，无鼠标指针；捕获显示器时不显示黄色边框，Veyra 自己也不会出现在截图和录屏里") : qsTr("窗口只能用 Windows Graphics Capture")
+            label: qsTr("Capture method")
+            hint: screenDialog.o.kind === 1 ? qsTr("DXGI is the display-compatible mode, without the mouse pointer. A display capture shows no yellow border, and Veyra itself stays out of screenshots and recordings") : qsTr("Windows can only be captured with Windows Graphics Capture")
             VSeg {
                 enabled: screenDialog.o.kind === 1
                 opacity: enabled ? 1 : 0.5
@@ -104,19 +104,19 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("帧率上限")
-            hint: qsTr("如果要开启 DLSS5（NR），建议帧率设置 60，减少 DLSS5 需要处理的画面量，减轻负担")
+            label: qsTr("Frame rate cap")
+            hint: qsTr("If you turn on DLSS5 (NR), set the frame rate limit to 60: DLSS5 then has fewer frames to process and less load")
             hintColor: Theme.err
             hintBelow: true
             VSeg {
-                options: [{ id: "0", label: qsTr("跟随") }, { id: "1", label: "30" }, { id: "2", label: "60" }, { id: "3", label: "120" }, { id: "4", label: "144" }, { id: "5", label: "240" }]
+                options: [{ id: "0", label: qsTr("Follow") }, { id: "1", label: "30" }, { id: "2", label: "60" }, { id: "3", label: "120" }, { id: "4", label: "144" }, { id: "5", label: "240" }]
                 current: String(screenDialog.o.fps)
                 onPicked: id => veyra.setScreenOption("fps", Number(id))
             }
         }
         VRow {
-            label: qsTr("显示鼠标指针")
-            hint: screenDialog.o.passthrough === true ? qsTr("游戏模式用真实指针，画面里不再画一个") : ""
+            label: qsTr("Show mouse pointer")
+            hint: screenDialog.o.passthrough === true ? qsTr("Game mode uses the real pointer, so the picture does not draw a second one") : ""
             VSwitch {
                 enabled: screenDialog.o.method === 0 && screenDialog.o.passthrough !== true
                 opacity: enabled ? 1 : 0.5
@@ -125,8 +125,8 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("裁剪（像素）")
-            hint: screenDialog.o.passthrough === true ? qsTr("游戏模式不裁剪；贴合原窗口时画面与鼠标位置一一对应") : qsTr("左 / 上 / 右 / 下，按源像素")
+            label: qsTr("Crop (pixels)")
+            hint: screenDialog.o.passthrough === true ? qsTr("Game mode does not crop the source. Original-window alignment preserves exact mouse positions.") : qsTr("Left / top / right / bottom, in source pixels")
             RowLayout {
                 spacing: 4
                 enabled: screenDialog.o.passthrough !== true
@@ -143,10 +143,10 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("可视化裁剪")
+            label: qsTr("Visual crop")
             VButton {
                 objectName: "screen-crop-preview"
-                text: qsTr("预览并拖拽")
+                text: qsTr("Preview and drag")
                 enabled: screenDialog.o.passthrough !== true && veyra.screenTargetId.length > 0
                 onClicked: {
                     if (!veyra.startScreenCapture(true)) return
@@ -156,11 +156,11 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("画面")
-            hint: screenDialog.o.passthrough === true ? qsTr("填满屏幕支持键盘和手柄；需要精确鼠标穿透时请选择贴合原窗口") : ""
+            label: qsTr("Picture")
+            hint: screenDialog.o.passthrough === true ? qsTr("Fill screen supports keyboard and gamepad. Choose original-window alignment for precise mouse passthrough.") : ""
             VSeg {
-                options: [{ id: "fit", label: screenDialog.o.passthrough === true ? qsTr("贴合原窗口") : qsTr("适应窗口") },
-                          { id: "fill", label: screenDialog.o.passthrough === true ? qsTr("填满屏幕") : qsTr("填满窗口") }]
+                options: [{ id: "fit", label: screenDialog.o.passthrough === true ? qsTr("Align to source window") : qsTr("Fit to window") },
+                          { id: "fill", label: screenDialog.o.passthrough === true ? qsTr("Fill screen") : qsTr("Fill the window") }]
                 current: screenDialog.o.fill ? "fill" : "fit"
                 onPicked: id => veyra.setScreenOption("fill", id === "fill")
             }

@@ -11,8 +11,8 @@ Item {
     VMenu { id: menu; title: "Long context menu" }
     VSelect {
         id: warningSelect; x: 12; y: 220; width: 250
-        value: "MJPEG（不建议使用）"
-        options: [{id:"nv12",label:"NV12"},{id:"jpeg",label:"MJPEG（不建议使用）",danger:true}]
+        value: "MJPEG (not recommended)"
+        options: [{id:"nv12",label:"NV12"},{id:"jpeg",label:"MJPEG (not recommended)",danger:true}]
     }
     VSelect {
         id: fgSelect
@@ -68,7 +68,7 @@ Item {
                     if(child instanceof VMenu) popup=child
                 mouseClick(warningSelect,warningSelect.width/2,warningSelect.height/2)
             } else {
-                popup.items=[{label:"画面增强 · Enhancement"},{label:"第二项 · Second choice"}]
+                popup.items=[{label:"Enhancement"},{label:"Second choice"}]
                 popup.openAt(warningSelect,"down")
             }
             tryVerify(()=>popup.visible)
@@ -93,7 +93,7 @@ Item {
         function test_rendered_spring_text() {
             if(!exportTestOutputDirectory.length)skip("Raster comparison uses an explicit private artifact directory")
             root.Window.window.width=900;root.Window.window.height=600;root.width=900;root.height=600
-            menu.items=[{label:"画面处理 Rendering 0123456789"},{label:"NR 内部分辨率 · Native resolution"}]
+            menu.items=[{label:"Rendering 0123456789"},{label:"NR internal resolution"}]
             menu.openAt(warningSelect,"down");tryCompare(menu,"opened",true);wait(30)
             const label=labels(menu.contentItem,[])[0]
             let motion=null
@@ -188,7 +188,7 @@ Item {
             compare(warningSelect.valueColor,Theme.err)
             warningSelect.value="NV12"
             compare(warningSelect.valueColor,Theme.t1)
-            warningSelect.value="MJPEG（不建议使用）"
+            warningSelect.value="MJPEG (not recommended)"
             menu.items=warningSelect.options
             menu.openAt(warningSelect,"at");tryCompare(menu,"opened",true)
             const items=labels(menu.contentItem,[])
@@ -199,7 +199,7 @@ Item {
         }
         function test_text_data() {
             return [{tag:"English",label:"Duplicate the selected enhancement node and reconnect its downstream output",width:900},
-                    {tag:"Chinese",label:"3840 × 2160 @ 59.94 fps · P010 · 原生格式 · HDR · 低延迟 · 驱动默认输入",width:900},
+                    {tag:"Chinese",label:"3840 × 2160 @ 59.94 fps · P010 · Native · HDR · Low latency · Driver default input",width:900},
                     {tag:"Japanese",label:"選択した画像補正ノードを複製して出力に再接続する",width:420},
                     {tag:"Narrow",label:"C:/A_very_long_folder_name/"+"unbroken".repeat(60),width:300}]
         }

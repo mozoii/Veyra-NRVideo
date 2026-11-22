@@ -1,7 +1,7 @@
 """Generate a matching FFmpeg rebuild script; does not install/replace DLLs.
 
 Run in a VS x64 developer environment, then invoke the emitted script with
-the supplied MSYS bash. The source must already have ps5-h264-slices.patch.
+the supplied MSYS bash. The source must already have ps5-h264-slices.patch applied.
 """
 import argparse
 import ctypes

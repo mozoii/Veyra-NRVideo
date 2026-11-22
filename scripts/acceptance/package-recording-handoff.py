@@ -30,24 +30,24 @@ def replace(path, data):
         path.unlink()
     path.write_bytes(data)
 
-note = '''# Veyra 2.1.0 录制修复测试版（rec2）
+note = '''# Veyra 2.1.0 recording fix test build (rec2)
 
-完整解压后运行 veyra_qml_ui.exe。软件内仍显示 2.1.0-rec；这是本地测试构建。
+After complete extraction run veyra_qml_ui.exe. The software still shows 2.1.0-rec; this is a local test build.
 
-- AMD 超分关闭修复已包含。
-- 专业模式截图旁录制按钮：3 秒倒计时，可取消；录制中显示时间，点击停止。
-- 设置 → 播放 → 录制：保存位置、自动/指定码率、帧率、H.264/HEVC、录制声音。
-- 录制处理后的画面和播放器的声音，播放器音量/静音不影响录音；采集卡需开启音频监听。
-- 改效果继续录制，输出尺寸或 HDR 模式变化时接着写 -2、-3 等新文件。
-- 暂停保留真实时间间隔，播放器停止或换片源会保存录制。
-- XeSS 插件内部生成帧不在引擎纹理池里，不能宣称录到这些生成帧。
-- NVIDIA 录制使用 D3D12 NVENC。AMD/Intel 使用系统硬件编码器，像素回读和编码在录制工作线程上；不把这个后端称为零拷贝。
-- HDR 录制仅 NVIDIA HEVC 10bit；本轮未做 HDR 录制验收。
+- AMD super-resolution off fix already included.
+- Professional mode screenshot-adjacent record button: 3-second countdown, cancellable; recording shows elapsed time, click to stop.
+- Settings -> Playback -> Recording: save location, auto/specified bitrate, frame rate, H.264/HEVC, record sound.
+- Records the post-processed picture and the player's sound; player volume/mute does not affect the recording; capture card needs audio monitoring enabled.
+- Continue recording across effect changes; on output size or HDR mode change, keeps writing new files -2, -3, etc.
+- Pause retains the real time gap; player stop or source change saves the recording.
+- XeSS plugin-internal generated frames do not live in the engine texture pool; cannot claim to have recorded those generated frames.
+- NVIDIA recording uses D3D12 NVENC. AMD/Intel uses the system hardware encoder, pixel readback and encoding on the recording worker thread; does not call this backend zero-copy.
+- HDR recording is NVIDIA HEVC 10bit only; no HDR recording acceptance this round.
 
-本机通过：AMD 核显超分开关、1080p60 带声录制、约62秒连续录制、4倍补帧、FSR切分辨率、暂停恢复、4K文件录制、H.264/HEVC、限帧/静音/关闭音轨、连续启停和错误目录。
-详见 docs/CLAUDE_HANDOFF_REPORT_2026-10-22.md。未做长时间稳定性、真实采集卡/主机串流、其他显卡和屏幕光学延迟验收。
-隔离环境中切到 DLSS SR 有 CreateFeature 卡住的问题，不录制对照也会出现；此项单列，不能说已经修复。
-Lecram 按用户要求暂停，不包含在此包。未合并 main、未推送或公开发布。
+This machine passes: AMD integrated-GPU super-resolution toggle, 1080p60 with-sound recording, ~62s continuous recording, 4x frame-gen, FSR resolution switching, pause recovery, 4K file recording, H.264/HEVC, frame-limit/mute/no-audio-track, repeated start-stop and bad-directory handling.
+See docs/CLAUDE_HANDOFF_REPORT_2026-10-22.md. No long-term stability, real capture card/host stream, other GPUs or screen optical latency acceptance.
+In the isolated environment, switching to DLSS SR has the CreateFeature-hang problem, which also appears without a recording control; recorded separately, cannot claim it fixed.
+Lecram is paused per the user's request, not included in this package. Not merged to main, not pushed or published.
 '''
 receipts = []
 for vendor in ('NVIDIA', 'AMD'):

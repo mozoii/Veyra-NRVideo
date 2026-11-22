@@ -10,7 +10,7 @@ Rectangle {
     property alias echoMode: field.echoMode
     signal edited(string text)
     // Every keystroke. editingFinished alone needs Enter or a focus change: typing a
-    // value and clicking 连接 (which takes no focus) or closing the dialog lost it.
+    // value and clicking Connect (which takes no focus) or closing the dialog lost it.
     signal typed(string text)
     implicitHeight: 30
     radius: 9

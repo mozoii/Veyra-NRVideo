@@ -44,20 +44,20 @@ getAddress().then(url => {
   selectedUrl = url;
   address.textContent = url;
   button.disabled = !url;
-  if (!url) showStatus('当前标签页没有可用的 HTTP 或 HTTPS 地址', false);
-}).catch(() => showStatus('无法读取当前标签页', false));
+  if (!url) showStatus('The current tab has no usable HTTP or HTTPS address', false);
+}).catch(() => showStatus('Could not read the current tab', false));
 
 button.addEventListener('click', async () => {
   if (!selectedUrl) return;
   button.disabled = true;
-  showStatus('正在连接 Veyra…', true);
+  showStatus('Connecting to Veyra…', true);
   try {
     const running = await fetch(endpoint + '/ping', {
       cache: 'no-store',
       signal: AbortSignal.timeout(2000)
     }).then(response => response.ok, () => false);
     if (!running) {
-      showStatus('正在通过协议启动 Veyra…', true);
+      showStatus('Starting Veyra via the protocol…', true);
       window.location.href = 'veyra://play?url=' + encodeURIComponent(selectedUrl);
       return;
     }
@@ -67,10 +67,10 @@ button.addEventListener('click', async () => {
       body: JSON.stringify({ url: selectedUrl }),
       signal: AbortSignal.timeout(5000)
     });
-    if (!response.ok) throw new Error('Veyra 拒绝了播放请求');
-    showStatus('地址已发送', true);
+    if (!response.ok) throw new Error('Veyra refused the play request');
+    showStatus('Address sent', true);
   } catch (error) {
-    showStatus(error.message || '发送地址失败', false);
+    showStatus(error.message || 'Failed to send address', false);
     button.disabled = false;
   }
 });

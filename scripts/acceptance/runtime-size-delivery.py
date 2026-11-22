@@ -36,30 +36,30 @@ if sys.argv[1]=='index':
             'hdrPlan':str(ROOT/'docs/HDR_DOVI_PR_REVIEW_2026-10-04.md'),'shutdown':'Requested by user; schedule only after delivery/index/source stored.'}
     write(OUT/'DELIVERY.json',record)
     mib=lambda n:f'{n/1048576:.1f}'
-    text=f'''# Veyra 完整本地测试包 · 2026-10-04
+    text=f'''# Veyra complete local test package · 2026-10-04
 
-首选 `{primary.name}`，{mib(primary.stat().st_size)} MiB，解压到新目录后运行 veyra_qml_ui.exe。
-备用 `{zipPath.name}`，{mib(zipPath.stat().st_size)} MiB。两者相同2076载荷+manifest。
-原VFG测试ZIP {mib(baseBytes)} MiB → 新7z {mib(primary.stat().st_size)} MiB，传输体积减少{record['primaryReductionPercent']:.1f}%。
-VFG运行目录474.8→201.0 MiB，九个未用NPP移除；AMD必要资源586.5 MiB保持原件。
-7z字典{chosen.get('dictionaryBytes',33554432)//1048576} MiB只影响解压内存，运行内存与文件内容保持。
+Preferred `{primary.name}`, {mib(primary.stat().st_size)} MiB, extract to a new directory and run veyra_qml_ui.exe.
+Fallback `{zipPath.name}`, {mib(zipPath.stat().st_size)} MiB. Both carry the same 2076 payloads + manifest.
+Original VFG test ZIP {mib(baseBytes)} MiB -> new 7z {mib(primary.stat().st_size)} MiB, transfer size reduced {record['primaryReductionPercent']:.1f}%.
+VFG runtime directory 474.8 -> 201.0 MiB, nine unused NPPs removed; AMD required resources keep 586.5 MiB.
+7z dictionary {chosen.get('dictionaryBytes',33554432)//1048576} MiB only affects extraction memory, runtime memory and file contents are kept.
 
-720p/4K各463 native checks、331 settings、21真实NVENC组合、热切换/预设/重启/缺库、High8冻结worker、
-新EXE极简边缘6例通过。最终独立解压所有文件SHA、官方7-Zip CRC/兼容性、包内VFG真实UI/worker、
-GPU和软件各六页背景alpha/正常退出通过；原桌面/main/2077原载荷隔离复核通过。
+720p/4K each 463 native checks, 331 settings, 21 real NVENC combinations, hot switch/preset/restart/missing-lib, High8 frozen worker,
+new EXE minimal edge 6 cases pass. Final independent unpack all file SHA, official 7-Zip CRC/compatibility, in-package VFG real UI/worker,
+GPU and software each six-page background alpha/normal exit pass; original desktop/main/2077 original-payload isolation re-check passes.
 
-包含Xbox音频/重连、导出码率、RTSS背景与取消NVIDIA App误检测修复、AMD NR、VFG全部档位和极简边缘修复。
-仅RTX5070/616.56短测。RX9000推理、Xbox实机长稳、RTX40/616.92、HDR色度、实屏DPI/物理显示延迟/长稳未验。
+Includes Xbox audio/reconnect, export bitrate, RTSS background and cancel of NVIDIA App false detection fix, AMD NR, all VFG tiers and minimal edge fixes.
+Only RTX5070/616.56 short test. RX9000 inference, Xbox physical-machine long-term stability, RTX40/616.92, HDR chroma, physical screen DPI/physical display latency/long-term stability unverified.
 
-HDR/DV PR13/14未施工或合并。#13修正P5 offset/完整曲线/MMR；#14先补构建依赖、改亮度统计range/array/延迟/reset。
-接着解决预设版本/worker ABI，统一“输入格式—HDR处理卡—实际输出/显示校准”，参考与实机验收后按用户批准合并。
-详细方案另见同目录 HDR_DOVI_PR_REVIEW_2026-10-04.md。
+HDR/DV PR13/14 not built or merged. #13 fixes P5 offset/full curve/MMR; #14 first adds build dependencies, changes brightness stats range/array/latency/reset.
+Then solve preset version/worker ABI, unify "input format -> HDR processing card -> actual output/display calibration", merge per user approval after reference and physical-machine acceptance.
+Detailed plan: HDR_DOVI_PR_REVIEW_2026-10-04.md in the same directory.
 
 compiledCodeCommit: {manifest['baseCommit']}
-sourceArchiveCommit: {source['sourceArchiveCommit']}（产品代码相同，后续仅报告/验收脚本）
-源码ZIP `{Path(source['source']).name}`，SDK/模型/runtime不含在源码内；这是项目源码，不冒充完整第三方公开源码审计。
-Git bundle `{Path(bundle['path']).name}`已verify。哈希/完整证据/源码与存档位置见DELIVERY.json及.sha256。
-没有merge main、push或GitHub Release。完成保存后按用户要求安排正常关机。
+sourceArchiveCommit: {source['sourceArchiveCommit']} (product code identical, only report/acceptance scripts after that)
+Source ZIP `{Path(source['source']).name}`, SDK/model/runtime not included in the source; this is project source, not a complete third-party open-source audit.
+Git bundle `{Path(bundle['path']).name}` verified. Hashes/full evidence/source and archive location: DELIVERY.json and .sha256.
+No merge main, push or GitHub Release. Per user request, schedule normal shutdown after delivery/index/source is stored.
 
 7z SHA256: {chosen['sha256']}
 ZIP SHA256: {archive['archives'][0]['sha256']}

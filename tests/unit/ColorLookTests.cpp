@@ -31,16 +31,16 @@ int wmain(int argc,wchar_t** argv){
         ColorLookStore store(directory);
         check(store.load(),"a missing store loads empty");
         const auto colour=sample();
-        check(store.put(L"夜景",colour,false),"saving a named look works");
-        check(store.put(L"夜景",colour,false)==false,"duplicate names are refused without replace");
+        check(store.put(L"Evening",colour,false),"saving a named look works");
+        check(store.put(L"Evening",colour,false)==false,"duplicate names are refused without replace");
         ColorLookStore reloaded(directory);
         check(reloaded.load()&&reloaded.entries().size()==1,"the look survives a reload");
         check(reloaded.entries()[0].color==colour,"every colour field round trips");
         check(reloaded.entries()[0].color.lutNameString()==L"probe.cube","the referenced LUT name round trips");
-        check(store.exportFile(0,directory/"夜景.vpcolor"),"export writes a .vpcolor file");
+        check(store.exportFile(0,directory/"Evening.vpcolor"),"export writes a .vpcolor file");
         ColorLookStore other(directory/"other");
         std::wstring imported;
-        check(other.load()&&other.importFile(directory/"夜景.vpcolor",imported)&&imported==L"夜景",
+        check(other.load()&&other.importFile(directory/"Evening.vpcolor",imported)&&imported==L"Evening",
             "importing the exported file restores the name");
         check(other.entries().size()==1&&other.entries()[0].color==colour,"imported parameters match");
         {
@@ -48,8 +48,8 @@ int wmain(int argc,wchar_t** argv){
             broken<<"VEYRA_COLOR_LOOK 1\n\"x\" 1 2 3\n";
         }
         std::wstring name;check(!other.importFile(directory/"broken.vpcolor",name)&&!other.error().empty(),"a truncated import is rejected");
-        check(store.put(L"日景",sample(),false)&&store.entries().size()==2,"a second look is stored");
-        check(store.erase(0)&&store.entries().size()==1&&store.entries()[0].name==L"日景","delete removes only the selected look");
+        check(store.put(L"Daylight",sample(),false)&&store.entries().size()==2,"a second look is stored");
+        check(store.erase(0)&&store.entries().size()==1&&store.entries()[0].name==L"Daylight","delete removes only the selected look");
         {
             std::ofstream corrupt(directory/"color-looks.v1",std::ios::binary);
             corrupt<<"NOT_A_STORE 9\n";

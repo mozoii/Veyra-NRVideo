@@ -1,5 +1,5 @@
 // One anti-aliasing instance's parameters (#53), shared by the list page's
-// 抗锯齿 card and the node page's anti-aliasing node, so both edit the same
+// Anti-aliasing card and the node page's anti-aliasing node, so both edit the same
 // values through the same bridge calls (as NrLayerEditor does for NR).
 import QtQuick
 import QtQuick.Layouts
@@ -18,20 +18,20 @@ ColumnLayout {
     readonly property var dlssCapability: (veyra.effectCapabilities || {}).sr0 || {}
     readonly property bool dlaaAvailable: dlssCapability.available === true
     readonly property var qualityChoices: method === 0
-        ? [{id: "0", label: qsTr("中")}, {id: "1", label: qsTr("高")}, {id: "2", label: qsTr("极高")}]
-        : [{id: "0", label: qsTr("低")}, {id: "1", label: qsTr("中")}, {id: "2", label: qsTr("高")}, {id: "3", label: qsTr("极高")}]
+        ? [{id: "0", label: qsTr("Medium")}, {id: "1", label: qsTr("High")}, {id: "2", label: qsTr("Ultra")}]
+        : [{id: "0", label: qsTr("Low")}, {id: "1", label: qsTr("Medium")}, {id: "2", label: qsTr("High")}, {id: "3", label: qsTr("Ultra")}]
 
     Text {
         Layout.fillWidth: true
-        text: qsTr("去除锯齿边缘，适合游戏画面、文字和界面线条。列表模式开着 NR 时排在 NR 之后，NR 重新勾出的边缘也会处理；不开 NR 时在源分辨率、超分之前运行，锯齿不会被一起放大。")
+        text: qsTr("Removes jagged edges, for game footage, text and interface lines. In list mode with NR on it runs after NR, so the edges NR redraws are smoothed too; without NR it runs at source resolution before super resolution, so the jaggies are not enlarged with the picture.")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11; wrapMode: Text.WordWrap
     }
     VRow {
-        label: qsTr("方式")
-        hint: editor.method === 0 ? qsTr("FXAA：最快，整体略柔")
-            : editor.method === 1 ? qsTr("SMAA：边缘判断更准，细节保留更好")
-            : editor.method === 3 ? qsTr("DLAA：NVIDIA DLSS 在原分辨率运行，按光流跨帧重建边缘；用 DLSS SR 的模型，比其他方式更耗时。采集画面没有游戏那样的抖动采样，效果比游戏内 DLAA 弱")
-            : qsTr("MLAA：形态学抗锯齿，阈值与强度可调")
+        label: qsTr("Method")
+        hint: editor.method === 0 ? qsTr("FXAA: fastest, slightly softer overall")
+            : editor.method === 1 ? qsTr("SMAA: more accurate edges, keeps more detail")
+            : editor.method === 3 ? qsTr("DLAA: NVIDIA DLSS at the native resolution, rebuilding edges across frames along the optical flow; it uses the DLSS SR model and costs more than the other methods. Captured pictures have no jittered samples like a game's, so the effect is weaker than in-game DLAA")
+            : qsTr("MLAA: morphological anti-aliasing with adjustable threshold and strength")
         VSeg {
             objectName: editor.namePrefix + "-method"
             options: [{id: "0", label: "FXAA"}, {id: "1", label: "SMAA"}, {id: "2", label: "MLAA"},
@@ -41,7 +41,7 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("质量")
+        label: qsTr("Quality")
         visible: editor.method !== 2 && editor.method !== 3
         VSeg {
             objectName: editor.namePrefix + "-quality"
@@ -51,8 +51,8 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("边缘阈值")
-        hint: qsTr("亮度差超过它才算边缘；越低，处理的边缘越多")
+        label: qsTr("Edge threshold")
+        hint: qsTr("A brightness step above this counts as an edge; lower values treat more edges")
         visible: editor.method === 2
         value: Number(editor.params.mlaaThreshold ?? 0.08).toFixed(2)
         VSlider {
@@ -66,7 +66,7 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("强度")
+        label: qsTr("Strength")
         visible: editor.method === 2
         value: Number(editor.params.mlaaStrength ?? 1).toFixed(2)
         VSlider {
@@ -80,19 +80,19 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("时域累积")
-        hint: qsTr("实验：采集画面无法抖动，这是 SMAA T2x / 4x 的不抖动近似；静止画面更稳，运动处可能拖影")
+        label: qsTr("Temporal accumulation")
+        hint: qsTr("Experimental: captured frames cannot be jittered, so this approximates SMAA T2x / 4x without jitter; steadier on still scenes, may ghost on motion")
         visible: editor.method === 1
         VSeg {
             objectName: editor.namePrefix + "-temporal"
-            options: [{id: "0", label: qsTr("关闭")}, {id: "1", label: "T2x"}, {id: "2", label: "4x"}]
+            options: [{id: "0", label: qsTr("Close")}, {id: "1", label: "T2x"}, {id: "2", label: "4x"}]
             current: String(editor.temporal)
             onPicked: id => editor.edited("temporal", Number(id))
         }
     }
     VRow {
-        label: qsTr("历史权重")
-        hint: qsTr("越高越平滑，运动拖影也越多")
+        label: qsTr("History weight")
+        hint: qsTr("Higher is smoother but ghosts more on motion")
         visible: editor.method === 1 && editor.temporal > 0
         value: Number(editor.params.historyWeight ?? 0.5).toFixed(2)
         VSlider {
@@ -106,8 +106,8 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("历史拒绝")
-        hint: qsTr("画面变化超过时丢弃历史；越高越不容易拖影")
+        label: qsTr("History rejection")
+        hint: qsTr("Drops the history where the picture changes by more; higher means less ghosting")
         visible: editor.method === 1 && editor.temporal > 0
         value: Number(editor.params.historyRejection ?? 8).toFixed(1)
         VSlider {

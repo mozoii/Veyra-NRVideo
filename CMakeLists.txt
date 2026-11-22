@@ -6,7 +6,7 @@ project(veyra VERSION 2.2.0 LANGUAGES C CXX)
 if(WIN32)
   enable_language(RC)
 endif()
-# Moonlight/Xbox have C sources independently of the optional PS5 backend.
+# Moonlight/Xbox have C sources independently of the experimental JSON-free pipeline.
 # Shown in the EXE's version resource and in the package name. CMake versions
 # must be numeric, so the beta marker lives here instead.
 set(VEYRA_DISPLAY_VERSION "${PROJECT_VERSION}" CACHE STRING "Human-readable version string")
@@ -66,9 +66,8 @@ set(VEYRA_CLIP_TOOLS_ROOT "" CACHE PATH "vcpkg-installed x64-windows root with o
 
 option(VEYRA_ENABLE_EXPERIMENTAL_DLSSNR
   "Enable local-only experimental Feature 18 adapter" OFF)
-option(VEYRA_ENABLE_REMOTEPLAY "Build PS5 Remote Play with pinned Chiaki source" OFF)
 option(VEYRA_ENABLE_MOONLIGHT "Build the Moonlight / Sunshine streaming core (pinned moonlight-common-c)" OFF)
-option(VEYRA_ENABLE_XBOX "Build Xbox home streaming (unofficial; libdatachannel from the vcpkg tree)" OFF)
+option(VEYRA_ENABLE_XBOX "Build Xbox home streaming (unofficial; libdatachannel from the vcpkg tree)" ON)
 option(VEYRA_ENABLE_DLSS_SR "Enable public DLSS SR backend" OFF)
 option(VEYRA_ENABLE_DLSS_FG "Enable public DLSSG backend" OFF)
 option(VEYRA_ENABLE_NVOF "Enable NVIDIA Optical Flow guidance" OFF)
@@ -342,7 +341,7 @@ endif()
 veyra_add_compute_shader(veyra_shader_yuv_to_rgb YuvToLinearRgb)
 veyra_add_compute_shader(veyra_shader_rgb_to_linear RgbToLinear)
 veyra_add_compute_shader(veyra_shader_color_grade ColorGradePass)
-# 纹理 / 清晰度 / 去朦胧: block statistics, blur, apply (ColorDetailPass).
+# Texture / clarity / dehaze: block statistics, blur, apply (ColorDetailPass).
 veyra_add_compute_shader(veyra_shader_color_detail_reduce ColorDetailReduce)
 veyra_add_compute_shader(veyra_shader_color_detail_blur ColorDetailBlur)
 veyra_add_compute_shader(veyra_shader_color_detail_apply ColorDetailApply)
@@ -822,14 +821,6 @@ if(VEYRA_FFMPEG_ROOT AND EXISTS "${VEYRA_FFMPEG_ROOT}/include/libavformat/avform
   # Matching FFmpeg imports and external libdovi propagate through veyra_media.
   target_link_libraries(veyra_sources PRIVATE d3d11 windowsapp dwmapi)
 
-  if(VEYRA_ENABLE_REMOTEPLAY)
-    set(VEYRA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
-    include(cmake/VeyraRemotePlay.cmake)
-    target_compile_definitions(veyra_sources PUBLIC VEYRA_ENABLE_REMOTEPLAY=1)
-    target_sources(veyra_sources PRIVATE src/source/RemotePlaySource.cpp src/source/RemotePlaySessionSource.cpp)
-    target_link_libraries(veyra_sources PUBLIC veyra_remoteplay_chiaki)
-  endif()
-
   if(VEYRA_ENABLE_MOONLIGHT)
     find_package(Opus CONFIG REQUIRED)
     target_compile_definitions(veyra_sources PUBLIC VEYRA_ENABLE_MOONLIGHT=1)
@@ -1291,7 +1282,7 @@ endif()
 # separate small library rather than into veyra_engine: the product build must
 # never depend on Qt being installed.
 if(VEYRA_BUILD_QML_UI AND Qt6_FOUND)
-  # The 日落 palette's startup music (StartupMusic.h): Media Foundation's media engine.
+  # The sunset palette's startup music (StartupMusic.h): Media Foundation's media engine.
   add_library(veyra_startup_music STATIC src/ui/StartupMusic.cpp include/veyra/ui/StartupMusic.h)
   set_target_properties(veyra_startup_music PROPERTIES AUTOMOC ON)
   target_compile_features(veyra_startup_music PUBLIC cxx_std_20)
@@ -1369,7 +1360,7 @@ if(VEYRA_BUILD_QML_UI AND Qt6_FOUND)
     src/ui/bridge/Capture.cpp
     src/ui/bridge/VirtualCaptureAudioSetup.cpp
     src/ui/bridge/VirtualCaptureAudioSetup.h
-    src/ui/bridge/RemotePlay.cpp
+    src/ui/bridge/Streaming.cpp
     src/ui/bridge/Export.cpp
     src/ui/bridge/Subtitles.cpp
     src/ui/bridge/Playback.cpp
@@ -1510,7 +1501,7 @@ if(VEYRA_BUILD_QML_UI AND Qt6_FOUND)
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/qml ${CMAKE_CURRENT_BINARY_DIR}/qml
     COMMENT "Copying QML")
   add_dependencies(veyra_qml_ui veyra_qml_files)
-  # Interface translations (设置 → 界面语言): one catalog, compiled in so a package
+  # Interface translations (Settings -> Interface language): one catalog, compiled in so a package
   # cannot ship without it. scripts/i18n/ builds it from the source strings.
   qt_add_resources(veyra_qml_ui "veyra_i18n" PREFIX "/i18n" BASE "${CMAKE_CURRENT_SOURCE_DIR}/i18n" FILES i18n/catalog.json)
   set(VEYRA_VB_CABLE_PACKAGE "" CACHE FILEPATH "Original VB-Audio Pack46 ZIP to include for optional offline installation")
@@ -1947,46 +1938,23 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
   target_compile_options(veyra_settings_layout_tests PRIVATE /utf-8)
   target_compile_definitions(veyra_settings_layout_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
   target_link_libraries(veyra_settings_layout_tests PRIVATE veyra_engine comctl32 comdlg32 shell32)
-  if(VEYRA_ENABLE_REMOTEPLAY)
-    add_executable(veyra_ps5_hw_image_tests tests/integration/Ps5HardwareImageTests.cpp)
-    add_executable(veyra_ps5_quality_tests tests/integration/Ps5SourceQualityTests.cpp)
-    target_compile_features(veyra_ps5_quality_tests PRIVATE cxx_std_20)
-    target_compile_definitions(veyra_ps5_quality_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(veyra_ps5_quality_tests PRIVATE veyra_engine)
-    target_compile_features(veyra_ps5_hw_image_tests PRIVATE cxx_std_20)
-    target_compile_definitions(veyra_ps5_hw_image_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(veyra_ps5_hw_image_tests PRIVATE veyra_engine)
+  if(VEYRA_ENABLE_MOONLIGHT OR VEYRA_ENABLE_XBOX)
     find_package(SDL3 3.4.14 EXACT CONFIG REQUIRED)
-    target_sources(veyra PRIVATE apps/veyra/ui/RemotePlayPanel.cpp src/remoteplay/ControllerInput.cpp)
+    target_sources(veyra PRIVATE src/input/ControllerInput.cpp)
     target_link_libraries(veyra PRIVATE SDL3::SDL3)
-    # P4-e: the QML front end forwards the PC controller to the PS5 the same way.
+    # P4-e: the QML front end forwards the PC controller the same way.
     # Only the SDL library file and headers: SDL3::SDL3's own system-library list
-    # pushed the veyra_qml_ui link line over CMake's response-file threshold, and
+    # pushes the veyra_qml_ui link line over CMake's response-file threshold, and
     # link.exe reads response files in the ANSI code page, which breaks the UTF-8
     # Qt paths under E:/项目. Those system libraries come from #pragma comment in
     # the private QmlPlayerBridge_p.h instead.
     if(TARGET veyra_qml_bridge)
-      target_sources(veyra_qml_bridge PRIVATE src/remoteplay/ControllerInput.cpp)
+      target_sources(veyra_qml_bridge PRIVATE src/input/ControllerInput.cpp)
       target_link_libraries(veyra_qml_bridge PUBLIC $<TARGET_LINKER_FILE:SDL3::SDL3-static>)
       target_link_libraries(veyra_qml_bridge PRIVATE SDL3::Headers)
     endif()
-    add_executable(veyra_remoteplay_source_tests tests/remoteplay/SourceTests.cpp)
-    target_compile_features(veyra_remoteplay_source_tests PRIVATE cxx_std_20)
-    target_compile_options(veyra_remoteplay_source_tests PRIVATE /utf-8)
-    target_compile_definitions(veyra_remoteplay_source_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_include_directories(veyra_remoteplay_source_tests PRIVATE ${FFMPEG_INCLUDE_DIRS})
-    target_link_libraries(veyra_remoteplay_source_tests PRIVATE veyra_sources veyra_gfx ${FFMPEG_LIBRARIES})
-    add_executable(veyra_remoteplay_boundary_tests tests/remoteplay/ProductBoundaryTests.cpp src/remoteplay/ControllerInput.cpp)
-    target_compile_features(veyra_remoteplay_boundary_tests PRIVATE cxx_std_20)
-    target_link_libraries(veyra_remoteplay_boundary_tests PRIVATE veyra_sources SDL3::SDL3)
-    add_executable(veyra_remoteplay_trigger_filter_tests tests/remoteplay/TriggerFilterTests.cpp)
-    target_compile_features(veyra_remoteplay_trigger_filter_tests PRIVATE cxx_std_20)
-    target_include_directories(veyra_remoteplay_trigger_filter_tests PRIVATE include)
-    add_executable(veyra_remoteplay_profile_tests tests/remoteplay/ProfileStoreTests.cpp)
-    target_compile_features(veyra_remoteplay_profile_tests PRIVATE cxx_std_20)
-    target_compile_definitions(veyra_remoteplay_profile_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(veyra_remoteplay_profile_tests PRIVATE veyra_remoteplay_chiaki)
   endif()
+
   target_compile_features(veyra PRIVATE cxx_std_20)
   target_compile_options(veyra PRIVATE /utf-8)
   target_link_libraries(veyra PRIVATE veyra_engine comctl32 comdlg32 shell32 dbghelp)
@@ -2022,17 +1990,6 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
     veyra_pipeline veyra_sources veyra_media veyra_ngx veyra_nvof veyra_sinks
     ${FFMPEG_LIBRARIES} dxgi shell32)
   add_dependencies(veyra_chain_hash_probe veyra_quality_probe)
-
-  # Headless Remote Play probe: drives the product session stack with a saved
-  # profile so codec/bitrate variants can be compared without the GUI.
-  if(VEYRA_ENABLE_REMOTEPLAY)
-    add_executable(veyra_remoteplay_probe tools/remoteplay_probe/main.cpp)
-    target_compile_features(veyra_remoteplay_probe PRIVATE cxx_std_20)
-    target_compile_options(veyra_remoteplay_probe PRIVATE /WX-)
-    target_compile_definitions(veyra_remoteplay_probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-    target_include_directories(veyra_remoteplay_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(veyra_remoteplay_probe PRIVATE veyra_sources veyra_gfx ${FFMPEG_LIBRARIES})
-  endif()
 
   # Phase 6 realtime engine probe: decode -> SR -> NR -> NVOF -> DLSSG -> present.
   if(VEYRA_ENABLE_EXPERIMENTAL_DLSSNR AND EXISTS "${VEYRA_NVOF_SDK_ROOT}/NvOFInterface/nvOpticalFlowCommon.h")

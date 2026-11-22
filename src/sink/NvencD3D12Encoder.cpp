@@ -108,7 +108,7 @@ bool NvencD3D12Encoder::open(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
         veyra::log::info("nvenc",std::format("rate control CBR target={}Mbps",p.bitrateMbps));
     }else if(config.rateControl==ExportRateControl::Vbr){
         // Explicit user bitrate: VBR with the target as both average and peak,
-        // which is what "编码码率" means to users (the VBV cap keeps peaks
+        // which is what "encoding bitrate" means to users (the VBV cap keeps peaks
         // bounded so the average is actually met).
         const uint32_t bitsPerSecond=p.bitrateMbps*1000000u;
         preset.presetCfg.rcParams.rateControlMode=NV_ENC_PARAMS_RC_VBR;

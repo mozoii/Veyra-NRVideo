@@ -35,7 +35,7 @@ namespace {
 
 constexpr DXGI_FORMAT kFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 constexpr double kPi = 3.14159265358979323846;
-constexpr float kOldFlags = 0.0f;   // bilinear (what every non-PS5 source got)
+constexpr float kOldFlags = 0.0f;   // bilinear (what every source got before the shared sampler fix)
 constexpr float kFineFlags = 2.0f;  // fine sampling (now the default)
 
 int failures = 0;

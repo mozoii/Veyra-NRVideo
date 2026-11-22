@@ -85,7 +85,7 @@ inline constexpr size_t kFgMultiplierChoiceCount=sizeof(kFgMultiplierChoices)/si
 // default. Labels are the UI strings for the same order.
 inline constexpr uint32_t kExportBitrateChoices[]={0,6,10,16,24,40,60,100,150,200};
 inline constexpr size_t kExportBitrateChoiceCount=sizeof(kExportBitrateChoices)/sizeof(kExportBitrateChoices[0]);
-inline constexpr const wchar_t* kExportBitrateLabels[]={L"自动 · 恒定质量",L"6 Mbps",L"10 Mbps",L"16 Mbps",L"24 Mbps",L"40 Mbps",L"60 Mbps",L"100 Mbps",L"150 Mbps",L"200 Mbps"};
+inline constexpr const wchar_t* kExportBitrateLabels[]={L"Auto · constant quality",L"6 Mbps",L"10 Mbps",L"16 Mbps",L"24 Mbps",L"40 Mbps",L"60 Mbps",L"100 Mbps",L"150 Mbps",L"200 Mbps"};
 inline size_t exportBitrateIndex(uint32_t mbps){for(size_t i=0;i<kExportBitrateChoiceCount;++i)if(kExportBitrateChoices[i]==mbps)return i;return 0;}
 // videoSrQuality values: 0 = DLSS SR, 1..4 = RTX video SR quality steps,
 // 5 = AMD FSR upscaling (vendor neutral; verified on an NVIDIA adapter).
@@ -133,11 +133,11 @@ inline constexpr uint32_t kDlssSrModelCount=3;
 enum class CaptureAudioIngress { Auto, PcmOnly, BitstreamPreferred };
 constexpr std::wstring_view captureAudioIngressName(CaptureAudioIngress mode) {
     switch(mode) {
-    case CaptureAudioIngress::PcmOnly: return L"强制线性 PCM";
-    case CaptureAudioIngress::BitstreamPreferred: return L"位流优先（Dolby/DTS 直通解码）";
+    case CaptureAudioIngress::PcmOnly: return L"Force linear PCM";
+    case CaptureAudioIngress::BitstreamPreferred: return L"Bitstream first (Dolby/DTS passthrough decoding)";
     case CaptureAudioIngress::Auto: break;
     }
-    return L"自动（优先 PCM，必要时位流解码）";
+    return L"Auto (PCM first, bitstream decoding when needed)";
 }
 // Keep retired 0/1 IDs decodable; new builds migrate them to the SF slot.
 // 3 remains the explicitly selected NVIDIA original, 4 the AMD backend.
@@ -367,9 +367,9 @@ struct EnhancementSettings {
     //     frame at 6X against 1.4.0 hitting the full 3.0 of 3 at 4X.
     // Users reported 1.4.0 feeling better, so the looser rule is the default.
     bool fgStrictAdmission=false;
-    // 自动选择倍率开关（2026-10-24）：开启时 multiplier 只是占位/上次手动值，
-    // 实际档位在运行期由 displayFgAutoMultiplier(backend, 源帧率, 输出上限) 算出；
-    // 关闭时按 multiplier 走作者原版逻辑。只对 DLSS 和 VFG 开放。
+    // Auto-select multiplier switch (2026-10-24): when on, multiplier is only a placeholder/last manual value,
+    // and the real tier is computed at runtime by displayFgAutoMultiplier(backend, source fps, output ceiling);
+    // when off, multiplier follows the author's original logic. Open to DLSS and VFG only.
     bool fgAutoMultiplier=false;
     bool captureCompatible=false;
     // Capture audio ingress; requires a reconnect to take effect (the media type
@@ -487,27 +487,27 @@ struct EnhancementSettings {
     FlowQuality flow=FlowQuality::Balanced;
     OpticalFlowBackend opticalFlowBackend=OpticalFlowBackend::Nvidia;
     bool amdFlowHalfResolution=false;
-    // UI "边缘神盾": refined optical-flow motion for frame generation (edge refinement and
+    // UI "Edge Aegis": refined optical-flow motion for frame generation (edge refinement and
     // the uncovered-background fill): DLSS, FSR and ANR, and XeSS with the optical-flow
     // source (2026-11-13; VFG estimates its own motion). A global control kept in shell
     // preferences.
     bool fgMotionRefine=true;
-    // UI "DLSS 性能模式": NVIDIA's DLSS-G performance mode (ngx/DlssgLite.h),
+    // UI "DLSS performance mode": NVIDIA's DLSS-G performance mode (ngx/DlssgLite.h),
     // DLSS frame generation only. A global control kept in shell preferences.
     bool dlssgLite=false;
-    // UI "VFG 自动调控": live 2X VFG runs a pair with the next faster model when the
+    // UI "VFG auto-regulate": live 2X VFG runs a pair with the next faster model when the
     // chosen one would miss its refresh or the budget (LivePresentationTiming.h).
     // A global control kept in shell preferences.
     bool vfgAutoRegulate=false;
-    // UI "自适应倍率" (engine/AdaptiveFgMultiplier.h, from PushFPS): the multiplier is a
+    // UI "Adaptive multiplier" (engine/AdaptiveFgMultiplier.h, from PushFPS): the multiplier is a
     // ceiling and each source pair uses the one whose output lands closest to the target.
     // Changes only the per-pair multiplier, never the graph, so the configuration
     // comparisons below leave it out. A global control kept in shell preferences.
     bool fgAdaptive=false;
-    // UI "帧节奏修复" (engine/FramePacingRepair.h, from PushFPS): even times for a locked
+    // UI "Frame pacing repair" (engine/FramePacingRepair.h, from PushFPS): even times for a locked
     // game whose frames arrive unevenly (17/50 ms). Re-times frames on the engine thread only.
     bool pacingRepair=false;
-    // UI "HUD 自动锁定" (pipeline/HudLock.h, from PushFPS): a per-pixel HUD mask found every
+    // UI "Auto HUD lock" (pipeline/HudLock.h, from PushFPS): a per-pixel HUD mask found every
     // frame and kept out of graph frame generation. Its passes exist only when on.
     bool hudLock=false;
     ContentRate content=ContentRate::Transport;

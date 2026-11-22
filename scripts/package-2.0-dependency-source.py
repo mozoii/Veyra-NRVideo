@@ -32,8 +32,7 @@ with zipfile.ZipFile(target,'x',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
     old=BASE/'releases/1.4.4/final/Veyra-1.4.4-source.zip'
     assert digest(old.read_bytes())=='7d3a8efed76422eab536d714221f579f1478921b927149fbb5adffa8635c53ba'
     with zipfile.ZipFile(old) as src:
-        expected={'Veyra-1.4.1-FFmpeg-source.zip':'15a77217bedceb4280fc680d5c0761544170356ca85e871f1558b61c86ee5f02',
-                  'Veyra-1.4.1-RemotePlay-source.zip':'272e41bc128c9bd86d7a9a93e4f0150dd92db6b9d00909643336b9e01561f166'}
+        expected={'Veyra-1.4.1-FFmpeg-source.zip':'15a77217bedceb4280fc680d5c0761544170356ca85e871f1558b61c86ee5f02'}
         for name,sha in expected.items():
             data=src.read('Veyra-1.4.4-source/dependencies/'+name);assert digest(data)==sha
             put(z,'legacy-unchanged/'+name,data)
@@ -50,7 +49,6 @@ with zipfile.ZipFile(target,'x',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         if share.exists():tree(z,share,'xbox/'+dep+'/installed-share')
     tree(z,ROOT/'scripts/xbox','veyra/scripts/xbox')
     tree(z,ROOT/'scripts/moonlight','veyra/scripts/moonlight')
-    tree(z,ROOT/'scripts/remoteplay','veyra/scripts/remoteplay')
     put(z,'xbox/installed-status.txt',Path('C:/veyra-deps/xbox-installed/vcpkg/status').read_bytes())
     tree(z,vcpkg/'scripts','vcpkg/scripts')
     tree(z,vcpkg/'triplets','vcpkg/triplets')

@@ -31,11 +31,11 @@
             }
             if (read.indexOf(ticks) >= 0) {
                 const ov = fullBar.contentItem.Window.window.contentItem.parent
-                const ps = uitestText(ov, "PS5 串流"), xb = uitestText(ov, "Xbox 串流")
-                const a = ps ? ps.mapToGlobal(0, 0) : null, c = xb ? xb.mapToGlobal(0, 0) : null
+                const xb = uitestText(ov, "Xbox 串流"), ml = uitestText(ov, "Moonlight 串流")
+                const a = xb ? xb.mapToGlobal(0, 0) : null, c = ml ? ml.mapToGlobal(0, 0) : null
                 const s = (a ? Math.round(a.y) : "none") + "/" + (c ? Math.round(c.y) : "none")
                 spots.push(s)
-                veyra.logUi("uitest", "UITEST_NOTE open " + spots.length + " ps5/xbox y=" + s)
+                veyra.logUi("uitest", "UITEST_NOTE open " + spots.length + " xbox/moonlight y=" + s)
                 veyra.logUi("uitest", "UITEST_SHOT menu" + spots.length)
                 veyra.logUi("uitest", "UITEST_KEY 27")
             }

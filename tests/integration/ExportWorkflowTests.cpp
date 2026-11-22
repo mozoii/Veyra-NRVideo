@@ -144,7 +144,7 @@ int wmain(int argc,wchar_t** argv){
             auto s=finish(manager);collected(s);require(s.state==ExportState::Succeeded,"final retry did not succeed");
             require(s.encoded==20&&std::filesystem::exists(output),"final output incomplete");
             require(!manager.start(input,output,settings,false),"existing output overwritten");
-            require(manager.poll().message.find(L"已存在")!=std::wstring::npos,"startup reason was hidden");
+            require(manager.poll().message.find(L"already exists")!=std::wstring::npos,"startup reason was hidden");
         }else if(mode==L"split-rename-conflict"){
             SetEnvironmentVariableW(L"VEYRA_TEST_EXPORT_REMOVE_DEVICE_AT",L"24");
             SetEnvironmentVariableW(L"VEYRA_TEST_EXPORT_SAVE_DELAY_MS",L"1500");
@@ -158,7 +158,7 @@ int wmain(int argc,wchar_t** argv){
                 require(s.active(),"missed split export save boundary");
                 joined=s.temporaryPath+L".joined";
                 if(s.temporaryPath!=first&&std::filesystem::exists(joined)&&
-                    s.message.find(L"正在保存正式文件")!=std::wstring::npos)break;
+                    s.message.find(L"Saving the final file")!=std::wstring::npos)break;
                 Sleep(5);
             }while(GetTickCount64()<deadline);
             require(s.temporaryPath!=first&&std::filesystem::exists(joined),"no complete joined export");
@@ -248,7 +248,7 @@ int wmain(int argc,wchar_t** argv){
                 require(s.frozen.frameGenerationBackend==FrameGenerationBackend::Fsr,"FSR frozen job changed backend");
                 std::wcout<<L"FSR_TEXTURE_EXPORT source="<<s.sourceFrames<<L" encoded="<<s.encoded<<L" validGenerated="<<s.generated<<L" holds="<<s.holds<<L"\n";
             }
-            if(mode.find(L"skip")!=std::wstring::npos)require(s.message.find(L"未保留")!=std::wstring::npos,"skipped tracks not reported");
+            if(mode.find(L"skip")!=std::wstring::npos)require(s.message.find(L"not kept")!=std::wstring::npos,"skipped tracks not reported");
             if(antiAlias){
                 require(s.frozen.antiAlias==settings.antiAlias,"frozen job lost the anti-aliasing settings");
                 std::ifstream log(s.workerLog);const std::string text((std::istreambuf_iterator<char>(log)),{});

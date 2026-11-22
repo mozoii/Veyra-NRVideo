@@ -41,32 +41,32 @@ constexpr bool displayFgMultiplierSelectable(FrameGenerationBackend backend,unsi
     return false;
 }
 
-// 「自动」倍率：按源帧率和目标上限挑档位。
-// 用户定义（2026-10-24）：24fps 配 120 上限选 5X，30fps 选 4X，以此类推；
-// 后端没有该档时向上取（DLSS 无 5X，24fps 就选 6X=144，再由输出上限裁回 120）。
-// 与 displayFgSuggestion 的区别：那条只往下建议、永不往上；这里允许往上取档。
-// 容差沿用 kDisplayFgFitTolerance（2%）：23.976×5=119.88 视作已达 120，选 5X 而非 6X。
-// ceiling：该后端此刻真正可选的最大倍率（显卡能力、DLSS 6 / VFG 8 / FSR 2）。
-// 与 FrameBatch::Capacity 一致，倍率的绝对上限是 8（一个批最多 1 真帧 + 7 生成帧）。
+// "Auto" multiplier: pick the tier from the source frame rate and the target ceiling.
+// User definition (2026-10-24): 24fps with a 120 ceiling picks 5X, 30fps picks 4X, and so on;
+// when the backend has no such tier the next one up is used (DLSS has no 5X, so 24fps picks 6X=144,
+// and the output ceiling clips it back to 120).
+// Unlike displayFgSuggestion: that only ever recommends lower, never higher; this allows taking the next tier up.
+// The tolerance is kDisplayFgFitTolerance (2%): 23.976x5=119.88 counts as reaching 120, so 5X is picked over 6X.
+// ceiling: the largest multiplier this backend can actually offer right now (GPU capability, DLSS 6 / VFG 8 / FSR 2).
+// Same as FrameBatch::Capacity: the absolute cap on the multiplier is 8 (at most 1 real frame + 7 generated frames per batch).
 inline constexpr unsigned kDisplayFgMultiplierCeiling=8;
-// 连最低档（2X）都超出上限时，只有源帧率离上限足够远才值得补：增益 = 上限-源，
-// 浪费 = 2×源-上限。两者相等时源 = 上限×2/3，超过这个比例就不补了
-// （上限 120 / 源 100、上限 144 / 源 100 都落在这一侧 → 关闭）。
-// 这是唯一需要"省 GPU"判断的地方：2X 都装不下时，补出来的大半会被裁掉。
+// When even the lowest tier (2X) overshoots the ceiling, only add it if the source rate is far enough below the target: gain = ceiling - source,
+// waste = 2x source - ceiling. Equality means source = ceiling x 2/3, and above that ratio no patch is added
+// (ceiling 120 / source 100, ceiling 144 / source 100 both fall on this side -> close it off).
+// This is the one place that needs a "save GPU" judgement: when 2X does not fit at all, most of what is patched gets clipped.
 inline constexpr double kDisplayFgAutoCloseAbove=2.0/3.0;
-// 返回 0 = 帧率未知/无可用档位（调用方保持原档），1 = 关闭补帧，其余为倍率。
+// Returns 0 = frame rate unknown/no usable tier (the caller keeps the current tier), 1 = turn patching off, otherwise the multiplier.
 //
-// 选档规则（用户 2026-10-24 定稿）：在自身可行档位里取「够得着 need 的最小档」，
-// 即让源帧率 × 倍率 刚好打满输出上限；后端没有该档时向上取。不额外做"省 GPU"的
-// 降档 —— 24/100 该给 5X（120 帧，超出 20 帧由上限裁掉），100/240 该给 3X，
-// 都是公式的自然结果，用户也明确要求这两格按公式走。
+// Tier rule (user 2026-10-24): among the tiers that work, pick the smallest one that reaches need,
+// so source fps x multiplier lands just on the output ceiling; when the backend lacks that tier, take the next one up. No extra "save GPU"
+// step down - 24/100 should get 5X (120 frames, 20 clipped by the ceiling), 100/240 should get 3X, both are the formula's natural result, and the user explicitly asked for these two cells to follow the formula.
 inline unsigned displayFgAutoMultiplier(FrameGenerationBackend backend,double contentFps,double targetFps,unsigned ceiling=kDisplayFgMultiplierCeiling){
     if(!std::isfinite(contentFps)||!std::isfinite(targetFps)||contentFps<=0||targetFps<=0||ceiling<2)return 0;
-    // 源帧率本身已达/超过上限：补帧没有增益，关闭。
+    // The source rate already reaches or exceeds the ceiling: patching has no gain, close it off.
     if(contentFps>=targetFps/kDisplayFgFitTolerance)return 1;
     const double doubled=contentFps*2.0;
-    // 连 2X 都放不进上限：只有源帧率远低于上限时才值得补，否则关掉
-    // （补了多半是被裁掉的帧，白耗 GPU）。
+    // Even 2X does not fit the ceiling: only add it when the source rate is far below the target, otherwise close it off
+    // (most of what was patched would be clipped frames, wasting GPU).
     if(displayFgMultiplierSelectable(backend,2)&&doubled>targetFps*kDisplayFgFitTolerance){
         if(contentFps>targetFps*kDisplayFgAutoCloseAbove)return 1;
         return 2u;
@@ -75,11 +75,11 @@ inline unsigned displayFgAutoMultiplier(FrameGenerationBackend backend,double co
     unsigned best=0;
     for(unsigned m=2;m<=ceiling&&m<=kDisplayFgMultiplierCeiling;++m){
         if(!displayFgMultiplierSelectable(backend,m))continue;
-        best=m;                 // 递增遍历，最后一个可行档即最大可用档
-        if(m>=need)return m;    // 第一个够得着 need 的档即最小够用档
+        best=m;                 // ascending pass, so the last usable tier is the largest one available
+        if(m>=need)return m;    // the first tier that reaches need is the smallest one that suffices
     }
-    // 没有档位够得到 need（例如 DLSS 上限 6 对 24fps/200 上限）：取最大可用档，
-    // 输出上限仍会把多出来的帧裁回目标值。
+    // No tier reaches need (e.g. DLSS ceiling 6 against 24fps/200 target): take the largest one available,
+    // and the output ceiling still clips the extra frames back to the target.
     return best;
 }
 

@@ -1,5 +1,5 @@
 #pragma once
-// 游戏模式 (屏幕捕获 → "游戏模式"): Veyra's fullscreen picture stays above what it
+// Game mode (screen capture → "game mode"): Veyra's fullscreen picture stays above what it
 // shows while that program keeps the foreground, so a game - or, for a monitor
 // capture, the whole desktop - gets the real keyboard, mouse and gamepad (Raw Input
 // and DirectInput only report to the foreground window; posted input does not work).

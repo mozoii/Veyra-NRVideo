@@ -33,7 +33,7 @@ Popup {
             Layout.fillWidth: true
             Text {
                 Layout.fillWidth: true
-                text: qsTr("采集格式与补帧指南")
+                text: qsTr("Capture format and frame generation guide")
                 color: Theme.t1
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsH2
@@ -42,7 +42,7 @@ Popup {
             }
             VButton {
                 objectName: "capture-guide-close"
-                text: qsTr("关闭")
+                text: qsTr("Close")
                 ghost: true
                 onClicked: guide.close()
             }
@@ -82,43 +82,43 @@ Popup {
                 font.family: Theme.fontUi
                 font.pixelSize: 14
                 text: guide.visible ? [
-                    "## " + qsTr("先选对采集格式"),
-                    qsTr("普通 SDR 游戏，我会先试 **1440p60 · NV12 · SDR · 709**。1080p 屏就从 1080p60 开始。先确认基础画面和帧率稳定，再开补帧和超分。"),
-                    qsTr("**采集原生 HDR10 时，P010 要配 HDR · PQ。** 主机开启 HDR，采集页「像素格式」选 **P010**，「输入色彩（SDR / HDR）」选 **HDR · PQ**，然后重新连接。**NV12、YUY2 和 RGB 在这套指南里都用 SDR · 709。**"),
+                    "## " + qsTr("Pick your capture format first"),
+                    qsTr("For a regular SDR game, I start with **1440p60 · NV12 · SDR · 709**. On a 1080p display, start at 1080p60. Check that the raw picture and capture rate are stable, then turn on frame generation and super resolution."),
+                    qsTr("**Use P010 with HDR · PQ for native HDR10 capture.** Enable HDR on your console, choose **P010** under Pixel format and **HDR · PQ** under Input color (SDR / HDR), then reconnect. **For NV12, YUY2 and RGB, use SDR · 709 in this setup.**"),
                     [
-                        "- **NV12** · " + qsTr("8 位 4:2:0。带宽省，跑高分辨率和高帧率时我优先用它。采集卡支持 4K60 NV12，也可以直接用。"),
-                        "- **YUY2** · " + qsTr("8 位 4:2:2，保留更多纵向色彩细节。卡上没有合适的 NV12 档位，或细小彩色文字确实需要 4:2:2 时，可以试它。"),
-                        "- **RGB** · " + qsTr("常见的是 RGB24，带宽更高。确实需要 RGB 或设备在该档只有 RGB 时再选。若自动去重一直报 60 帧，可以用 NV12 对照一下。"),
-                        "- **P010** · " + qsTr("10 位 4:2:0，主机确实在输出 HDR10 时配 **HDR · PQ**。P010 传 SDR 时仍按 SDR 读。卡带不动 4K60 HDR 的话，我会先试 1440p60 HDR。")
+                        "- **NV12** · " + qsTr("8-bit 4:2:0. It's light on bandwidth and my first choice for high resolution and high frame rates. If your card offers 4K60 NV12, give it a try."),
+                        "- **YUY2** · " + qsTr("8-bit 4:2:2, with more vertical color detail. Try it if there's no suitable NV12 mode or you need 4:2:2 for fine colored text."),
+                        "- **RGB** · " + qsTr("Usually RGB24, with a higher bandwidth cost. Pick it when the device offers only RGB for that mode or when you specifically need RGB. If automatic removal keeps reporting 60 fps, compare it with NV12."),
+                        "- **P010** · " + qsTr("10-bit 4:2:0. Pair it with **HDR · PQ** when the console is sending HDR10. If the P010 signal is SDR, read it as SDR. I'd try 1440p60 HDR first on a card that can't do 4K60 HDR.")
                     ].join("\n"),
-                    "## " + qsTr("30 帧游戏，我还是建议采 60 帧"),
-                    qsTr("我是 Veyra 的开发者。玩 GTA 6 这类 30 帧主机游戏，我会用下面这套设置。感谢大家一直在用，也把各种设备的实际效果告诉我。如果你之前用 OBS 或 PotPlayer 预览觉得有延迟，可以拿同一张卡、同一个档位在 Veyra 里试一下。"),
-                    qsTr("为什么 30 帧游戏也采 60？60 帧采集约每 16.7 ms 取一次画面，30 帧约每 33.3 ms 取一次。新画面有机会更早被采到，实际延迟还看采集卡和驱动。"),
-                    qsTr("举个例子。游戏原帧是 `ABCDEFG`，采到的可能是 `AABBCCDDEEFFGG`。相同的两张图之间补不出新的运动。在「补帧」里选 **60→30** 或 **自动去除**，让补帧从 `A→B→C` 这样的不同画面开始。锁 30 帧可先试 60→30，帧率经常变化就对照自动去除和实际内容帧率。"),
-                    "## " + qsTr("补帧模型和档位怎么挑"),
-                    qsTr("30 帧源我更喜欢 **VFG**。在我试过的场景里，低帧率用 DLSS 或 XeSS 更容易看到拖影和果冻感。我会先开 **VFG 中档 2X**，跑稳了再试高档。如果本机没有 VFG，就从可用后端的 2X 试起。"),
-                    qsTr("VFG 高档在显卡跑得动时真挺丝滑，但开销很大。我用 RTX 5070 在 4K 实测，高档单次补帧约 **20 ms**，中档开销约是高档的 **1/3–1/4**。多转几次镜头，看看耗时和帧节奏，再决定哪一档适合你的显卡。"),
-                    "## " + qsTr("超分，我常用这一档"),
-                    qsTr("Veyra 处理手上这张已经渲染好的画面，DLSS SR 在这里能发挥的空间有限。有 NVIDIA 显卡的话，我更推荐 **RTX 视频超分 · 标准 · 中**，画面变清楚，开销也比较好控。"),
-                    "## " + qsTr("我的采集延迟实测"),
-                    qsTr("原帖里记录的大致量级，具体会随设备和采集档位变化。"),
+                    "## " + qsTr("Why I still capture 30 fps games at 60"),
+                    qsTr("I develop Veyra. Here's what I'd use for GTA 6 or another console game running at 30 fps. Thanks for using it and telling me how it runs on your gear. If previewing in OBS or PotPlayer felt laggy, try the same card and capture mode in Veyra."),
+                    qsTr("Why capture a 30 fps game at 60? At 60 fps there's a capture opportunity about every 16.7 ms, compared with 33.3 ms at 30 fps. New frames can reach the PC sooner. The actual delay depends on your card and driver."),
+                    qsTr("Say the game outputs `ABCDEFG` and the card sends `AABBCCDDEEFFGG`. Two identical pictures give the interpolator no new motion to work with. In Frame Gen, choose **60→30** or **Automatic removal** so it handles distinct frames such as `A→B→C`. Start with 60→30 on a locked 30 fps game. If the rate moves around, compare Automatic removal with the game's actual frame rate."),
+                    "## " + qsTr("Picking a frame generation model and quality"),
+                    qsTr("For a 30 fps source, I prefer **VFG**. In the scenes I tried, DLSS and XeSS showed more ghosting and wobble at low input rates. Start at **VFG Medium 2X**. If that runs smoothly, try High. If VFG is unavailable, start at 2X with a backend your GPU supports."),
+                    qsTr("VFG High can look incredibly smooth and it's demanding. At 4K on my RTX 5070, a generated frame took about **20 ms** in High. Medium took around **one-third to one-quarter** as much time. Pan the camera a few times and check the timings and pacing to see which setting works on your GPU."),
+                    "## " + qsTr("The super resolution setting I use"),
+                    qsTr("Veyra works with a finished image, which limits what DLSS SR can do here. On an NVIDIA GPU, I reach for **RTX Video Super Resolution · Standard · Medium**. It sharpens up the picture without taking a big bite out of the GPU budget."),
+                    "## " + qsTr("Capture latency from my tests"),
+                    qsTr("These are approximate readings from the original post. Your card and capture mode will affect the numbers."),
                     "- 1440p60 NV12 · 10–20 ms\n- 4K60 NV12 · 30–40 ms\n- 4K30 P010 HDR · 80–100 ms",
-                    qsTr("很在意手感，我会选 **1440p60 NV12 再超分**。想兼顾预算和 HDR 观感，可以在 SDR 采集后开 **RTX 视频 HDR**。如果目标是原生 4K60 HDR 采集，我会看 PCIe 卡。"),
-                    "## " + qsTr("采集卡怎么挑"),
-                    qsTr("我选卡先看它能把哪种画面采进电脑。同一张卡的 HDMI 直通规格和实际采集规格分开看。"),
+                    qsTr("If you care most about responsiveness, I'd capture at **1440p60 NV12 and upscale**. For an HDR look on a budget, try **RTX Video HDR** after SDR capture. For native 4K60 HDR capture, I'd look at PCIe cards."),
+                    "## " + qsTr("Picking a capture card"),
+                    qsTr("Check what the card can deliver to the PC. HDMI passthrough and capture have separate specifications."),
                     [
-                        "- **5 Gbps USB** · " + qsTr("我主要看 1440p60、4K30 的 SDR 档位。原帖举例") + " · MICHENSEN T800/T900, KUHAIMI 27P/26P, ACASIS 007 Pro/009 Pro, AVerMedia GC553 Pro/GC551G2, Elgato HD60 X.",
-                        "- **10 Gbps USB** · " + qsTr("看 4K60 NV12、1440p60 HDR 或 4K30 HDR。原帖举例") + " · MICHENSEN T911, KUHAIMI G50, AVerMedia GC553G2, Elgato 4K X.",
-                        "- **PCIe** · " + qsTr("想要 4K60 HDR，可以看这些卡") + " · AVerMedia GC573, Elgato 4K Pro."
+                        "- **5 Gbps USB** · " + qsTr("I mainly look at 1440p60 and 4K30 SDR modes. Examples from the post") + " · MICHENSEN T800/T900, KUHAIMI 27P/26P, ACASIS 007 Pro/009 Pro, AVerMedia GC553 Pro/GC551G2, Elgato HD60 X.",
+                        "- **10 Gbps USB** · " + qsTr("Look for 4K60 NV12, 1440p60 HDR or 4K30 HDR. Examples from the post") + " · MICHENSEN T911, KUHAIMI G50, AVerMedia GC553G2, Elgato 4K X.",
+                        "- **PCIe** · " + qsTr("For 4K60 HDR, I'd look at these cards") + " · AVerMedia GC573, Elgato 4K Pro."
                     ].join("\n"),
-                    qsTr("我测过的同规格卡，延迟差通常在 5 ms 左右以内。先看你的分辨率、帧率和色彩模式能不能跑稳，再选牌子。祝你玩得开心！")
+                    qsTr("Comparable cards in my tests were usually within about 5 ms of each other. Pick one that handles your resolution, frame rate and color mode reliably. Enjoy your games!")
                 ].join("\n\n") : ""
             }
         }
 
         VButton {
             Layout.alignment: Qt.AlignRight
-            text: qsTr("阅读 Reddit 原帖")
+            text: qsTr("Read the Reddit post")
             ghost: true
             onClicked: Qt.openUrlExternally("https://www.reddit.com/r/GTA6unmoderated/comments/1xy9xff/how_to_properly_use_frame_generation_for_gta_6/")
         }

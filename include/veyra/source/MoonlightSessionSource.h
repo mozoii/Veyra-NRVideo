@@ -3,7 +3,7 @@
 
 // MoonlightSessionSource: one streaming session from a Sunshine / GameStream
 // host, presented to the engine through the same source contract as capture
-// cards and PS5 Remote Play. moonlight-common-c owns the network protocol
+// cards and Xbox home streaming. moonlight-common-c owns the network protocol
 // (RTSP, RTP, FEC, ENet control); this class launches the app on the host,
 // decodes the video with the shared hardware decoder path and plays the audio.
 // The effect chain (NR / SR / frame generation / colour) is not part of it.
@@ -23,7 +23,7 @@
 #include "veyra/moonlight/Client.h"
 #include "veyra/moonlight/InputMap.h"
 #include "veyra/moonlight/StreamConfig.h"
-#include "veyra/remoteplay/Types.h"
+#include "veyra/input/ControllerTypes.h"
 #include "veyra/sink/CaptureAudioSession.h"
 #include "veyra/source/IFrameSource.h"
 
@@ -117,10 +117,10 @@ public:
     // --- input: callable from any thread, ignored unless the stream is up ---------------------
     // Controller 0 only. The pad state is sent when it changes; a device or focus loss (an
     // inactive state) releases everything on the host.
-    void controller(const remoteplay::ControllerState& state);
+    void controller(const input::ControllerState& state);
     // Rumble the host asked for (and the last non-zero value again every 2 s, since the host
     // only reports changes and SDL rumble has to be renewed).
-    remoteplay::ControllerFeedback takeFeedback();
+    input::ControllerFeedback takeFeedback();
     void keyboard(uint32_t virtualKey, uint32_t scanCode, bool extended, bool down);
     void mouseMove(int dx, int dy);
     void mouseButton(int button, bool down);   // 1 left, 2 middle, 3 right, 4 X1, 5 X2

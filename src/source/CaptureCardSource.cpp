@@ -850,24 +850,24 @@ std::vector<CaptureFormat> enumerateFormats(IAMStreamConfig* config,bool preferD
                 const auto key=captureFormatIdentity(*type);if(key.empty()||!keys.insert(key).second)continue;
                 const auto pixel=capturePixelName(type->subtype);CaptureMediaLayout layout;
                 const bool valid=captureMediaLayout(*type,layout),knownRaw=capturePacking(type->subtype)!=CapturePacking::Unknown;
-                const wchar_t* support=valid?((layout.format==AV_PIX_FMT_P010||layout.format==AV_PIX_FMT_P016)?L"原生 · SDR":L"原生"):knownRaw?L"布局/颜色暂不支持":L"需系统解码/转换";
+                const wchar_t* support=valid?((layout.format==AV_PIX_FMT_P010||layout.format==AV_PIX_FMT_P016)?L"Native · SDR":L"Native"):knownRaw?L"Layout/color not supported yet":L"Needs system decoding/conversion";
                 const auto tier=valid?captureFormatTier(layout.packing):CaptureFormatTier::Decoded;
                 const int rank=valid?captureFormatRank(layout.packing):captureFormatRank(CapturePacking::Unknown);
                 const double fps=interval>0?1e7/interval:0;
-                const auto rateLabel=interval>0?std::format(L"{:.3f} fps",fps):L"设备默认帧率";
+                const auto rateLabel=interval>0?std::format(L"{:.3f} fps",fps):L"Device default frame rate";
                 const auto candidateHeader=dshow::captureVideoHeader(*type);
                 const bool interlaced=(candidateHeader.scan&AMINTERLACE_IsInterlaced)!=0;
                 std::wstring scan;
-                if(type->formattype==FORMAT_VideoInfo2)scan=interlaced?std::format(L"隔行（{:.2f} 场/秒）",fps*((candidateHeader.scan&AMINTERLACE_1FieldPerSample)?1:2)):L"逐行";
+                if(type->formattype==FORMAT_VideoInfo2)scan=interlaced?std::format(L"Interlaced ({:.2f} fields/s)",fps*((candidateHeader.scan&AMINTERLACE_1FieldPerSample)?1:2)):L"Progressive";
                 const auto scanMark=scan.empty()?std::wstring{}:L" · "+scan;
                 const bool supported=width<=3840&&height<=2160&&(!knownRaw||valid);
                 const bool current=!currentKey.empty()&&currentKey==key;
                 const bool rangeCandidate=width!=originalWidth||height!=originalHeight||
                     (interval!=*header.interval&&std::find(discrete.begin(),discrete.end(),interval)==discrete.end());
-                const auto rangeMark=rangeCandidate?L" · 范围候选（连接时验证）":L"";
+                const auto rangeMark=rangeCandidate?L" · Range candidate (verified on connection)":L"";
                 CaptureFormat format{capability.nativeIndex,width,height,fps,
                     std::format(L"{} x {} @ {}{} · {} · {} · {}{}{}{} [format {}]",width,height,rateLabel,scanMark,pixel,support,captureFormatTierLabel(tier),
-                        current?L" · 驱动默认":L"",supported?L"":L" · 当前播放器不支持",rangeMark,capability.nativeIndex),key,rank,int(tier),current,pixel,scan,interlaced,interval,supported};
+                        current?L" · Driver default":L"",supported?L"":L" · Unsupported by this player",rangeMark,capability.nativeIndex),key,rank,int(tier),current,pixel,scan,interlaced,interval,supported};
                 format.capability=int(capabilityIndex);format.rangeCandidate=rangeCandidate;out.push_back(std::move(format));
                 if(out.size()>=131072){if(query){query->partial=true;query->code=E_OUTOFMEMORY;query->stage=L"Capability candidate limit";}break;}
             }
@@ -895,9 +895,9 @@ std::vector<CaptureFormat> CaptureCardSource::formatsByPath(std::wstring_view de
     if(decklink::isPath(devicePath)){
         std::vector<CaptureFormat> out;
         for(const auto& device:decklink::devices())if(device.path==devicePath&&device.autoDetection)
-            out.push_back({0,0,0,0,L"自动检测实际信号 · BMD 原生",decklink::modeKey(0),0,0,true,L"自动选择像素格式",L"",false,0,true,true});
+            out.push_back({0,0,0,0,L"Detect input automatically · Native BMD",decklink::modeKey(0),0,0,true,L"Automatic pixel format",L"",false,0,true,true});
         int index=1;for(const auto& mode:decklink::modes(devicePath))out.push_back({index++,mode.width,mode.height,double(mode.scale)/mode.duration,
-            std::format(L"{} · {} x {} @ {:.3f} fps · {} · BMD 原生",mode.name,mode.width,mode.height,double(mode.scale)/mode.duration,mode.interlaced?L"隔行":L"逐行"),decklink::modeKey(mode.id),1,0,false,L"自动选择像素格式",mode.interlaced?L"隔行":L"逐行",mode.interlaced,int64_t(1e7*mode.duration/mode.scale),mode.width<=3840&&mode.height<=2160});
+            std::format(L"{} · {} x {} @ {:.3f} fps · {} · Native BMD",mode.name,mode.width,mode.height,double(mode.scale)/mode.duration,mode.interlaced?L"Interlaced":L"Progressive"),decklink::modeKey(mode.id),1,0,false,L"Automatic pixel format",mode.interlaced?L"Interlaced":L"Progressive",mode.interlaced,int64_t(1e7*mode.duration/mode.scale),mode.width<=3840&&mode.height<=2160});
         return out;
     }
     ComPtr<IGraphBuilder> g;ComPtr<ICaptureGraphBuilder2>b;ComPtr<IBaseFilter>f;ComPtr<IAMStreamConfig>c;HRESULT status=S_OK;
@@ -911,26 +911,26 @@ std::vector<CaptureFormat> CaptureCardSource::formatsByPath(std::wstring_view de
 }
 bool CaptureCardSource::showDeviceProperties(std::wstring_view devicePath,uintptr_t owner,bool inputSelector,std::wstring& error,std::wstring* changedFormatKey){
     error.clear();if(changedFormatKey)changedFormatKey->clear();
-    if(decklink::isPath(devicePath)){error=L"请在视频输入设备列表选择这张 BMD 卡对应的 HDMI/SDI 输入口，再选择自动检测或匹配信号的手动制式。Driver 条目保留驱动当前输入。";return false;}
+    if(decklink::isPath(devicePath)){error=L"Select this BMD card’s HDMI/SDI connector in the video device list, then choose automatic detection or the matching manual signal mode. Driver keeps the current driver input.";return false;}
     ComPtr<IGraphBuilder> graph;ComPtr<ICaptureGraphBuilder2> builder;ComPtr<IBaseFilter> device;ComPtr<IAMStreamConfig> config;
-    if(!configuration(devicePath,graph,builder,device,config)){error=L"无法打开驱动设置；请先断开采集并关闭占用设备的应用。";return false;}
+    if(!configuration(devicePath,graph,builder,device,config)){error=L"Cannot open driver settings. Disconnect capture and close applications using the device first.";return false;}
     AM_MEDIA_TYPE* before=nullptr;const HRESULT beforeHr=config->GetFormat(&before);
     const std::wstring beforeKey=SUCCEEDED(beforeHr)&&before?captureFormatIdentity(*before):L"";freeType(before);
     const auto setup=dshow::connectCaptureCrossbar(graph.Get(),builder.Get(),device.Get());
     HRESULT hr=setup.hr;
     if(SUCCEEDED(hr)){
-        if(inputSelector)hr=setup.filter?dshow::showPropertyPages(setup.filter.Get(),reinterpret_cast<HWND>(owner),L"采集输入选择"):E_NOINTERFACE;
+        if(inputSelector)hr=setup.filter?dshow::showPropertyPages(setup.filter.Get(),reinterpret_cast<HWND>(owner),L"Capture input selection"):E_NOINTERFACE;
         else{
-            hr=dshow::showPropertyPages(device.Get(),reinterpret_cast<HWND>(owner),L"采集设备驱动设置");
+            hr=dshow::showPropertyPages(device.Get(),reinterpret_cast<HWND>(owner),L"Capture device driver settings");
             if(hr==E_NOINTERFACE){ComPtr<IPin> pin;
                 if(SUCCEEDED(builder->FindPin(device.Get(),PINDIR_OUTPUT,&PIN_CATEGORY_CAPTURE,&MEDIATYPE_Video,FALSE,0,&pin)))
-                    hr=dshow::showPropertyPages(pin.Get(),reinterpret_cast<HWND>(owner),L"采集视频格式");}
+                    hr=dshow::showPropertyPages(pin.Get(),reinterpret_cast<HWND>(owner),L"Capture video format");}
         }
     }
     AM_MEDIA_TYPE* after=nullptr;const HRESULT afterHr=config->GetFormat(&after);
     if(changedFormatKey&&SUCCEEDED(hr)&&SUCCEEDED(afterHr)&&after){const auto key=captureFormatIdentity(*after);if(key!=beforeKey)*changedFormatKey=key;}freeType(after);
     log::info("capture-driver-settings",std::format("inputSelector={} crossbarHr=0x{:08X} beforeGetFormatHr=0x{:08X} afterGetFormatHr=0x{:08X} pageHr=0x{:08X} changedFormat={}",inputSelector,uint32_t(setup.hr),uint32_t(beforeHr),uint32_t(afterHr),uint32_t(hr),changedFormatKey&&!changedFormatKey->empty()));
-    if(FAILED(hr))error=hr==E_NOINTERFACE?L"驱动没有公开此设置页。Blackmagic 请用 Desktop Video Setup 选择 HDMI/SDI，并在采集面板匹配分辨率、帧率和逐行/隔行制式。":std::format(L"驱动设置无法打开（0x{:08X}）。",uint32_t(hr));
+    if(FAILED(hr))error=hr==E_NOINTERFACE?L"The driver does not provide this settings page. For Blackmagic, select HDMI/SDI in Desktop Video Setup and match the resolution, frame rate, and progressive/interlaced mode in the capture panel.":std::format(L"Cannot open driver settings (0x{:08X}).",uint32_t(hr));
     return SUCCEEDED(hr);
 }
 const SourceInfo& CaptureCardSource::info()const{return p_->info;}
@@ -1001,7 +1001,7 @@ bool CaptureCardSource::configureDeckLink(const SourceOpenDesc& desc){
     auto& p=*p_;CaptureSelection selection;if(!parseCapturePath(desc.path,selection))return false;
     const auto formats=formatsByPath(selection.videoPath);
     const auto* selected=selectCaptureFormat(formats,selection.format,selection.formatKey);
-    if(!selected){error_=L"此采集卡无此格式，请重新选择分辨率、帧率和像素格式。";return false;}
+    if(!selected){error_=L"This capture card does not offer this format. Choose a supported resolution, frame rate and pixel format.";return false;}
     p.decklink=std::make_unique<decklink::Capture>();
     if(!p.decklink->configure(selection.videoPath,selected->key,selection.audio==kCaptureAudioFromVideoDevice)){
         error_=p.decklink->error();p.decklink.reset();return false;
@@ -1017,24 +1017,24 @@ bool CaptureCardSource::configureDeckLink(const SourceOpenDesc& desc){
     case decklink::Pixel::V210:layout.packing=CapturePacking::V210;layout.format=AV_PIX_FMT_BGRA;break;
     case decklink::Pixel::Rgb10xLE:layout.packing=CapturePacking::Rgb10xLE;layout.format=AV_PIX_FMT_BGRA;break;
     }
-    if(layout.color.isHdrPath()&&input.pixel!=decklink::Pixel::V210&&input.pixel!=decklink::Pixel::Rgb10xLE){error_=L"BMD HDR 需要 10 位原生输入格式";p.decklink.reset();return false;}
+    if(layout.color.isHdrPath()&&input.pixel!=decklink::Pixel::V210&&input.pixel!=decklink::Pixel::Rgb10xLE){error_=L"BMD HDR requires a native 10-bit input format.";p.decklink.reset();return false;}
     p.info={};p.info.kind=pipeline::SourceKind::CaptureCard;p.info.width=input.width;p.info.height=input.height;
     p.info.displayAspect=double(input.width)/input.height;p.info.duration=pipeline::Rational::unknown();p.info.color=layout.color;
     p.info.averageFps=double(mode.scale)/mode.duration;p.info.nominalRateNum=int(mode.scale);p.info.nominalRateDen=int(mode.duration);
     p.info.timestampQuantum=1e-7;p.info.videoDecodePath="decklink";
     p.info.videoPixelFormatName=input.pixel==decklink::Pixel::V210?"v210":input.pixel==decklink::Pixel::Rgb10xLE?"R10l":input.pixel==decklink::Pixel::Uyvy8?"UYVY":"BGRA";
     if(selection.requestedFps>0&&!captureFrameRateMatches(selection.requestedFps,layout.duration)){
-        error_=std::format(L"BMD 实际信号为 {:.3f} FPS，与请求的 {:.3f} FPS 不一致；设为 0 可跟随实际信号",p.info.averageFps,selection.requestedFps);p.decklink.reset();return false;
+        error_=std::format(L"BMD signal is {:.3f} FPS, but {:.3f} FPS was requested. Set 0 to follow the signal.",p.info.averageFps,selection.requestedFps);p.decklink.reset();return false;
     }
     p.nominalDuration100ns=layout.duration;p.externalTimeAnchored=true;p.externalTimeOffset=0;
-    if(!p.allocateFrames(desc)){error_=L"BMD 采集帧缓冲分配失败";return false;}
+    if(!p.allocateFrames(desc)){error_=L"BMD capture frame allocation failed.";return false;}
     if(selection.audio==kCaptureAudioFromVideoDevice){
         WAVEFORMATEX wave{};wave.wFormatTag=WAVE_FORMAT_PCM;wave.nChannels=2;wave.nSamplesPerSec=48000;wave.wBitsPerSample=16;wave.nBlockAlign=4;wave.nAvgBytesPerSec=192000;
         p.audioSession=std::make_unique<sink::CaptureAudioSession>();
-        if(!p.audioSession->configure(wave,sizeof(wave))){p.audioSession.reset();p.audioError=L"BMD PCM 音频配置失败；视频继续运行";}
+        if(!p.audioSession->configure(wave,sizeof(wave))){p.audioSession.reset();p.audioError=L"BMD PCM audio configuration failed; video continues.";}
     }else if(captureAudioIsWasapi(selection.audio)){
         p.wasapi=std::make_unique<WasapiAudioInput>();
-        if(!p.wasapi->configure(selection.audioPath,selection.audio==kCaptureAudioVirtualSpeaker)){p.wasapi.reset();p.audioError=L"WASAPI 音频端点无效；视频继续运行";}
+        if(!p.wasapi->configure(selection.audioPath,selection.audio==kCaptureAudioVirtualSpeaker)){p.wasapi.reset();p.audioError=L"WASAPI audio endpoint is unavailable; video continues.";}
     }else if(selection.audio>=0){
         // Optional independent DirectShow audio, retaining the user's explicit
         // endpoint. Native video never opens a second DirectShow video stream.
@@ -1044,7 +1044,7 @@ bool CaptureCardSource::configureDeckLink(const SourceOpenDesc& desc){
         if(SUCCEEDED(hr)&&connectDirectShowAudio(desc))hr=p.graph.As(&p.control);
         else if(SUCCEEDED(hr))hr=E_FAIL;
         log::info("decklink-audio",std::format("separate DirectShow audio hr=0x{:08X}",uint32_t(hr)));
-        if(FAILED(hr))p.audioError=L"独立采集音频配置失败；BMD 原生视频继续运行";
+        if(FAILED(hr))p.audioError=L"Separate capture audio configuration failed; native BMD video continues.";
     }
     p.configured=true;reconnectDesc_=desc;reconnectFormat_=selected->key;reconnectInfo_=p.info;
     return true;
@@ -1058,17 +1058,17 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     const CaptureModeHint hint[]{captureKeyHint(selection.formatKey)};
     const auto available=enumerateFormats(p.config.Get(),false,p.device.Get(),formatPin.Get(),hint,&capabilities,&query);
     const auto* chosen=selectCaptureFormat(available,format,selection.formatKey);
-    if(!chosen){error_=std::format(L"采集格式无法恢复：{}（0x{:08X}），请刷新并重新选择。",query.stage,uint32_t(query.code));return false;}
+    if(!chosen){error_=std::format(L"Cannot restore capture format: {} (0x{:08X}). Refresh and select again.",query.stage,uint32_t(query.code));return false;}
     format=chosen->index;
-    if(!chosen->supported){error_=L"设备提供此格式，但当前播放器不支持其尺寸或像素布局，请选择其他格式";return false;}
-    if(chosen->capability<0||size_t(chosen->capability)>=capabilities.types.size()){error_=L"采集格式的能力记录已失效，请刷新后重试。";return false;}
+    if(!chosen->supported){error_=L"The device offers this format, but this player cannot handle its size or pixel layout. Choose another format";return false;}
+    if(chosen->capability<0||size_t(chosen->capability)>=capabilities.types.size()){error_=L"The capture capability record is no longer valid. Refresh and retry.";return false;}
     const std::wstring selectedKey=chosen->key;
     const double expectedFps=selection.requestedFps>0?selection.requestedFps:chosen->fps;
     const auto interval=selection.requestedFps>0?captureFrameInterval(selection.requestedFps):chosen->interval100ns;
     auto requested=dshow::captureTypeForMode(capabilities.types[size_t(chosen->capability)],chosen->width,chosen->height,interval);
-    if(!requested){error_=L"无法构造所选采集格式，请检查分辨率、帧率与驱动能力。";return false;}
+    if(!requested){error_=L"Cannot construct the selected capture format. Check resolution, frame rate and driver capabilities.";return false;}
     auto nativeOwner=dshow::cloneCaptureType(*requested);
-    if(!nativeOwner){error_=L"采集格式内存分配失败";return false;}
+    if(!nativeOwner){error_=L"Capture format memory allocation failed";return false;}
     // Existing connection code owns this pointer through freeType().
     AM_MEDIA_TYPE* native=static_cast<AM_MEDIA_TYPE*>(CoTaskMemAlloc(sizeof(AM_MEDIA_TYPE)));
     if(!native)return false;
@@ -1083,18 +1083,18 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     if(p.signalProbeEnabled)log::info("capture-bmd-compat",std::format("enabled={} legacyOverride={} allocator={} bufferRequirements={} connectType={} dibOrientation={} notSignalDetection=1",bmdCompat,bmdLegacy,bmdCompat?"upstream":"sink-default",bmdCompat?"driver":"N4",bmdCompat?"output-selected":"explicit",bmdCompat?"driver":"request-top-down"));
     const auto upstream=dshow::connectCaptureCrossbar(p.graph.Get(),p.builder.Get(),p.device.Get());
     log::info("capture-upstream",std::format("name={} inputMediums={} crossbar={} existing={} hr=0x{:08X} routeChanged=0",narrowForLog(deviceName),upstream.inputMediums,bool(upstream.filter),upstream.existing,uint32_t(upstream.hr)));
-    if(FAILED(upstream.hr)){error_=std::format(L"采集卡上游输入连接失败（0x{:08X}），请检查驱动与输入选择。",uint32_t(upstream.hr));freeType(native);return false;}
+    if(FAILED(upstream.hr)){error_=std::format(L"Capture card upstream input connection failed (0x{:08X}). Check the driver and selected input.",uint32_t(upstream.hr));freeType(native);return false;}
     configureAverToneMap(p.device.Get(),devicePath,native->subtype.Data1==MAKEFOURCC('P','0','1','0')||native->subtype.Data1==MAKEFOURCC('P','0','1','6'));
     log::info("capture-device",std::format("path={} selectedFormat={} requestedFps={} nativeSubtype=0x{:X}",narrowForLog(devicePath),format,expectedFps,native->subtype.Data1));
     HRESULT hr=p.config->SetFormat(native);const GUID requestedSubtype=native->subtype;
     const bool connectionNegotiation=hr==E_NOTIMPL;
     log::info("capture",std::format("SetFormat device={} nativeIndex={} subtype=0x{:08X} hr=0x{:08X} verifyConnection={}",index,format,native->subtype.Data1,uint32_t(hr),connectionNegotiation));
     freeType(native);native=nullptr;
-    if(FAILED(hr)&&!connectionNegotiation){error_=std::format(L"驱动拒绝所选采集格式（0x{:08X}），请重新选择。",uint32_t(hr));return false;}
+    if(FAILED(hr)&&!connectionNegotiation){error_=std::format(L"The driver rejected the selected capture format (0x{:08X}). Select another mode.",uint32_t(hr));return false;}
     hr=p.config->GetFormat(&native);
-    if(FAILED(hr)&&hr!=E_NOTIMPL&&hr!=E_NOINTERFACE){error_=std::format(L"读取协商后的采集格式失败（0x{:08X}）。",uint32_t(hr));freeType(native);return false;}
+    if(FAILED(hr)&&hr!=E_NOTIMPL&&hr!=E_NOINTERFACE){error_=std::format(L"Failed to read the negotiated capture format (0x{:08X}).",uint32_t(hr));freeType(native);return false;}
     if(SUCCEEDED(hr)&&native&&!connectionNegotiation&&!dshow::captureTypesMatch(*requested,*native)){
-        error_=L"驱动返回的分辨率、帧率、像素格式或扫描方式与所选模式不同，请重新选择。";freeType(native);return false;
+        error_=L"The driver returned a different resolution, frame rate, pixel format or scan mode. Select again.";freeType(native);return false;
     }
     // Drivers with unimplemented configuration methods must still accept the
     // exact type in ConnectDirect, whose actual media type is checked below.
@@ -1131,7 +1131,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     }
     if(native->subtype!=requestedSubtype){
         log::error("capture",std::format("Driver changed requested subtype 0x{:08X} to 0x{:08X}",requestedSubtype.Data1,native->subtype.Data1));
-        error_=L"采集卡返回的像素格式与所选格式不符，请重新选择采集格式。";
+        error_=L"The capture card returned a pixel format that differs from the selected one; choose the capture format again.";
         freeType(native);return false;
     }
     const bool direct=nativeSupported&&!desc.legacyCaptureRgbForDiagnostic;
@@ -1155,14 +1155,14 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
         if(SUCCEEDED(hr)){
             if(connected.formattype==FORMAT_VideoInfo2&&connected.cbFormat>=sizeof(VIDEOINFOHEADER2)){const auto& v=*reinterpret_cast<const VIDEOINFOHEADER2*>(connected.pbFormat);compressedWidth=unsigned(v.bmiHeader.biWidth);compressedHeight=unsigned(std::abs(int64_t(v.bmiHeader.biHeight)));compressedDuration=int64_t(v.AvgTimePerFrame);}
             else if(connected.formattype==FORMAT_VideoInfo&&connected.cbFormat>=sizeof(VIDEOINFOHEADER)){const auto& v=*reinterpret_cast<const VIDEOINFOHEADER*>(connected.pbFormat);compressedWidth=unsigned(v.bmiHeader.biWidth);compressedHeight=unsigned(std::abs(int64_t(v.bmiHeader.biHeight)));compressedDuration=int64_t(v.AvgTimePerFrame);}
-            if(!compressedWidth||!compressedHeight||compressedWidth%2||compressedHeight%2){log::error("capture-decode","compressed dimensions unusable; refusing implicit RGB conversion");error_=L"采集卡返回的压缩格式尺寸无效，请重新选择采集格式。";hr=VFW_E_INVALIDMEDIATYPE;}
+            if(!compressedWidth||!compressedHeight||compressedWidth%2||compressedHeight%2){log::error("capture-decode","compressed dimensions unusable; refusing implicit RGB conversion");error_=L"The capture card returned invalid compressed frame dimensions. Choose another capture format.";hr=VFW_E_INVALIDMEDIATYPE;}
         }
         if(SUCCEEDED(hr)){
             const auto extradata=captureCompressedExtradata(*native,codec);
             if(!p.compressedDecoder.open(codec,compressedWidth,compressedHeight,extradata.data(),extradata.size(),
                 static_cast<ID3D12Device*>(desc.d3d12Device),static_cast<ID3D12CommandQueue*>(desc.d3d12Queue))){
                 log::error("capture-decode",std::format("no usable decoder for codec={}; refusing implicit RGB conversion",captureCodecKey(codec)));
-                error_=L"所选采集格式的解码器初始化失败，请选择其他格式。";
+                error_=L"The decoder for the selected capture format could not initialize. Choose another format.";
                 hr=VFW_E_INVALIDMEDIATYPE;
             }else{
                 // Keep the shared device/queue alive for the decode worker.
@@ -1172,7 +1172,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
         }
         log::info("capture-decode",std::format("compressed ConnectDirect codec={} subtype=0x{:08X} size={}x{} hr=0x{:08X}",captureCodecKey(codec),native->subtype.Data1,compressedWidth,compressedHeight,uint32_t(hr)));
         if(FAILED(hr)){
-            if(error_.empty())error_=std::format(L"采集卡无法连接所选压缩格式（0x{:08X}），请重新选择。",uint32_t(hr));
+            if(error_.empty())error_=std::format(L"The selected compressed capture format could not connect (0x{:08X}). Choose another format.",uint32_t(hr));
             freeType(native);freeType(&connected,false);return false;
         }
     }else if(direct){
@@ -1194,7 +1194,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
         if(SUCCEEDED(hr)&&bmdCompat){
             const bool same=nativeCaptureContractsMatch(*native,connected);
             log::info("capture-bmd-compat",std::format("connectedContractMatches={} subtype=0x{:08X} converters=0",same,connected.subtype.Data1));
-            if(!same){error_=L"BMD 驱动返回的连接格式与所选模式不同，请按实际信号重新选择格式。";hr=VFW_E_INVALIDMEDIATYPE;}
+            if(!same){error_=L"The BMD driver connected with a different format. Select a format that matches the input signal.";hr=VFW_E_INVALIDMEDIATYPE;}
         }
         if(SUCCEEDED(hr)){
             ALLOCATOR_PROPERTIES actual{};
@@ -1223,11 +1223,11 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
         }
     }
     if(FAILED(hr)){
-        error_=std::format(L"采集卡无法连接所选格式（0x{:08X}），请检查设备占用并重新选择。",uint32_t(hr));
+        error_=std::format(L"The selected capture format could not connect (0x{:08X}). Check whether another app is using the device and choose the format again.",uint32_t(hr));
         freeType(native);freeType(&connected,false);return false;
     }
     if(SUCCEEDED(hr)&&(direct||compressedPath)&&!dshow::captureTypesMatch(*requested,connected)){
-        error_=L"实际连接的采集格式与所选模式不同，请刷新并重新选择。";
+        error_=L"The connected capture format differs from the selected mode. Refresh and select again.";
         log::error("capture-formats","connected media type differs from exact selection; refusing implicit mode substitution");
         freeType(native);freeType(&connected,false);return false;
     }
@@ -1258,7 +1258,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     }else{
         freeType(native);layoutValid=SUCCEEDED(hr)&&captureMediaLayout(connected,p.layout);freeType(&connected,false);
     }
-    if(!layoutValid){log::error("capture",std::format("unsupported negotiated layout/connect failure hr=0x{:08X}",uint32_t(hr)));if(error_.empty())error_=std::format(L"采集卡无法连接所选格式（0x{:08X}），请检查设备占用并重新选择。",uint32_t(hr));return false;}
+    if(!layoutValid){log::error("capture",std::format("unsupported negotiated layout/connect failure hr=0x{:08X}",uint32_t(hr)));if(error_.empty())error_=std::format(L"The selected capture format could not connect (0x{:08X}). Check whether another app is using the device and choose the format again.",uint32_t(hr));return false;}
     if(p.cpuUnpack&&captureLegacyCpuLayout(p.layout))log::warn("capture-unpack",std::format("legacy CPU unpack path active packing={} format={} (per-pixel conversion stays on the callback thread)",int(p.layout.packing),int(p.layout.format)));
     const unsigned colorOverride=selection.colorOverride;
     log::info("capture-color",std::format("driver controlFlags=0x{:08X} colorInfoPresent={} transfer={} matrix={} primaries={} chroma={} override={}",p.layout.colorControlFlags,bool(p.layout.colorControlFlags&AMCONTROL_COLORINFO_PRESENT),int(p.layout.color.transfer),int(p.layout.color.matrix),int(p.layout.color.primaries),int(p.layout.color.chromaLocation),colorOverride));
@@ -1274,14 +1274,14 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
             if(selection.stable?monikerPath(devices[i].Get())==selection.videoPath:i==index){deviceName=propertyString(devices[i].Get(),L"FriendlyName");break;}
         }
         if(!elgatoHdr->configure(p.device.Get(),deviceName,p.layout.format==AV_PIX_FMT_P010,colorOverride,p.layout.color)){
-            error_=L"Elgato HDR 输出模式设置失败，请关闭其他采集程序后重新连接，并检查日志中的 capture-elgato。";
+            error_=L"Could not set the Elgato HDR output mode. Close other capture programs, reconnect, and check capture-elgato in the log.";
             return false;
         }
     }
     if(colorOverride){
-        if(compressedPath){error_=L"压缩采集使用码流颜色信息；手动颜色和范围请选择原生采集格式。";log::error("capture-color","Manual color override requires raw capture; compressed override is not silently ignored");return false;}
+        if(compressedPath){error_=L"Compressed capture uses the stream's color information; for manual color and range choose a native capture format.";log::error("capture-color","Manual color override requires raw capture; compressed override is not silently ignored");return false;}
         const auto space=captureColorSpace(colorOverride);
-        if((space==1||space==2)&&p.layout.format!=AV_PIX_FMT_P010&&p.layout.format!=AV_PIX_FMT_P016){error_=L"手动 HDR 需要 P010/P016 格式；SDR 信号请选择自动或 Rec.709。";log::error("capture-color","Explicit HDR requires P010/P016");return false;}
+        if((space==1||space==2)&&p.layout.format!=AV_PIX_FMT_P010&&p.layout.format!=AV_PIX_FMT_P016){error_=L"Manual HDR needs a P010/P016 format; for SDR signals choose Auto or Rec.709.";log::error("capture-color","Explicit HDR requires P010/P016");return false;}
         applyCaptureColorOverride(p.layout.color,colorOverride);
         log::info("capture-color",std::format("manual space={} range={} effective transfer={} matrix={} primaries={} range={} (0=auto, space 1=PQ 2=HLG 3=709, range 1=limited 2=full)",space,captureColorRange(colorOverride),int(p.layout.color.transfer),int(p.layout.color.matrix),int(p.layout.color.primaries),int(p.layout.color.range)));
     }
@@ -1289,10 +1289,10 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     if(expectedFps>0){
         const bool accepted=captureFrameRateMatches(expectedFps,p.layout.duration);
         log::info("capture-rate",std::format("requestedFps={:.6f} connectedFps={:.6f} accepted={} softwareLimiter=0",expectedFps,p.info.averageFps,accepted));
-        if(!accepted){error_=std::format(L"所选格式为 {:.3f} FPS，但采集卡返回 {:.3f} FPS；请重新选择设备支持的格式。",expectedFps,p.info.averageFps);return false;}
+        if(!accepted){error_=std::format(L"The selected format is {:.3f} FPS, but the capture card returns {:.3f} FPS; choose a format the device supports.",expectedFps,p.info.averageFps);return false;}
     }
     if(chosen&&(p.info.width!=chosen->width||p.info.height!=chosen->height)){
-        error_=L"采集卡返回的分辨率与所选格式不符，请重新选择采集格式。";return false;
+        error_=L"The capture card returned a resolution that differs from the selected format; choose the capture format again.";return false;
     }
     if(!compressedPath&&!colorOverride&&(p.layout.format==AV_PIX_FMT_P010||p.layout.format==AV_PIX_FMT_P016)&&p.info.color.transferAssumed)
         log::warn("capture-color","No explicit HDR transfer from driver; bit depth does not identify HDR. Keeping SDR fallback; manual PQ/HLG remains available.");
@@ -1301,7 +1301,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
     log::info("capture-color",std::format("format={} stride={} rowBytes={} bytes={} bottomUp={} matrix={} assumed={} range={} assumed={} workingTransfer={} assumed={} (explicit transfer contract)",int(p.layout.format),p.layout.stride,p.layout.rowBytes,p.layout.sampleBytes,p.layout.bottomUp,int(p.info.color.matrix),p.info.color.matrixAssumed,int(p.info.color.range),p.info.color.rangeAssumed,int(p.info.color.transfer),p.info.color.transferAssumed));
     if(captureAudioIsWasapi(audio)){
         p.wasapi=std::make_unique<WasapiAudioInput>();
-        if(!p.wasapi->configure(selection.audioPath,selection.audio==kCaptureAudioVirtualSpeaker)){p.wasapi.reset();p.audioError=L"WASAPI 音频端点ID无效；视频继续运行";}
+        if(!p.wasapi->configure(selection.audioPath,selection.audio==kCaptureAudioVirtualSpeaker)){p.wasapi.reset();p.audioError=L"WASAPI audio endpoint ID is invalid; video keeps running";}
         log::info("capture-audio",selection.audio==kCaptureAudioVirtualSpeaker ? "binding=virtual-speaker loopback=1 explicitEndpoint=1" : "binding=wasapi shared=1 explicitEndpoint=1 videoClock=ingress-host-estimate");
     }else if(audio!=kCaptureAudioDisabled){
         std::wstring wantedName,wantedPath;
@@ -1332,7 +1332,7 @@ bool CaptureCardSource::configure(const SourceOpenDesc& desc){close();error_.cle
             if(!audioReady)audioReady=connectDirectShowAudio(desc);
         }
         if(!audioReady){
-            p.audioError=L"采集音频设备或 PCM 格式不可用；视频继续运行";
+            p.audioError=L"The capture audio device or PCM format is unavailable; video keeps running";
             log::warn("capture-audio","audio connection unavailable; retaining video capture");
             if(p.audioFilter)p.graph->RemoveFilter(p.audioFilter.Get());
             p.audioFilter.Reset();
@@ -1657,8 +1657,8 @@ if(audioTypes.empty()&&(!allowBitstream||bitstreamTypes.empty())){log::warn("cap
         if(type->formattype==FORMAT_WaveFormatEx&&type->pbFormat&&type->cbFormat>=sizeof(WAVEFORMATEX)&&sink::parseWavePcm(type->pbFormat,type->cbFormat,parsed)&&session->configure(parsed)){
             auto* target=session.get();
             auto probe=std::make_shared<sink::Iec61937Probe>();
-            // A 16-bit stereo pin can carry Dolby/DTS as IEC 61937: a PS5 set to
-            // Bitstream behind a card whose USB audio has two channels only. That
+            // A 16-bit stereo pin can carry Dolby/DTS as IEC 61937: a console set
+            // to Bitstream behind a card whose USB audio has two channels only. That
             // used to be played as noise; decode it (5.1 keeps the centre, where
             // dialogue lives). PCM-only mode leaves every byte as it is.
             struct DecodedFormat {unsigned channels=0;uint32_t rate=0,mask=0;CaptureAudioClock clock;uint64_t rejected=0;};
@@ -1727,7 +1727,7 @@ if(audioTypes.empty()&&(!allowBitstream||bitstreamTypes.empty())){log::warn("cap
     if(!wantBitstreamFirst)connectedAudio=connectPcm();
     // Dolby/DTS passthrough fallback: no PCM type connected, so take the best
     // compressed type the device offers and decode it back to PCM. This is the
-    // path a PS5 feeding Dolby Atmos / Dolby Audio / DTS needs.
+    // path a console feeding Dolby Atmos / Dolby Audio / DTS needs.
     if(!connectedAudio&&allowBitstream&&!bitstreamTypes.empty()){
         std::stable_sort(bitstreamTypes.begin(),bitstreamTypes.end(),[](const auto& a,const auto& b){
             return sink::bitstreamPreferenceOrder(sink::classifyBitstreamSubtype(a->subtype.Data1))>
@@ -1858,7 +1858,7 @@ bool CaptureCardSource::start(){
         p.info.opened=p.decklink->start([&p](const decklink::Frame& frame){p.deliverExternal(frame.data,frame.bytes,double(frame.pts100ns)/1e7,false,frame.duration100ns,frame.pts100ns);},
             [&p](const void* data,size_t bytes,int64_t pts){if(p.audioSession)p.audioSession->push(data,bytes,double(pts)/10000,false);});
         if(!p.info.opened){error_=p.decklink->error();return false;}
-        if(p.wasapi&&!p.wasapi->start())p.audioError=L"WASAPI 音频启动失败；视频继续运行";
+        if(p.wasapi&&!p.wasapi->start())p.audioError=L"WASAPI audio failed to start; video keeps running";
         return true;
     }
     // Driver frame age (observeDriverAge): fix the graph clock now and note its time at Run.
@@ -1890,7 +1890,7 @@ bool CaptureCardSource::start(){
     p.info.opened=SUCCEEDED(hr);
     if(!p.info.opened&&p.magewell){p.magewell->stop();p.magewellDelivering=false;}
     if(p.vendorDelivering)p.vendorDelivering->store(p.info.opened);
-    if(p.info.opened&&p.wasapi&&!p.wasapi->start())p.audioError=L"WASAPI 音频启动失败；视频继续运行";
+    if(p.info.opened&&p.wasapi&&!p.wasapi->start())p.audioError=L"WASAPI audio failed to start; video keeps running";
     veyra::log::info("capture",std::format("Run hr=0x{:X} actual={}x{} nominalFps={:.3f} mailbox=1 ownedBuffers=2",unsigned(hr),p.info.width,p.info.height,p.info.averageFps));return p.info.opened;
 }
 void CaptureCardSource::recoverAudio(float gain,unsigned syncMode,int offsetMs){
@@ -1919,7 +1919,7 @@ void CaptureCardSource::recoverAudio(float gain,unsigned syncMode,int offsetMs){
     // only the audio branch; do not renegotiate or replace the video device.
     const HRESULT stopped=p.control->Stop();
     log::warn("capture-audio-reconnect",std::format("PCM stalled; Stop hr=0x{:08X} videoFilterRetained=1",uint32_t(stopped)));
-    if(FAILED(stopped)){p.audioError=L"音频恢复等待采集驱动停止；稍后重试";return;}
+    if(FAILED(stopped)){p.audioError=L"Audio recovery is waiting for the capture driver to stop; retrying shortly";return;}
     const bool connected=[&]{
         if(p.audioSink){const HRESULT hr=p.graph->RemoveFilter(p.audioSink.Get());log::info("capture-audio-reconnect",std::format("Remove PCM sink hr=0x{:08X}",uint32_t(hr)));if(FAILED(hr))return false;p.audioSink.Reset();}
         if(p.audioSession)p.audioSession->stop();
@@ -1934,7 +1934,7 @@ void CaptureCardSource::recoverAudio(float gain,unsigned syncMode,int offsetMs){
     {std::lock_guard lock(p.mutex);p.pending=false;p.forceDiscontinuity=true;}
     ++epoch_;p.lastFrame=Impl::Clock::now();
     const HRESULT resumed=p.control->Run();p.info.opened=SUCCEEDED(resumed);
-    p.audioError=connected&&p.info.opened?L"":L"采集音频暂不可用，正在重试原音频设备";
+    p.audioError=connected&&p.info.opened?L"":L"Capture audio is unavailable for now; retrying the same audio device";
     log::info("capture-audio-reconnect",std::format("connected={} Run hr=0x{:08X} epoch={} awaitingActualPCM=1",connected,uint32_t(resumed),epoch_));
 }
 bool CaptureCardSource::reconnect(float gain,unsigned syncMode,int offsetMs){

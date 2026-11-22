@@ -21,18 +21,18 @@ for folder in ['qml','i18n']:
 for name in ['FG_SCHEDULING_REPAIR_PLAN_2026-10-24.md','FG_SCHEDULING_REPAIR_REPORT_2026-10-24.md','NR_MANUAL_SCALE_REPORT_2026-10-24.md']:
     copy(R/'docs'/name,Path('docs')/name)
 for name in ['LICENSE','THIRD_PARTY_NOTICES.md']:copy(R/name,name)
-note='''# Veyra 2.1.0-fg1 NVIDIA 本地测试更新
+note='''# Veyra 2.1.0-fg1 NVIDIA local test update
 
-需要已有完整2.1.0 NVIDIA便携包。先关闭播放器，将本目录文件复制到原包根目录（veyra_qml_ui.exe所在目录），覆盖同名文件，再启动。
-本更新只含程序、QML、翻译和说明，不含DLL/模型/SDK/日志/用户配置。原package-manifest描述完整底包；本更新的程序/UI身份以LOCAL_UPDATE.json为准。
+Requires the existing complete 2.1.0 NVIDIA portable package. First close the player, copy this directory's files to the original package root (where veyra_qml_ui.exe lives), overwrite same-name files, then start.
+This update contains only program, QML, translations and the note, no DLL/model/SDK/log/user config. The original package-manifest describes the complete base package; this update's program/UI identity is authoritative in LOCAL_UPDATE.json.
 
-- 将显示器刷新率及NVIDIA G-SYNC/VRR状态查询移到后台，避免每两秒同步驱动查询使当前采集帧错过补帧期限。播放线程只取完成结果。
-- 保留原补帧预算、期限、跳帧及告警判定，不积压帧，不保证负载真正超预算时仍能补帧。
-- 同时保留nr1新增的每层NR手动25%–100%内部比例滑条，以及此前旋转/录制修复；Lecram仍暂停。
-- 已在本机KUHAIMI G50真采集2560x1440p60 NV12、NR/SR关闭、VFG2X下做旧nr1与fg1对照，含原60和60->30两组；详细计数见随包修复报告。
-- 已验证4K30文件VFG2X/4X、跟随显示器/VRR、暂停恢复、关闭重开和针对性CPU回归。其它采集卡/其它FG后端/重NR负载/HDR/长期与光学延迟不由本次短测证明。
+- Move display refresh rate and NVIDIA G-SYNC/VRR status queries to the background, avoiding that a synchronous driver query every two seconds causes the current captured frame to miss the frame-gen deadline. The playback thread only takes the completed result.
+- Keep the original frame-gen budget, deadline, skipped-frame and warning determinations, no frame backlog, and does not guarantee frame-gen when the load truly exceeds the budget.
+- Also keep the per-layer NR manual 25%-100% internal ratio slider added in nr1, and the earlier rotation/recording fixes; Lecram remains paused.
+- This machine KUHAIMI G50 real capture 2560x1440p60 NV12, NR/SR off, VFG2X: old nr1 vs fg1 comparison, including the original 60 and 60->30 two groups; detailed counts in the accompanying repair report.
+- Verified 4K30 file VFG2X/4X, follow-display/VRR, pause recovery, close-reopen and targeted CPU regression. Other capture cards/other FG backends/heavy NR load/HDR/long-term and optical latency are not proven by this short test.
 
-版本标识2.1.0-fg1，PE数值版本2.1.0.0。本地隔离分支交付，未合main、未push或公开发布。
+Version identifier 2.1.0-fg1, PE numeric version 2.1.0.0. Local isolated-branch delivery, not merged to main, not pushed or published.
 '''
 (P/'README-FG1.zh-CN.md').write_text(note,'utf8')
 files=[dict(path=p.relative_to(P).as_posix(),bytes=p.stat().st_size,sha256=sha(p)) for p in sorted(P.rglob('*')) if p.is_file()]

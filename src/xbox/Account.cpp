@@ -157,10 +157,10 @@ std::wstring describeXboxError(const std::string& responseBody) {
         const json j = json::parse(responseBody);
         const uint64_t code = j.value("XErr", uint64_t(0));
         switch (code) {
-        case 2148916233: return L"这个微软账号还没有 Xbox 档案。请先在 xbox.com 用它登录一次，创建档案后再试。";
-        case 2148916235: return L"这个账号所在的国家或地区不提供 Xbox Live。";
-        case 2148916236: case 2148916237: return L"这个账号需要先在 xbox.com 完成成人验证。";
-        case 2148916238: return L"这是儿童账号，需要家长在家庭组里允许后才能使用。";
+        case 2148916233: return L"This Microsoft account has no Xbox profile yet. Sign in once at xbox.com with it to create one, then try again.";
+        case 2148916235: return L"Xbox Live is not available in this account's country or region.";
+        case 2148916236: case 2148916237: return L"This account needs to complete adult verification at xbox.com first.";
+        case 2148916238: return L"This is a child account; a parent has to allow it in the family group first.";
         default: return {};
         }
     } catch (const json::exception&) {

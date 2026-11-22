@@ -9,7 +9,7 @@ namespace veyra::ui {
 namespace {bool prepareStartupPreset(const engine::PresetEntry& entry, engine::ChainSession& session,
                           engine::EnhancementSettings& settings, QString& error) {
     if (!session.select(entry.kind)) {
-        error = QObject::tr("默认预设的编辑模式无效");
+        error = QObject::tr("The default preset's edit mode is invalid");
         return false;
     }
     auto& configuration = session.configurations[size_t(entry.kind)];
@@ -51,7 +51,7 @@ namespace {bool prepareStartupPreset(const engine::PresetEntry& entry, engine::C
         configuration.editor = std::make_shared<engine::NodeEditorDocument>(std::move(document));
     }
     if (!session.valid() || !settings.validate().empty()) {
-        error = QObject::tr("默认预设参数无效，已保留恢复会话");
+        error = QObject::tr("Invalid default preset settings; the restored session is kept");
         return false;
     }
     return true;
@@ -125,7 +125,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
     impl_->engine.setFullscreenMemoryProtection(impl_->prefBool("fullscreenMemoryProtection",false));
     connect(&impl_->exportQueue,&QmlExportQueueModel::changed,this,&QmlPlayerBridge::exportChanged);
     if (qApp) qApp->installEventFilter(this);
-    // 游戏模式. The native filter also keeps windows shown during a monitor capture
+    // Game mode. The native filter also keeps windows shown during a monitor capture
     // out of that capture, so it is installed for every run.
     if (qApp) qApp->installNativeEventFilter(&impl_->game);
     impl_->displayChangeFilter.changed = &impl_->displayChanged;
@@ -142,7 +142,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             emit gameModeChanged();
             impl_->game.apply(ui::GamePassthrough::Mode::Off);
             if (event == E::ExitHotkey) emit gameHotkey(1);
-            else emit notice(tr("游戏模式键盘监听不可用，已退出鼠标穿透；请退出全屏后重试"), true);
+            else emit notice(tr("Game-mode keyboard listener is unavailable. Mouse passthrough has been released; leave fullscreen and retry."), true);
             break;
         case E::HangReleased:
             // Publish Off before the foreground goes back to Veyra; stay out of
@@ -151,7 +151,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             impl_->gameInputShown = impl_->passthroughShown = false;
             emit gameModeChanged();
             impl_->game.apply(ui::GamePassthrough::Mode::Off);
-            emit gameModeStopped(tr("界面卡住超过 3 秒，已退出游戏模式")); break;
+            emit gameModeStopped(tr("The interface stopped responding for more than 3 s; game mode was left")); break;
         // The game has the keyboard in game mode; the hook hands these over.
         case E::ScreenshotHotkey: takeScreenshot(); break;
         case E::RecordHotkey: toggleRecording(QStringLiteral("game-hotkey")); break;
@@ -201,7 +201,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             if (!reason.isEmpty()) disabled << reason;
         }
         if (!disabled.isEmpty()) {
-            const auto message = tr("已关闭当前硬件或包不支持的效果，参数仍保留：") + disabled.join("; ");
+            const auto message = tr("Unavailable effects have been disabled; their parameters are preserved: ") + disabled.join("; ");
             veyra::log::warn("effect-availability", message.toStdString());
             QTimer::singleShot(0, this, [this, message] { emit notice(message, false); });
         }
@@ -219,7 +219,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             impl_->revalidate();
         } else {
             impl_->facade.setPending(previous);
-            restoreError = tr("模式会话未被引擎接受，保留初始状态");
+            restoreError = tr("The engine did not accept the mode session; the initial state is kept");
         }
     }
     // Custom: the Dolby Vision follow is a viewing preference rather than part of
@@ -260,7 +260,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 if (!disabled.isEmpty()) veyra::log::warn("effect-availability", "default preset disabled: " + disabled.toStdString());
             if (!impl_->facade.applySettings(settings,
                                                     engine::runtimeOrder(candidate.configurations[size_t(candidate.active)].chain))) {
-                error = tr("引擎未接受默认预设，已保留恢复会话");
+                error = tr("The engine did not accept the default preset; the restored session is kept");
             } else {
                 impl_->session = candidate;
                 impl_->restoreConfiguration(candidate.configurations[size_t(candidate.active)]);
@@ -273,7 +273,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "default preset content cadence not saved");
                 }
                 if (candidate != before && !impl_->facade.saveChainSession(candidate))
-                    error = tr("默认预设已应用，但会话保存失败：") + uiText(impl_->facade.error());
+                    error = tr("The default preset was applied, but saving the session failed: ") + uiText(impl_->facade.error());
                 else impl_->savedSession = candidate;
             }
             }
@@ -352,7 +352,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
         if(p.contains("captureBufferMode")){const int value=p.value("captureBufferMode").toInt();if(value>=0&&value<=2){changed|=int(s.captureBuffer)!=value;s.captureBuffer=static_cast<source::CaptureBufferMode>(value);}}
         if (changed && !impl_->commit(std::move(s))) veyra::log::warn("ui-prefs", "saved global controls not accepted");
     }
-    // Presentation (低延迟队列 / 显示同步 / 输出上限) and the picture aspect.
+    // Presentation (low-latency queue / display sync / output cap) and the picture aspect.
     {
         const auto saved = impl_->prefs.value(QStringLiteral("presentation")).toMap();
         auto& pr = impl_->presentation;
@@ -385,7 +385,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
     connect(impl_->sessionSaveTimer, &QTimer::timeout, this, [this] {
         if (!impl_->persistSession()) {
             veyra::log::error("ui-session", utf8Of(impl_->facade.error()).toStdString());
-            emit notice(tr("当前修改尚未保存：") + uiText(impl_->facade.error()), true);
+            emit notice(tr("Unsaved changes: ") + uiText(impl_->facade.error()), true);
         }
     });
     // 60 Hz ceiling, and it does nothing at all when the snapshot is unchanged.
@@ -439,8 +439,8 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 if(live.failed&&!error.isEmpty()&&error!=previous.value("error").toString())emit notice(error,true);
                 if(live.saved!=impl_->recordingSaved){
                     impl_->recordingSaved=live.saved;
-                    emit notice(note.isEmpty()?tr("录制已保存：%1").arg(state.value("path").toString())
-                                              :tr("录制已保存：%1（%2）").arg(state.value("path").toString(),note),false);
+                    emit notice(note.isEmpty()?tr("Recording saved: %1").arg(state.value("path").toString())
+                                              :tr("Recording saved: %1 (%2)").arg(state.value("path").toString(),note),false);
                 }else if(live.active&&!note.isEmpty()&&note!=previous.value("note").toString())emit notice(note,false);
             }
         }
@@ -450,7 +450,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             const bool listening=impl_->recordingState.value("microphone").toBool()||impl_->replayState.value("microphone").toBool();
             const auto mic=listening?engine::microphoneStatus():engine::MicrophoneStatus{};
             const QString reason=listening&&!mic.open&&!mic.error.empty()?uiText(mic.error):QString();
-            if(reason!=impl_->microphoneNotice){impl_->microphoneNotice=reason;if(!reason.isEmpty())emit notice(tr("麦克风：%1").arg(reason),true);}
+            if(reason!=impl_->microphoneNotice){impl_->microphoneNotice=reason;if(!reason.isEmpty())emit notice(tr("Microphone: %1").arg(reason),true);}
         }
   // Custom: a display change re-applies that device's HDR curve. The id check is
   // a few Win32 calls, so this is safe on the polling path.
@@ -460,17 +460,15 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             (!wasFullscreenUnsafe && impl_->snapshot.vramFullscreenUnsafe))) {
             impl_->vramNoticeSession = impl_->snapshot.sessionId;
             if (impl_->snapshot.vramFullscreenUnsafe)
-                emit notice(tr("全屏期间显存持续增长了 %1 GB，已退出全屏保护播放；当前会话使用窗口播放。增强设置保留。"
-                               "原因尚未确认，可开启设置中的 OBS 游戏采集兼容、重启后测试全屏。")
+                emit notice(tr("VRAM kept growing by %1 GB in fullscreen. Playback has returned to a window for this session, keeping enhancement settings. The cause is unconfirmed. You can enable OBS game capture compatibility in Settings, restart, and test fullscreen again.")
                                 .arg(impl_->snapshot.vramRunawayMiB / 1024.0, 0, 'f', 1), true);
-            else emit notice(tr("显存在设置未变时增加了 %1 GB，正在尝试回收；回收结果见诊断日志。原因尚未确认。")
+            else emit notice(tr("VRAM grew by %1 GB without a settings change. Recovery is being attempted; see the diagnostic log for the result. The cause is unconfirmed.")
                                  .arg(impl_->snapshot.vramRunawayMiB / 1024.0, 0, 'f', 1), true);
         }
         updateMaskOverlay();
         tickSubtitles();
         tickImageBatch();
         tickCapture();
-        tickPs5();
         tickMoonlight();
         tickXbox();
         // Geometry uses the source DAR and the same transform as mouse/compare.
@@ -487,7 +485,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 if (at >= 0.5 && at < s.duration - 0.5) {
                     seekTo(at);
                     veyra::log::info("ui-resume", std::format("resumed at {:.1f}s", at));
-                    emit notice(tr("已从上次位置 %1 继续").arg(formatTime(at)), false);
+                    emit notice(tr("Resumed from last position %1").arg(formatTime(at)), false);
                 }
             }
             if (++impl_->positionTicks >= 120) {
@@ -517,7 +515,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 const bool fellBack = active.fallback && !impl_->audioActive.fallback;
                 impl_->audioActive = active;
                 emit audioDevicesChanged();
-                if (fellBack) emit notice(tr("所选音频设备不可用，已切到系统默认设备"), true);
+                if (fellBack) emit notice(tr("The selected audio device is unavailable; switched to the system default device"), true);
             }
         }
         if (!had || impl_->publishedRevision != before) {
@@ -537,29 +535,28 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             if (s.transport == engine::TransportState::Playing && !s.image && !s.failed &&
                 s.frames > 0 && impl_->formatBadgeSession != s.sessionId)
                 showFormatBadge(s);
-            if (had && !wasFailed && s.failed && !s.capture && !s.remotePlay &&
+            if (had && !wasFailed && s.failed && !s.capture &&
                 impl_->prefString("decode") == QLatin1String("hardware"))
-                emit notice(tr("已设为“强制硬解”，这个文件无法用硬件解码打开；可在 设置 → 播放 改回“自动”"), true);
+                emit notice(tr("Set to \"Hardware decoding only\"; this file cannot be opened with hardware decoding. Change it back to Auto under Settings → Playback"), true);
             // A live source that fails says why, and the user is taken back to the
-            // start page: the reason used to land only in the (closed) PS5 panel,
-            // leaving a black cinema strip that looked like a minimised window.
-            if (had && !wasFailed && s.failed && (s.capture || s.remotePlay)) {
+            // start page: leaving a black cinema strip would look like a minimised window.
+            if (had && !wasFailed && s.failed && s.capture) {
                 const QString why = veyra::ui::i18n::text(s.status);
-                veyra::log::warn("ui-live-failed", std::format("remote={} status={}", s.remotePlay, utf8Of(s.status).toStdString()));
-                QString text = why.isEmpty() ? (s.remotePlay ? tr("PS5 串流没有连上") : tr("采集没有开始")) : why;
+                veyra::log::warn("ui-live-failed", std::format("status={}", utf8Of(s.status).toStdString()));
+                QString text = why.isEmpty() ? tr("Capture did not start") : why;
                 // The interface itself may be gone with the device (Qt loses it too), so
                 // the hint is also left for the next start.
                 const QString injected = utf8Of(gfx::riskyInjections());
                 if (const QString advice = injectionAdvice(injected); !advice.isEmpty()) {
-                    text += QStringLiteral("；") + advice;
+                    text += QStringLiteral("; ") + advice;
                     QFile marker(lastFailurePath());
                     if (marker.open(QIODevice::WriteOnly)) marker.write((QStringLiteral("device\n") + injected + QStringLiteral("\n")).toUtf8());
                 }
                 const auto now = std::chrono::steady_clock::now();
-                const bool reconnect = s.gpuFailed && !s.remotePlay && impl_->liveKind == QLatin1String("capture") &&
+                const bool reconnect = s.gpuFailed && impl_->liveKind == QLatin1String("capture") &&
                     (impl_->gpuReconnectLast == std::chrono::steady_clock::time_point{} || now - impl_->gpuReconnectLast > std::chrono::minutes(10));
                 if (s.gpuFailed) veyra::log::warn("gpu-reconnect", std::format("session={} kind={} automatic={}", s.sessionId, impl_->liveKind.toStdString(), reconnect));
-                if (reconnect) { impl_->gpuReconnectSession = s.sessionId; impl_->gpuReconnectDue = {}; text += QStringLiteral("；") + tr("将自动重新连接采集卡一次"); }
+                if (reconnect) { impl_->gpuReconnectSession = s.sessionId; impl_->gpuReconnectDue = {}; text += QStringLiteral("; ") + tr("the capture card will be reconnected once automatically"); }
                 emit notice(text, true);
                 if (!reconnect && impl_->currentPage == QLatin1String("min")) emit navigate(QStringLiteral("home"));
             }
@@ -576,18 +573,18 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 const auto now = std::chrono::steady_clock::now();
                 if (s.network.reconnects > impl_->netReconnectsReported) {
                     impl_->netReconnectsReported = s.network.reconnects;
-                    emit notice(tr("网络已重新连接，继续播放"), false);
+                    emit notice(tr("Network reconnected, playback continues"), false);
                 }
                 const uint64_t lost = std::max(s.network.corruptPackets, s.network.corruptFrames);
                 if (lost > impl_->netLossReported &&
                     (impl_->netLossNoticeAt == std::chrono::steady_clock::time_point{} ||
                      now - impl_->netLossNoticeAt >= std::chrono::seconds(20))) {
-                    emit notice(tr("检测到网络丢包，已自动跳过 %1 处").arg(qulonglong(lost - impl_->netLossReported)), false);
+                    emit notice(tr("Network packet loss detected; %1 spot(s) skipped automatically").arg(qulonglong(lost - impl_->netLossReported)), false);
                     impl_->netLossReported = lost;
                     impl_->netLossNoticeAt = now;
                 }
             }
-            // 「自动」倍率：每个会话进入播放后决定一次（见 applyFgAutoMultiplier）。
+            // The "Auto" multiplier: decided once per session on playback entry (see applyFgAutoMultiplier).
             maybeApplyFgAutoMultiplier();
             emit snapshotChanged();
         }
@@ -604,7 +601,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 else if (now >= impl_->gpuReconnectDue) {
                     impl_->gpuReconnectSession = 0; impl_->gpuReconnectLast = now;
                     veyra::log::warn("gpu-reconnect", "reconnecting the capture card after the GPU failure");
-                    emit notice(tr("GPU 已重置，正在自动重新连接采集卡"), false);
+                    emit notice(tr("The GPU was reset; reconnecting the capture card automatically"), false);
                     resumeCaptureSession();
                 }
             }
@@ -676,7 +673,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
                 automatic ? "compatibility restart suggested" : "monitoring compatibility off"));
             if (automatic) emit overlayRestartSuggested(QStringLiteral("nvidia"));
         }
-        // GamePP (游戏加加) started after Veyra or injected into it: same as NVIDIA's overlay.
+        // GamePP started after Veyra or injected into it: same as NVIDIA's overlay.
         static bool gamePPLate = false;
         if (!gamePPLate && !qApp->property("veyraSoftwareUi").toBool() && !qApp->property("veyraUiRendererForced").toBool()
                 && !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_GAMEPP", nullptr, 0) && (gfx::gamePPInjected() || gfx::gamePPRunning())) {
@@ -698,8 +695,7 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
             if (!impl_->prefs.value(QStringLiteral("obsRivaTunerHintShown")).toBool()) {
                 impl_->prefs[QStringLiteral("obsRivaTunerHintShown")] = true;
                 (void)impl_->savePrefs();
-                emit notice(tr("检测到 OBS 游戏采集和小飞机（RTSS）同时注入 Veyra。两者默认的挂钩方式冲突，OBS 游戏采集可能抓不到画面（任何 D3D12 程序都一样）。"
-                               "在 RTSS 里添加 veyra_qml_ui.exe，并在它的设置中勾选“Use Microsoft Detours API hooking”；或在 OBS 改用窗口采集（Windows 10 1903+）"), false);
+                emit notice(tr("OBS game capture and RivaTuner (RTSS) are both injected into Veyra. Their default hooking conflicts, so OBS game capture may get no picture (true of any D3D12 program). Add veyra_qml_ui.exe in RTSS and tick \"Use Microsoft Detours API hooking\" in its settings, or use Window Capture in OBS (Windows 10 1903+)"), false);
             }
         }
         // Overlays inject when they decide the window is a game, e.g. on entering fullscreen
@@ -725,9 +721,9 @@ QmlPlayerBridge::QmlPlayerBridge(engine::EngineController& engine, std::filesyst
         veyra::log::info("overlay-hooks", std::format("previous run: {} injected={}", kind.toStdString(), modules.toStdString()));
         if (advice.isEmpty()) return;
         const QString head = kind.startsWith(QStringLiteral("crash"))
-            ? tr("上次 Veyra 异常退出（崩溃在 %1）").arg(kind.mid(6).trimmed())
-            : tr("上次采集时显卡设备丢失");
-        emit notice(head + QStringLiteral("；") + advice, true);
+            ? tr("Veyra closed unexpectedly last time (crash in %1)").arg(kind.mid(6).trimmed())
+            : tr("The GPU device was lost during the last capture");
+        emit notice(head + QStringLiteral("; ") + advice, true);
     });
     // Unsupported saved FG choices were repaired together with both modes
     // above, using actual provider availability rather than a brand alone.

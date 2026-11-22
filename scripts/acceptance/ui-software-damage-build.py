@@ -61,12 +61,12 @@ if sys.argv[1:] != ['--probe']:
         '-DVEYRA_BUILD_QML_UI=ON', '-DVEYRA_BUILD_QT_PROBE=OFF', '-DVEYRA_ENABLE_EXPERIMENTAL_DLSSNR=ON',
         # FFmpeg's installed FindFFMPEG.cmake cannot resolve its non-ASCII prefix.
         # Use the same 9.0.1 import/header ABI as the accepted build. The private
-        # runtime comes from the already verified zlib/PS5-slices256 package.
+        # runtime comes from the already verified zlib + FFmpeg slices256 package.
         '-DVEYRA_FFMPEG_ROOT=C:/veyra-deps/ffmpeg-ps5-dav1d-installed',
         '-DVEYRA_LIBASS_ROOT=E:/veyra-ascii-20261005/installed/x64-windows-static',
         '-DVEYRA_DECKLINK_SDK_DIR=E:/项目/Veyra/deps/decklink-sdk-obs31-20261009',
         '-DVEYRA_MAGEWELL_SDK_DIR=E:/项目/Veyra/deps/magewell/3.3.1.1596']
-    for option in ('REMOTEPLAY', 'MOONLIGHT', 'XBOX', 'DLSS_FG', 'DLSS_SR', 'NVOF'):
+    for option in ('MOONLIGHT', 'XBOX', 'DLSS_FG', 'DLSS_SR', 'NVOF'):
         configure.append('-DVEYRA_ENABLE_' + option + '=OFF')
     sdk = Path('C:/Users/123/Desktop/Veyra DLSS Video Player/third_party_local')
     for key, path in {'DLSS_SDK_ROOT':'nvidia/DLSS_SDK_310.7.0', 'NVOF_SDK_ROOT':'nvidia/Optical_Flow_SDK_5.0.7',

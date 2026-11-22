@@ -10,7 +10,7 @@ namespace veyra::gfx {
 // Variable refresh (G-SYNC / G-SYNC Compatible) state of the monitor showing
 // a window. This query never changes driver settings. The user enables G-SYNC
 // in the NVIDIA Control Panel; the separate explicit profile setup can adjust
-// only Veyra's scope. The 可变刷新 switch only decides how Veyra presents when
+// only Veyra's scope. The variable refresh switch only decides how Veyra presents when
 // it is available (VideoPresenter::configurePresentation).
 // Minimal ABI declarations checked against NVIDIA/nvapi public interfaces
 // (nvapi_interface.h function IDs, NV_GET_VRR_INFO_V1 and

@@ -1,27 +1,27 @@
 ﻿<#
 .SYNOPSIS
-  构建后验证：单元测试 + 部署一致性 + 运行时日志零错误。
+  Post-build verification: unit tests + deployment consistency + zero runtime log errors.
 
 .DESCRIPTION
-  融合 2026-11-10 升级 2.1.4 时暴露的三类问题，每次构建后跑一遍：
-    1. 单元测试（预设库 encode/decode、效果链、修复合同）——抓版本号/自检类回归；
-    2. 部署一致性（部署目录的 exe 必须等于刚构建的 exe）——防止只改源码没换程序；
-    3. 运行时启动/退出，只看本次新增的日志行——抓只有跑起来才出现的错误
-       （例如 2.1.4 的「模式会话编码校验失败」、QML 绑定已删属性）。
+  Covers the three classes of problems exposed by the 2.1.4 upgrade on 2026-11-10; run after every build:
+    1. Unit tests (preset library encode/decode, effect chain, repair contract) - catches version-number/self-check regressions.
+    2. Deployment consistency (the deployed exe must equal the just-built exe) - prevents only the source being changed without the program.
+    3. Runtime start/exit, looking only at the lines this run added - catches errors that only appear when it runs
+       (e.g. 2.1.4's session-encoding check failure, QML bindings to deleted properties).
 
-  任何一项失败，退出码为 1，并打印失败项。
+  Any failure exits with code 1 and prints the failing item.
 
 .PARAMETER BuildDir
-  构建目录，必须显式指定。
+  Build directory, must be given explicitly.
 
 .PARAMETER DeployDir
-  已部署的运行目录，必须显式指定。验证只写任务证据目录。
+  Deployed runtime directory, must be given explicitly. Verification only writes the task evidence directory.
 
 .PARAMETER SkipBuild
-  跳过构建，只跑测试与运行时检查。
+  Skip the build, run only the tests and runtime checks.
 
 .PARAMETER RunSeconds
-  运行时检查的启动时长，默认 8 秒（--exit-after）。
+  Runtime check launch duration, default 8 seconds (--exit-after).
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts/verify-build.ps1
@@ -53,9 +53,9 @@ function Info([string]$msg) {
     Write-Host "      $msg" -ForegroundColor DarkGray
 }
 
-Write-Host '=== 1/4 构建 ===' -ForegroundColor Cyan
+Write-Host '=== 1/4 Build ===' -ForegroundColor Cyan
 if ($SkipBuild) {
-    Info '跳过（-SkipBuild）'
+    Info 'Skipped (-SkipBuild)'
 } else {
     $vcvars = $VcVars
     if (-not $vcvars) {
@@ -65,18 +65,18 @@ if ($SkipBuild) {
             if ($vs) { $vcvars = Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat' }
         }
     }
-    if (-not (Test-Path $vcvars)) { Fail "找不到 vcvars64.bat: $vcvars" }
+    if (-not (Test-Path $vcvars)) { Fail "vcvars64.bat not found: $vcvars" }
     $targets = 'veyra_qml_ui veyra_preset_library_tests veyra_effect_chain_tests veyra_repair_contract_tests veyra_live_timing_tests'
     $cmd = "call `"$vcvars`" >nul && cmake --build `"$BuildDir`" --target $targets -j 2"
     cmd /c $cmd
-    if ($LASTEXITCODE -ne 0) { Fail "构建失败（exit $LASTEXITCODE）" } else { Ok '构建通过' }
+    if ($LASTEXITCODE -ne 0) { Fail "Build failed (exit $LASTEXITCODE)" } else { Ok 'Build passed' }
 }
 
 Write-Host ''
-Write-Host '=== 2/4 单元测试 ===' -ForegroundColor Cyan
+Write-Host '=== 2/4 Unit tests ===' -ForegroundColor Cyan
 
-# 部分测试动态链接 FFmpeg（veyra_engine 的 AV 库），DLL 不在 build 目录：
-# 从 CMakeCache 找到 FFmpeg 根，把 bin 注入 PATH，否则测试以 0xC0000135 退出。
+# Some tests link FFmpeg dynamically (veyra_engine's AV libraries), and the DLL is not in the build directory:
+# Find the FFmpeg root from CMakeCache and inject its bin into PATH, or the test exits with 0xC0000135.
 $ffmpegBin = $null
 $cache = Join-Path $BuildDir 'CMakeCache.txt'
 if (Test-Path $cache) {
@@ -91,12 +91,12 @@ if ($ffmpegBin) {
     $env:PATH = "$ffmpegBin;$env:PATH"
     Info "FFmpeg DLL: $ffmpegBin"
 } else {
-    Info '未找到 FFmpeg bin，若测试报 0xC0000135 请检查 CMakeCache 的 VEYRA_FFMPEG_ROOT'
+    Info 'FFmpeg bin not found; if a test reports 0xC0000135, check VEYRA_FFMPEG_ROOT in CMakeCache'
 }
 $tests = @('veyra_preset_library_tests', 'veyra_effect_chain_tests', 'veyra_repair_contract_tests', 'veyra_live_timing_tests')
 foreach ($t in $tests) {
     $exe = Join-Path $BuildDir "$t.exe"
-    if (-not (Test-Path $exe)) { Fail "$t.exe 不存在"; continue }
+    if (-not (Test-Path $exe)) { Fail "$t.exe missing"; continue }
     # Run from the build directory: the test binaries load runtime DLLs relative to cwd.
     Push-Location $BuildDir
     try { $out = & $exe 2>&1 | Out-String; $rc = $LASTEXITCODE }
@@ -104,39 +104,39 @@ foreach ($t in $tests) {
     $pass = ([regex]::Matches($out, 'PASS')).Count
     $fail = ([regex]::Matches($out, 'FAIL')).Count
     if ($rc -ne 0) {
-        Fail "$t 退出码 $rc"
+        Fail "$t exited with $rc"
         $out -split "`n" | Select-String -Pattern 'FAIL' | Select-Object -First 5 | ForEach-Object { Info $_.Line.Trim() }
     } elseif ($fail -gt 0) {
-        Fail "$t 有 $fail 个 FAIL（PASS $pass）"
+        Fail "$t has $fail FAILs (PASS $pass)"
     } else {
-        Ok "$t 通过（PASS $pass）"
+        Ok "$t passed (PASS $pass)"
     }
 }
 
 Write-Host ''
-Write-Host '=== 3/4 部署一致性 ===' -ForegroundColor Cyan
+Write-Host '=== 3/4 Deployment consistency ===' -ForegroundColor Cyan
 $built = Join-Path $BuildDir 'veyra_qml_ui.exe'
 $deployed = Join-Path $DeployDir 'veyra_qml_ui.exe'
 $runtimeOk = $false
 if (-not (Test-Path $built)) {
-    Fail "构建产物不存在: $built"
+    Fail "Build artifact missing: $built"
 } elseif (-not (Test-Path $deployed)) {
-    Fail "部署目录不存在或没有 exe: $deployed"
+    Fail "Deploy directory missing or has no exe: $deployed"
 } else {
     $h1 = (Get-FileHash $built -Algorithm SHA256).Hash.ToLower()
     $h2 = (Get-FileHash $deployed -Algorithm SHA256).Hash.ToLower()
     if ($h1 -ne $h2) {
-        Fail "部署 exe 与构建不一致（部署 $($h2.Substring(0,16)) / 构建 $($h1.Substring(0,16))），先部署再验证"
+        Fail "Deployed exe differs from the build (deployed $($h2.Substring(0,16)) / built $($h1.Substring(0,16))); deploy first, then verify"
     } else {
-        Ok "部署 exe 一致（$($h1.Substring(0,16))…）"
+        Ok "Deployed exe matches ($($h1.Substring(0,16))…)"
         $runtimeOk = $true
     }
 }
 
 Write-Host ''
-Write-Host '=== 4/4 运行时日志 ===' -ForegroundColor Cyan
+Write-Host '=== 4/4 Runtime log ===' -ForegroundColor Cyan
 if (-not $runtimeOk) {
-    Info '跳过（部署不一致或缺失）'
+    Info 'Skipped (deployment inconsistent or missing)'
 } else {
     $logsDir = Join-Path $EvidenceDir ('run-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
@@ -153,9 +153,9 @@ if (-not $runtimeOk) {
         -WorkingDirectory $DeployDir -WindowStyle Hidden -PassThru -Wait
     $env:VEYRA_LOG_FILE = $previousLog
     if ($proc.ExitCode -ne 0) {
-        Fail "运行时启动退出码 $($proc.ExitCode)"
+        Fail "Runtime start exited with $($proc.ExitCode)"
     } else {
-        Ok "运行时启动/退出正常（--exit-after $RunSeconds）"
+        Ok "Runtime start/exit clean (--exit-after $RunSeconds)"
     }
     Start-Sleep -Milliseconds 500
     $text = ''
@@ -173,23 +173,23 @@ if (-not $runtimeOk) {
     $errors = @($text -split "`n" | Where-Object { $_ -match '\[ERROR\]' })
     $warns  = @($text -split "`n" | Where-Object { $_ -match '\[WARN \]' })
     if ($errors.Count -gt 0) {
-        Fail "本次运行有 $($errors.Count) 条 ERROR"
+        Fail "$($errors.Count) ERROR lines this run"
         $errors | Select-Object -First 5 | ForEach-Object { Info $_.Trim() }
     } else {
-        Ok '本次运行 0 条 ERROR'
+        Ok '0 ERROR lines this run'
     }
     if ($warns.Count -gt 0) {
-        Info "另有 $($warns.Count) 条 WARN（不判失败，人工看一眼）"
+        Info "Plus $($warns.Count) WARN lines (not fatal; check by eye)"
         $warns | Select-Object -First 5 | ForEach-Object { Info $_.Trim() }
     }
 }
 
 Write-Host ''
 if ($failures.Count -eq 0) {
-    Write-Host '=== 全部通过 ===' -ForegroundColor Green
+    Write-Host '=== All passed ===' -ForegroundColor Green
     exit 0
 } else {
-    Write-Host "=== $($failures.Count) 项失败 ===" -ForegroundColor Red
+    Write-Host "=== $($failures.Count) failures ===" -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     exit 1
 }

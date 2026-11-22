@@ -32,7 +32,7 @@ try {
     foreach($line in $vcEnvironment){if($line -match '^([^=]+)=(.*)$'){[Environment]::SetEnvironmentVariable($matches[1],$matches[2],'Process')}}
     $cmake=Join-Path $vs 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe'
     $ninja=Join-Path $vs 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe'
-    $argsList=@('-S',$Root,'-B',$BuildDirectory,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release',"-DCMAKE_MAKE_PROGRAM=$ninja",'-DVEYRA_ENABLE_EXPERIMENTAL_DLSSNR=ON','-DVEYRA_ENABLE_REMOTEPLAY=ON')
+    $argsList=@('-S',$Root,'-B',$BuildDirectory,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release',"-DCMAKE_MAKE_PROGRAM=$ninja",'-DVEYRA_ENABLE_EXPERIMENTAL_DLSSNR=ON')
     $refreshDependencies=$false
     $rulesPath=Join-Path $BuildDirectory 'CMakeFiles/rules.ninja'
     $encodingMarker=Join-Path $BuildDirectory 'veyra-utf8-dependencies-v1.txt'
@@ -42,7 +42,7 @@ try {
     }
     if($DisplayVersion){$argsList+="-DVEYRA_DISPLAY_VERSION=$DisplayVersion"}
     foreach($line in $cache){
-        if($line -match '^(VEYRA_[A-Z0-9_]+_ROOT|VEYRA_RP_CHIAKI_SOURCE_DIR|VEYRA_RP_CHIAKI_VERIFY_DIR|CMAKE_PREFIX_PATH|PROTOC|Protobuf_PROTOC_EXECUTABLE|PKG_CONFIG_EXECUTABLE):[^=]+=(.+)$'){
+        if($line -match '^(VEYRA_[A-Z0-9_]+_ROOT|CMAKE_PREFIX_PATH):[^=]+=(.+)$'){
             $argsList+="-D$($matches[1])=$($matches[2])"
         }
     }

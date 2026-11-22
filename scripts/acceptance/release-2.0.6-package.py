@@ -59,7 +59,7 @@ for vendor in ('AMD','NVIDIA'):
  for p in (ROOT/'qml').rglob('*'):
   if p.is_file():
    q=app/'qml'/p.relative_to(ROOT/'qml');q.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,q)
- (app/'RELEASE_2.0.6.md').write_text('Veyra 2.0.6 正式应用版本 / Stable application release\n\n新目录完整解压后运行veyra_qml_ui.exe。VFG调度、AMD NR→FSR、Blackmagic兼容更新，详情/数据/未验证项见docs/RELEASE_NOTES_2.0.6.md。NVIDIA显存持续增长未修复。\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.6\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\n对应源码与静态依赖重链接见docs/BUILD_2.0.6.md。\n',encoding='utf8')
+ (app/'RELEASE_2.0.6.md').write_text('Veyra 2.0.6 stable application release / Stable application release\n\nExtract fully to a new directory, then run veyra_qml_ui.exe. VFG scheduling, AMD NR->FSR, Blackmagic compatible update, details/data/unverified items in docs/RELEASE_NOTES_2.0.6.md. NVIDIA memory growing continuously is unfixed.\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.6\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\nSource and static-dependency relinking: docs/BUILD_2.0.6.md.\n',encoding='utf8')
  for rel,h in immutable.items():assert sha(app/rel)==h,rel
  assert sha(app/'veyra_qml_ui.exe')==EXE
  for folder,sourcefolder in (('qml',ROOT/'qml'),('shaders',BUILD/'shaders')):

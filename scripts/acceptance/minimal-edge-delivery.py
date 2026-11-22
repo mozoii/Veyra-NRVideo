@@ -50,18 +50,18 @@ elif sys.argv[1]=='patch':
     stage=OUT/'Veyra-2.0.2-minimal-edge-20261004-exe-patch'
     stage.mkdir(parents=True,exist_ok=False)
     shutil.copy2(BASE/'build'/TASK/'veyra_qml_ui.exe',stage/'veyra_qml_ui.exe')
-    note='''# 极简模式右侧像素缺口修复补丁
+    note='''# Minimal-mode right-edge pixel-gap repair patch
 
-仅供已解压的 Veyra-2.0.2-vfg-20261003-win64-portable 测试包使用。
-先退出 Veyra 和其导出任务，再将补丁内 veyra_qml_ui.exe 覆盖该包同名文件。
-只替换程序；原有 Qt、AMD NR、VFG、shader、模型和许可证继续使用已有包。
-本补丁不能独立运行，不应用于公开2.0.2或其他版本。需要回退时从原ZIP还原同名EXE。
+  Only for the already-extracted Veyra-2.0.2-vfg-20261003-win64-portable test package.
+  Exit Veyra and its export tasks first, then overwrite the package's same-name veyra_qml_ui.exe with the patch's EXE.
+  Only the program is replaced; the original Qt, AMD NR, VFG, shaders, models and licenses keep using the existing package.
+  This patch cannot run standalone, not for the public 2.0.2 or other versions. For rollback, restore the same-name EXE from the original ZIP.
 
-修复原生窗口/region少一列和极简自动贴合影片时的整数像素取整黑线。
-真实比例黑边、全屏、原始像素与用户缩放保留。HDR/Dolby Vision PR未实施/合并。
-RTX5070/616.56，Qt scale factor100/125/150/175/200%、GPU/软件界面、窗口和浮层定向短测通过；未做实显示器DPI来回切换或新增HDR/FG画质验收。
+  Fixes native window/region missing one column and the integer-pixel rounding black border when minimal auto-fits the film.
+  Real-ratio black bars, fullscreen, original pixels and user scaling are kept. HDR/Dolby Vision PR not implemented/merged.
+  RTX5070/616.56, Qt scale factor100/125/150/175/200%, GPU/software interface, window and overlay targeted short test pass; not done: real display DPI back-and-forth or new HDR/FG picture-quality acceptance.
 
-原包EXE SHA256: '''+EXPECTED_BASE+'\n新EXE SHA256: '+digest(stage/'veyra_qml_ui.exe')+'\n'
+  Original package EXE SHA256: '''+EXPECTED_BASE+'\n'+'New EXE SHA256: '+digest(stage/'veyra_qml_ui.exe')+'\n'
     (stage/'README_PATCH.md').write_text(note,encoding='utf-8')
     record={'schema':'veyra.local.exe-patch.v1','localOnly':True,'releaseReady':False,
             'sourceCommit':git('rev-parse','HEAD').decode().strip(),

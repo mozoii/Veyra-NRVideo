@@ -15,10 +15,10 @@ VPage {
     property int dropIndex: -1
     property real dragY: 0
     function stateText(state, progress, inspecting) {
-        if (state === "ready") return inspecting ? qsTr("正在读取轨道…") : qsTr("待导出")
-        if (state === "queued") return qsTr("等待导出")
-        if (state === "running") return qsTr("导出中 ") + (progress * 100).toFixed(0) + "%"
-        return ({done: qsTr("已完成"), failed: qsTr("失败 · 点击重试"), cancelled: qsTr("已取消 · 可重新开始")})[state] || state
+        if (state === "ready") return inspecting ? qsTr("Reading tracks…") : qsTr("Waiting to export")
+        if (state === "queued") return qsTr("Waiting to export")
+        if (state === "running") return qsTr("Exporting ") + (progress * 100).toFixed(0) + "%"
+        return ({done: qsTr("Finished"), failed: qsTr("Failed · click to retry"), cancelled: qsTr("Cancelled · can start again")})[state] || state
     }
     function preview(id) {
         if (compact) compactTab = 1
@@ -92,13 +92,13 @@ VPage {
         id: head
         x: 12; y: 12; width: parent.width - 24; height: 32
         spacing: 12
-        VH2 { text: qsTr("导出") }
-        Text { visible: !root.compact; text: qsTr("先整理文件，再按顺序导出"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
+        VH2 { text: qsTr("Export") }
+        Text { visible: !root.compact; text: qsTr("Arrange the files first, then export them in order"); color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 12 }
         Item { Layout.fillWidth: true }
         VSeg {
             objectName: "export-tabs"
             visible: root.compact
-            options: [{id: "0", label: qsTr("文件")}, {id: "1", label: qsTr("预览")}, {id: "2", label: qsTr("设置")}]
+            options: [{id: "0", label: qsTr("File")}, {id: "1", label: qsTr("Preview")}, {id: "2", label: qsTr("Settings")}]
             current: String(root.compactTab)
             onPicked: id => root.compactTab = Number(id)
         }
@@ -113,10 +113,10 @@ VPage {
         RowLayout {
             id: queueHead
             x: 10; y: 10; width: parent.width - 20; height: 30; spacing: 5
-            Text { text: qsTr("队列 ") + veyra.exportQueueModel.count; color: Theme.t2; font.family: Theme.fontUi; font.pixelSize: 12 }
+            Text { text: qsTr("Queue ") + veyra.exportQueueModel.count; color: Theme.t2; font.family: Theme.fontUi; font.pixelSize: 12 }
             Item { Layout.fillWidth: true }
-            VButton { objectName: "export-add-files"; text: qsTr("添加"); iconName: "plus"; onClicked: veyra.addExportFilesDialog() }
-            VButton { objectName: "export-clear-queue"; ghost: true; text: veyra.exportRunning ? qsTr("清空等待") : qsTr("清空"); onClicked: veyra.exportQueueModel.clearWaiting() }
+            VButton { objectName: "export-add-files"; text: qsTr("Add"); iconName: "plus"; onClicked: veyra.addExportFilesDialog() }
+            VButton { objectName: "export-clear-queue"; ghost: true; text: veyra.exportRunning ? qsTr("Clear waiting") : qsTr("Clear"); onClicked: veyra.exportQueueModel.clearWaiting() }
         }
         ListView {
             id: queueList
@@ -197,8 +197,8 @@ VPage {
                 width: Math.max(1, parent.width - 24)
                 visible: veyra.exportQueueModel.count === 0
                 spacing: 8
-                Text { width: parent.width; text: root.compact ? qsTr("添加或拖入多个视频") : qsTr("添加或拖入多个视频\n添加后不会立即导出"); horizontalAlignment: Text.AlignHCenter; color: Theme.t3; wrapMode: Text.Wrap; font.family: Theme.fontUi; font.pixelSize: 12 }
-                VButton { anchors.horizontalCenter: parent.horizontalCenter; visible: veyra.hasSource && !veyra.isCapture && queueList.height > 80; text: qsTr("添加当前文件"); onClicked: veyra.addCurrentExportFile() }
+                Text { width: parent.width; text: root.compact ? qsTr("Add or drop several videos") : qsTr("Add or drop several videos\nAdding does not start the export"); horizontalAlignment: Text.AlignHCenter; color: Theme.t3; wrapMode: Text.Wrap; font.family: Theme.fontUi; font.pixelSize: 12 }
+                VButton { anchors.horizontalCenter: parent.horizontalCenter; visible: veyra.hasSource && !veyra.isCapture && queueList.height > 80; text: qsTr("Add current file"); onClicked: veyra.addCurrentExportFile() }
             }
         }
         Timer {
@@ -228,7 +228,7 @@ VPage {
             contentWidth: availableWidth
             clip: true
             // A ScrollView's own bar is placed by the style; a replacement must place
-            // itself, or it sits at the top-left corner under 输出设置 (2026-10-05).
+            // itself, or it sits at the top-left corner under Output settings (2026-10-05).
             ScrollBar.vertical: ExportScrollBar {
                 id: settingsBar
                 parent: settingsScroll
@@ -242,25 +242,25 @@ VPage {
                 // changes wrapped height and can toggle the bar in a polish loop.
                 width: Math.max(1, settingsScroll.availableWidth - settingsBar.width - 2)
                 spacing: 10
-                VH2 { text: qsTr("输出设置"); font.pixelSize: 14 }
-                VRow { label: qsTr("类型"); VSeg { options: [{id: "video", label: qsTr("视频")}, {id: "image", label: qsTr("图片")}]; current: root.exportKind; onPicked: id => root.exportKind = id } }
+                VH2 { text: qsTr("Output settings"); font.pixelSize: 14 }
+                VRow { label: qsTr("Type"); VSeg { options: [{id: "video", label: qsTr("Video")}, {id: "image", label: qsTr("Image")}]; current: root.exportKind; onPicked: id => root.exportKind = id } }
                 VGroup {
                     visible: root.exportKind === "video"
-                    VRow { label: qsTr("封装"); VSeg { objectName: "export-container"; options: [{id: "0", label: "MP4"}, {id: "1", label: "MKV"}]; current: String(veyra.exportContainer); onPicked: id => veyra.exportContainer = Number(id) } }
-                    VRow { label: qsTr("视频编码"); VSeg { options: [{id: "0", label: "H.264"}, {id: "1", label: "HEVC"}]; current: veyra.exportHevc ? "1" : "0"; onPicked: id => veyra.exportHevc = id === "1" } }
+                    VRow { label: qsTr("Container"); VSeg { objectName: "export-container"; options: [{id: "0", label: "MP4"}, {id: "1", label: "MKV"}]; current: String(veyra.exportContainer); onPicked: id => veyra.exportContainer = Number(id) } }
+                    VRow { label: qsTr("Video codec"); VSeg { options: [{id: "0", label: "H.264"}, {id: "1", label: "HEVC"}]; current: veyra.exportHevc ? "1" : "0"; onPicked: id => veyra.exportHevc = id === "1" } }
                     VRow {
-                        label: qsTr("分辨率")
+                        label: qsTr("Resolution")
                         Choice {
                             objectName: "export-resolution"
-                            options: [{id: "-1", label: qsTr("跟随增强预设")}, {id: "0", label: qsTr("源尺寸")}, {id: "1", label: "2K"}, {id: "2", label: "4K"}, {id: "4", label: "5K"}, {id: "5", label: "6K"}, {id: "6", label: "7K"}, {id: "3", label: "8K"}]
+                            options: [{id: "-1", label: qsTr("Follow the enhancement preset")}, {id: "0", label: qsTr("Source size")}, {id: "1", label: "2K"}, {id: "2", label: "4K"}, {id: "4", label: "5K"}, {id: "5", label: "6K"}, {id: "6", label: "7K"}, {id: "3", label: "8K"}]
                             selected: String(veyra.exportSrTargetIndex)
                             onPicked: id => veyra.exportSrTargetIndex = Number(id)
                         }
                     }
-                    VRow { label: qsTr("质量策略"); VSeg { options: [{id: "0", label: "CBR"}, {id: "1", label: "VBR"}, {id: "2", label: "CQ"}]; current: String(veyra.exportRateControl); onPicked: id => veyra.exportRateControl = Number(id) } }
+                    VRow { label: qsTr("Rate control"); VSeg { options: [{id: "0", label: "CBR"}, {id: "1", label: "VBR"}, {id: "2", label: "CQ"}]; current: String(veyra.exportRateControl); onPicked: id => veyra.exportRateControl = Number(id) } }
                     VRow {
                         visible: veyra.exportRateControl !== 2
-                        label: qsTr("码率 Mbps")
+                        label: qsTr("Bitrate (Mbps)")
                         Basic.TextField {
                             id: bitrateEditor
                             objectName: "export-bitrate-field"
@@ -285,21 +285,21 @@ VPage {
                             }
                         }
                     }
-                    Note { text: veyra.exportRateControl === 2 ? qsTr("CQ 使用恒定质量；文件大小随画面复杂度变化。") : qsTr("目标码率 1–300 Mbps；VBR 的实际平均码率随画面复杂度变化。") }
-                    VRow { label: qsTr("增强预设"); Choice { options: veyra.presetChoices; selected: String((veyra.presetChoices.find(o => o.label === veyra.exportPresetName) || {id: "-1"}).id); onPicked: id => veyra.selectExportPreset(Number(id)) } }
+                    Note { text: veyra.exportRateControl === 2 ? qsTr("CQ keeps quality constant; file size follows how complex the picture is.") : qsTr("Target bitrate: 1–300 Mbps. Actual VBR average bitrate varies with scene complexity.") }
+                    VRow { label: qsTr("Enhancement preset"); Choice { options: veyra.presetChoices; selected: String((veyra.presetChoices.find(o => o.label === veyra.exportPresetName) || {id: "-1"}).id); onPicked: id => veyra.selectExportPreset(Number(id)) } }
                 }
                 VGroup {
                     visible: root.exportKind === "video"
-                    Note { text: veyra.exportQueueModel.selectedId ? qsTr("所选文件的音轨与内嵌字幕") : qsTr("默认保留全部轨道；点击左侧文件可单独选择。") }
+                    Note { text: veyra.exportQueueModel.selectedId ? qsTr("Audio tracks and embedded subtitles of the selected file") : qsTr("Keeps all tracks by default; click a file on the left to choose separately.") }
                     VRow {
-                        label: qsTr("音轨")
+                        label: qsTr("Audio tracks")
                         enabled: veyra.exportSelectionEditable
-                        Choice { options: [{id: "1", label: qsTr("保留全部")}, {id: "2", label: qsTr("选择轨道")}, {id: "3", label: qsTr("不保留")}]; selected: String(veyra.exportAudioPolicy); onPicked: id => veyra.setExportTrackPolicy(true, Number(id)) }
+                        Choice { options: [{id: "1", label: qsTr("Keep all")}, {id: "2", label: qsTr("Choose tracks")}, {id: "3", label: qsTr("Don't keep")}]; selected: String(veyra.exportAudioPolicy); onPicked: id => veyra.setExportTrackPolicy(true, Number(id)) }
                     }
                     VRow {
-                        label: qsTr("内嵌字幕")
+                        label: qsTr("Embedded subtitles")
                         enabled: veyra.exportSelectionEditable
-                        Choice { options: [{id: "1", label: qsTr("保留全部")}, {id: "2", label: qsTr("选择轨道")}, {id: "3", label: qsTr("不保留")}]; selected: String(veyra.exportSubtitlePolicy); onPicked: id => veyra.setExportTrackPolicy(false, Number(id)) }
+                        Choice { options: [{id: "1", label: qsTr("Keep all")}, {id: "2", label: qsTr("Choose tracks")}, {id: "3", label: qsTr("Don't keep")}]; selected: String(veyra.exportSubtitlePolicy); onPicked: id => veyra.setExportTrackPolicy(false, Number(id)) }
                     }
                     Repeater {
                         model: veyra.exportTracks
@@ -326,20 +326,20 @@ VPage {
                             Note { text: modelData.action; color: modelData.compatible ? Theme.t3 : Theme.err }
                         }
                     }
-                    Note { text: qsTr("音轨直接复制，不改变声道数。MKV 可保留 ASS 样式和字体；“保留全部”时当前封装装不下的轨道会跳过并提示，手动选中的轨道装不下会报错。") }
+                    Note { text: qsTr("Audio tracks are copied as they are; the channel count does not change. MKV can keep ASS styling and fonts. With Keep all, tracks the current container cannot hold are skipped and reported; a track you chose by hand that cannot be held is an error.") }
                 }
                 VGroup {
                     visible: root.exportKind === "image"
-                    VButton { Layout.fillWidth: true; text: qsTr("导出当前画面"); enabled: veyra.hasSource && !veyra.imageBatchActive; onClicked: veyra.saveFrameDialog() }
-                    VButton { Layout.fillWidth: true; text: qsTr("批量处理图片…"); enabled: !veyra.imageBatchActive; onClicked: veyra.exportImagesDialog() }
+                    VButton { Layout.fillWidth: true; text: qsTr("Export the current picture"); enabled: veyra.hasSource && !veyra.imageBatchActive; onClicked: veyra.saveFrameDialog() }
+                    VButton { Layout.fillWidth: true; text: qsTr("Process images in a batch…"); enabled: !veyra.imageBatchActive; onClicked: veyra.exportImagesDialog() }
                     Note { text: veyra.imageBatchStatus }
-                    VButton { visible: veyra.imageBatchActive; text: qsTr("取消图片批次"); onClicked: veyra.cancelImageBatch() }
+                    VButton { visible: veyra.imageBatchActive; text: qsTr("Cancel image batch"); onClicked: veyra.cancelImageBatch() }
                 }
-                Note { visible: root.exportKind === "video"; text: qsTr("点击开始时冻结本批设置。") + (veyra.preferences.exportStopsPlayback !== false ? qsTr("开始导出时会关闭正在播放的内容，显卡全部留给导出。") : qsTr("导出期间可以继续预览其他文件，会和导出抢显卡。")) }
-                VRow { label: qsTr("导出时关闭正在播放的内容"); VSwitch { objectName: "export-stop-playback"; checked: veyra.preferences.exportStopsPlayback !== false; onToggled: v => veyra.setPreference("exportStopsPlayback", v) } }
-                VButton { objectName: "export-target"; Layout.fillWidth: true; iconName: "folder"; text: qsTr("选择保存目录…"); onClicked: veyra.chooseExportPath() }
+                Note { visible: root.exportKind === "video"; text: qsTr("Clicking Start freezes this batch's settings. ") + (veyra.preferences.exportStopsPlayback !== false ? qsTr("Starting an export closes what is playing so the whole GPU goes to the export.") : qsTr("Other files can still be previewed during export; they compete with it for the GPU.")) }
+                VRow { label: qsTr("Close what is playing when exporting"); VSwitch { objectName: "export-stop-playback"; checked: veyra.preferences.exportStopsPlayback !== false; onToggled: v => veyra.setPreference("exportStopsPlayback", v) } }
+                VButton { objectName: "export-target"; Layout.fillWidth: true; iconName: "folder"; text: qsTr("Choose a save folder…"); onClicked: veyra.chooseExportPath() }
                 Note { text: veyra.exportTarget; wrapMode: Text.WrapAnywhere }
-                VRow { label: qsTr("完成提示音"); VSwitch { objectName: "export-sound"; checked: veyra.exportCompletionSound; onToggled: v => veyra.exportCompletionSound = v } }
+                VRow { label: qsTr("Completion sound"); VSwitch { objectName: "export-sound"; checked: veyra.exportCompletionSound; onToggled: v => veyra.exportCompletionSound = v } }
             }
         }
     }
@@ -360,11 +360,11 @@ VPage {
             RowLayout {
                 Layout.fillWidth: true; spacing: 6
                 Text { visible: root.compact; Layout.fillWidth: true; text: veyra.exportStatus; color: Theme.t2; elide: Text.ElideRight; font.pixelSize: 11 }
-                VButton { objectName: "export-start"; Layout.fillWidth: !root.compact; primary: !veyra.exportRunning; text: veyra.exportRunning ? (veyra.exportPaused ? qsTr("继续导出") : qsTr("暂停导出")) : qsTr("开始导出 ") + veyra.exportReadyCount + qsTr(" 项"); enabled: root.exportKind === "video" && (veyra.exportRunning || (veyra.exportReadyCount > 0 && (veyra.exportRateControl === 2 || bitrateEditor.acceptableInput))); onClicked: veyra.exportRunning ? veyra.pauseExport(!veyra.exportPaused) : veyra.startExport() }
-                VButton { objectName: "export-cancel"; visible: veyra.exportRunning; text: qsTr("取消"); onClicked: veyra.cancelExport() }
+                VButton { objectName: "export-start"; Layout.fillWidth: !root.compact; primary: !veyra.exportRunning; text: veyra.exportRunning ? (veyra.exportPaused ? qsTr("Continue export") : qsTr("Pause export")) : qsTr("Start export ") + veyra.exportReadyCount + qsTr(" items"); enabled: root.exportKind === "video" && (veyra.exportRunning || (veyra.exportReadyCount > 0 && (veyra.exportRateControl === 2 || bitrateEditor.acceptableInput))); onClicked: veyra.exportRunning ? veyra.pauseExport(!veyra.exportPaused) : veyra.startExport() }
+                VButton { objectName: "export-cancel"; visible: veyra.exportRunning; text: qsTr("Cancel"); onClicked: veyra.cancelExport() }
             }
             // The one remaining-time readout (the old page had two); it holds still while paused.
-            Note { objectName: "export-eta"; visible: !root.compact; text: veyra.exportRunning ? qsTr("已编码 ") + veyra.exportEncoded + qsTr(" 帧") + (veyra.exportPaused ? qsTr(" · 已暂停") : veyra.exportEtaSeconds > 0 ? qsTr(" · 当前文件剩余约 ") + veyra.formatTime(veyra.exportEtaSeconds) : "") + qsTr(" · 等待 ") + veyra.exportQueueCount + qsTr(" 项") : qsTr("取消后可重新开始；已完成文件会跳过。") }
+            Note { objectName: "export-eta"; visible: !root.compact; text: veyra.exportRunning ? qsTr("Encoded ") + veyra.exportEncoded + qsTr(" frames") + (veyra.exportPaused ? qsTr(" · paused") : veyra.exportEtaSeconds > 0 ? qsTr(" · current file, about ") + veyra.formatTime(veyra.exportEtaSeconds) : "") + qsTr(" · waiting ") + veyra.exportQueueCount + qsTr(" items") : qsTr("After cancelling you can start again; finished files are skipped.") }
         }
     }
 
@@ -385,7 +385,7 @@ VPage {
             id: videoArea
             objectName: "videoArea"
             anchors.fill: parent
-            // 分屏对比 on the export preview: drag the divider across the picture.
+            // Split comparison on the export preview: drag the divider across the picture.
             MouseArea {
                 objectName: "export-compare-drag"
                 anchors.fill: parent
@@ -412,7 +412,7 @@ VPage {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 visible: !veyra.hasSource
-                text: veyra.exportRunning ? qsTr("导出进行中，预览已关闭，显卡留给导出") + "\n" + qsTr("点左侧文件可重新预览（会和导出抢显卡）") : qsTr("点左侧文件预览")
+                text: veyra.exportRunning ? qsTr("Exporting; preview closed so the GPU goes to the export") + "\n" + qsTr("Click a file on the left to preview it again (it competes with the export for the GPU)") : qsTr("Click a file on the left to preview")
                 color: Theme.t3
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsH3
@@ -420,7 +420,7 @@ VPage {
             // .exp .compare .lb: which side is which. Each label is cut out of the
             // native video (videoCover) so it shows above the picture.
             Repeater {
-                model: veyra.compareMode === 2 && veyra.hasSource ? [{ t: qsTr("原画"), left: true }, { t: qsTr("增强后（预览）"), left: false }] : []
+                model: veyra.compareMode === 2 && veyra.hasSource ? [{ t: qsTr("Original"), left: true }, { t: qsTr("Enhanced (preview)"), left: false }] : []
                 delegate: Rectangle {
                     required property var modelData
                     objectName: "export-compare-label-" + (modelData.left ? "left" : "right")
@@ -448,7 +448,7 @@ VPage {
         color: Theme.card
         border.width: 1
         border.color: Theme.stroke
-        // 入点 / 出点 (user request 2026-09-29): play or scrub to a spot, then
+        // In / out points (user request 2026-09-29): play or scrub to a spot, then
         // mark it. One timeline shows the playhead, the kept range and both marks.
         readonly property bool editable: veyra.hasSource && veyra.exportSelectionEditable && veyra.duration > 0
         readonly property real inAt: veyra.exportTrimStart
@@ -575,17 +575,17 @@ VPage {
                     color: Theme.t2; font.family: Theme.fontMono; font.pixelSize: Theme.fsSmall
                 }
 
-                VButton { objectName: "export-mark-in"; text: qsTr("入点 I"); enabled: trimCard.editable; onClicked: trimCard.markIn() }
-                VButton { objectName: "export-mark-out"; text: qsTr("出点 O"); enabled: trimCard.editable; onClicked: trimCard.markOut() }
+                VButton { objectName: "export-mark-in"; text: qsTr("In I"); enabled: trimCard.editable; onClicked: trimCard.markIn() }
+                VButton { objectName: "export-mark-out"; text: qsTr("Out O"); enabled: trimCard.editable; onClicked: trimCard.markOut() }
                 VSeg {
                     objectName: "export-compare"
-                    options: [{ id: "0", label: qsTr("增强") }, { id: "2", label: qsTr("对比") }]
+                    options: [{ id: "0", label: qsTr("Enhanced") }, { id: "2", label: qsTr("Compare") }]
                     current: veyra.compareMode === 2 ? "2" : "0"
                     onPicked: id => veyra.compareMode = Number(id)
                 }
                 VButton {
                     objectName: "export-mark-clear"
-                    text: qsTr("清除"); ghost: true
+                    text: qsTr("Clear"); ghost: true
                     enabled: trimCard.editable && (veyra.exportTrimStart > 0 || veyra.exportTrimEnd > 0)
                     onClicked: { veyra.exportTrimStart = 0; veyra.exportTrimEnd = 0 }
                 }
@@ -594,7 +594,7 @@ VPage {
             Text {
                 Layout.fillWidth: true
                 visible: !root.compact
-                text: qsTr("导出 ") + veyra.formatTime(trimCard.inAt) + " — " + veyra.formatTime(trimCard.outAt)
+                text: qsTr("Export ") + veyra.formatTime(trimCard.inAt) + " — " + veyra.formatTime(trimCard.outAt)
                 color: Theme.t2; font.family: Theme.fontMono; font.pixelSize: 11
                 elide: Text.ElideRight
             }

@@ -57,7 +57,7 @@ struct Shared {
 };
 static_assert(std::is_trivially_copyable_v<Shared>);
 void close(HANDLE& h){if(h&&h!=INVALID_HANDLE_VALUE)CloseHandle(h);h=nullptr;}
-const wchar_t* label(ExportState s){switch(s){case ExportState::Preparing:return L"正在准备独立导出任务";case ExportState::Running:return L"正在编码";case ExportState::Paused:return L"导出已暂停";case ExportState::Finishing:return L"正在封装和保存输出";case ExportState::Cancelling:return L"正在取消并回收任务";case ExportState::Succeeded:return L"导出完成";case ExportState::Failed:return L"导出失败；详见独立任务日志";case ExportState::Cancelled:return L"导出已取消";default:return L"尚无导出任务";}}
+const wchar_t* label(ExportState s){switch(s){case ExportState::Preparing:return L"Preparing the separate export job";case ExportState::Running:return L"Encoding";case ExportState::Paused:return L"Export paused";case ExportState::Finishing:return L"Muxing and saving the output";case ExportState::Cancelling:return L"Cancelling and cleaning up the job";case ExportState::Succeeded:return L"Export finished";case ExportState::Failed:return L"Export failed; see the job's own log";case ExportState::Cancelled:return L"Export cancelled";default:return L"No export job yet";}}
 }
 std::wstring reserveExportTemporaryFile(const std::wstring& output, std::wstring& error) {
     static std::atomic<uint64_t> sequence{0};
@@ -66,13 +66,13 @@ std::wstring reserveExportTemporaryFile(const std::wstring& output, std::wstring
         HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
         if(file!=INVALID_HANDLE_VALUE){CloseHandle(file);return path;}
         const DWORD code=GetLastError();
-        if(code!=ERROR_FILE_EXISTS&&code!=ERROR_ALREADY_EXISTS){error=std::format(L"无法创建临时输出（Windows错误 {}）：{}",code,path);return {};}
+        if(code!=ERROR_FILE_EXISTS&&code!=ERROR_ALREADY_EXISTS){error=std::format(L"Could not create the temporary output (Windows error {}): {}",code,path);return {};}
     }
-    error=L"无法为本次导出预留唯一临时文件";return {};
+    error=L"Could not reserve a unique temporary file for this export";return {};
 }
 bool removeExportTemporaryFile(const std::wstring& path, std::wstring& error) {
     if(path.empty()||DeleteFileW(path.c_str())||GetLastError()==ERROR_FILE_NOT_FOUND)return true;
-    error=std::format(L"临时文件清理失败（Windows错误 {}）：{}",GetLastError(),path);
+    error=std::format(L"Temporary file cleanup failed (Windows error {}): {}",GetLastError(),path);
     log::warn("export-cleanup",utf8(error));return false;
 }
 struct ExportJobManager::Impl {
@@ -98,7 +98,7 @@ struct ExportJobManager::Impl {
             launchingQueued=false;
             if(started)return true;
             ++queueFailures;
-            lastQueueFailure=std::filesystem::path(next.output).filename().wstring()+L"："+snapshot.message;
+            lastQueueFailure=std::filesystem::path(next.output).filename().wstring()+L": "+snapshot.message;
             log::warn("export-queue",std::format("queued item refused output={} reason={} failures={}",utf8(next.output),utf8(snapshot.message),queueFailures));
         }
         return false;
@@ -123,25 +123,25 @@ bool ExportJobManager::start(const std::wstring& input,const std::wstring& outpu
     // starts the next queued item, which made a queued conflict look "busy"
     // and dropped it without a failure.
     if(p_->shared&&WaitForSingleObject(p_->process,0)==WAIT_OBJECT_0)poll();
-    if(p_->shared){p_->snapshot.message=L"上一任务仍在回收，请等待取消完成";return false;}p_->clear();
+    if(p_->shared){p_->snapshot.message=L"The previous job is still being cleaned up; wait for the cancel to finish";return false;}p_->clear();
     if(!p_->launchingQueued){p_->queueFailures=0;p_->lastQueueFailure.clear();}
     if(!p_->resuming){p_->removeParts();p_->current={input,output,settings,hevc,maxFrames,audioStreamIndex,trimStartSeconds,trimEndSeconds,rateControl,media};}
     const auto failures=p_->queueFailures;const auto lastFailure=p_->lastQueueFailure;
     p_->snapshot={};p_->snapshot.queueFailures=failures;p_->snapshot.lastQueueFailure=lastFailure;
     auto fail=[&](const wchar_t* message){const DWORD error=GetLastError();p_->clear();p_->snapshot.state=ExportState::Failed;p_->snapshot.message=message;std::wstring cleanup;if(!removeExportTemporaryFile(p_->snapshot.temporaryPath,cleanup))p_->snapshot.message+=L"\n"+cleanup;log::error("export-worker",std::format("launch failed error={}",error));return false;};
-    if(input.empty()||output.empty()||input.size()>=32768||output.size()>=32768||!settings.validate().empty()||input.starts_with(L"capture:")||input.starts_with(L"capture2:"))return fail(L"请选择本地视频与有效导出设置");
-    if(rateControl!=sink::ExportRateControl::Cq&&settings.exportBitrateMbps==0)return fail(L"CBR/VBR 需要指定码率；CQ 不使用码率");
-    if(!media.valid())return fail(L"导出封装或轨道设置无效");
-    if(std::filesystem::exists(output))return fail(L"输出文件已存在，请选择新文件名");
+    if(input.empty()||output.empty()||input.size()>=32768||output.size()>=32768||!settings.validate().empty()||input.starts_with(L"capture:")||input.starts_with(L"capture2:"))return fail(L"Choose a local video and valid export settings");
+    if(rateControl!=sink::ExportRateControl::Cq&&settings.exportBitrateMbps==0)return fail(L"CBR/VBR needs a bitrate; CQ does not use one");
+    if(!media.valid())return fail(L"Invalid export container or track settings");
+    if(std::filesystem::exists(output))return fail(L"The output file already exists; choose a new file name");
     std::wstring reserveError;
     p_->snapshot.temporaryPath=reserveExportTemporaryFile(output,reserveError);
     if(p_->snapshot.temporaryPath.empty())return fail(reserveError.c_str());
-    if(p_->snapshot.temporaryPath.size()>=32768)return fail(L"输出路径过长");
+    if(p_->snapshot.temporaryPath.size()>=32768)return fail(L"The output path is too long");
     SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,TRUE};
     p_->mapping=CreateFileMappingW(INVALID_HANDLE_VALUE,&sa,PAGE_READWRITE,0,sizeof(Shared),nullptr);
-    if(!p_->mapping)return fail(L"无法创建导出通信资源");
-    p_->shared=static_cast<Shared*>(MapViewOfFile(p_->mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(Shared)));if(!p_->shared)return fail(L"无法映射导出通信资源");
-    if(!std::isfinite(trimStartSeconds)||!std::isfinite(trimEndSeconds)||trimStartSeconds<0||trimEndSeconds<0||(trimEndSeconds>0&&trimEndSeconds<=trimStartSeconds))return fail(L"导出剪辑范围无效");
+    if(!p_->mapping)return fail(L"Could not create the export communication resources");
+    p_->shared=static_cast<Shared*>(MapViewOfFile(p_->mapping,FILE_MAP_ALL_ACCESS,0,0,sizeof(Shared)));if(!p_->shared)return fail(L"Could not map the export communication resources");
+    if(!std::isfinite(trimStartSeconds)||!std::isfinite(trimEndSeconds)||trimStartSeconds<0||trimEndSeconds<0||(trimEndSeconds>0&&trimEndSeconds<=trimStartSeconds))return fail(L"Invalid export trim range");
     new(p_->shared) Shared{};auto& s=*p_->shared;s.settings=freezeExportSettings(settings);
     // Freeze the selected fixed/manual NR sizes once before crossing processes.
     // Auto becomes a fixed offline size; lmxxf retains its real input budget.
@@ -153,22 +153,22 @@ bool ExportJobManager::start(const std::wstring& input,const std::wstring& outpu
     s.media=media;wcscpy_s(s.temporary,p_->snapshot.temporaryPath.c_str());
     s.resumeAttempt=unsigned(p_->parts.size());s.priorCount=unsigned(p_->parts.size());
     for(size_t i=0;i<p_->parts.size()&&i<kMaxExportParts;++i){
-        if(p_->parts[i].first.size()>=2048)return fail(L"分段临时文件路径过长");
+        if(p_->parts[i].first.size()>=2048)return fail(L"Part file path is too long");
         wcscpy_s(s.priorPaths[i],p_->parts[i].first.c_str());s.priorOrigins[i]=p_->parts[i].second;
     }
     wcscpy_s(s.input,input.c_str());wcscpy_s(s.output,output.c_str());
     p_->job=CreateJobObjectW(nullptr,nullptr);JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if(!p_->job||!SetInformationJobObject(p_->job,JobObjectExtendedLimitInformation,&limits,sizeof(limits)))return fail(L"无法建立导出进程生命周期");
+    if(!p_->job||!SetInformationJobObject(p_->job,JobObjectExtendedLimitInformation,&limits,sizeof(limits)))return fail(L"Could not set up the export process lifetime");
     SIZE_T bytes=0;InitializeProcThreadAttributeList(nullptr,1,0,&bytes);std::vector<std::byte> attrs(bytes);
     STARTUPINFOEXW si{};si.StartupInfo.cb=sizeof(si);si.StartupInfo.dwFlags=STARTF_USESHOWWINDOW;si.StartupInfo.wShowWindow=SW_HIDE;si.lpAttributeList=reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attrs.data());
-    if(!InitializeProcThreadAttributeList(si.lpAttributeList,1,0,&bytes))return fail(L"无法初始化导出进程");
+    if(!InitializeProcThreadAttributeList(si.lpAttributeList,1,0,&bytes))return fail(L"Could not initialize the export process");
     const bool attr=UpdateProcThreadAttribute(si.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,&p_->mapping,sizeof(HANDLE),nullptr,nullptr)!=FALSE;
     wchar_t exe[32768]{};GetModuleFileNameW(nullptr,exe,32768);auto cmd=std::format(L"\"{}\" --export-worker {}",exe,reinterpret_cast<uintptr_t>(p_->mapping));PROCESS_INFORMATION pi{};
     const bool started=attr&&CreateProcessW(exe,cmd.data(),nullptr,nullptr,TRUE,EXTENDED_STARTUPINFO_PRESENT|CREATE_SUSPENDED|CREATE_NO_WINDOW|BELOW_NORMAL_PRIORITY_CLASS,nullptr,nullptr,&si.StartupInfo,&pi);
     DeleteProcThreadAttributeList(si.lpAttributeList);SetHandleInformation(p_->mapping,HANDLE_FLAG_INHERIT,0);
-    if(!started)return fail(L"无法启动导出进程");p_->process=pi.hProcess;
-    if(!AssignProcessToJobObject(p_->job,p_->process)){TerminateProcess(p_->process,1);CloseHandle(pi.hThread);return fail(L"导出进程隔离失败");}
-    if(ResumeThread(pi.hThread)==DWORD(-1)){TerminateProcess(p_->process,1);CloseHandle(pi.hThread);return fail(L"无法运行导出进程");}CloseHandle(pi.hThread);
+    if(!started)return fail(L"Could not start the export process");p_->process=pi.hProcess;
+    if(!AssignProcessToJobObject(p_->job,p_->process)){TerminateProcess(p_->process,1);CloseHandle(pi.hThread);return fail(L"Export process isolation failed");}
+    if(ResumeThread(pi.hThread)==DWORD(-1)){TerminateProcess(p_->process,1);CloseHandle(pi.hThread);return fail(L"Could not run the export process");}CloseHandle(pi.hThread);
     p_->snapshot.state=ExportState::Preparing;p_->snapshot.output=output;p_->snapshot.jobId=(GetTickCount64()<<16)^pi.dwProcessId;p_->snapshot.frozenRevision=settings.revision;p_->snapshot.frozen=s.settings;p_->startTick=GetTickCount64();p_->pausedAt=p_->pausedTotal=0;
     p_->snapshot.workerPid=pi.dwProcessId;
     p_->snapshot.workerLog=std::filesystem::absolute(runtime::logsDirectory()/std::format("export-worker-{}.log",pi.dwProcessId)).wstring();
@@ -182,7 +182,7 @@ bool ExportJobManager::enqueue(const std::wstring& input,const std::wstring& out
 }
 void ExportJobManager::clearQueue(){p_->queue.clear();}
 size_t ExportJobManager::queuedCount() const{return p_->queue.size();}
-void ExportJobManager::cancel(){if(p_->shared){InterlockedExchange(&p_->shared->cancel,1);if(!p_->cancelAt)p_->cancelAt=GetTickCount64();p_->snapshot.state=ExportState::Cancelling;p_->snapshot.message=L"正在取消并回收任务";}p_->queue.clear();}
+void ExportJobManager::cancel(){if(p_->shared){InterlockedExchange(&p_->shared->cancel,1);if(!p_->cancelAt)p_->cancelAt=GetTickCount64();p_->snapshot.state=ExportState::Cancelling;p_->snapshot.message=L"Cancelling and cleaning up the job";}p_->queue.clear();}
 void ExportJobManager::pause(bool v){
     if(!p_->shared)return;InterlockedExchange(&p_->shared->pause,v);
     const auto now=GetTickCount64();
@@ -217,7 +217,7 @@ ExportJobSnapshot ExportJobManager::poll(){
                 p_->resuming=false;
                 if(started){
                     p_->snapshot.jobId=jobId;
-                    p_->snapshot.message=std::format(L"显卡在导出时被系统重置（第 {} 次），前面已保存，正在从 {:.1f} 秒接着导出",p_->parts.size(),resumeAt);
+                    p_->snapshot.message=std::format(L"The GPU was reset during the export (time {}); the part so far is saved, continuing from {:.1f} s",p_->parts.size(),resumeAt);
                     return p_->snapshot;
                 }
             }
@@ -225,7 +225,7 @@ ExportJobSnapshot ExportJobManager::poll(){
             // keeps every part it has, and says where they are.
             std::wstring kept;for(const auto& saved:p_->parts)kept+=L"\n"+saved.first;
             p_->snapshot.state=ExportState::Failed;
-            p_->snapshot.message=(workerMessage.empty()?std::wstring(L"导出时显卡多次被系统重置"):workerMessage)+L"；已导出的部分保留在："+kept;
+            p_->snapshot.message=(workerMessage.empty()?std::wstring(L"The GPU was reset several times during the export"):workerMessage)+L"; the exported parts are kept at: "+kept;
             log::error("export-resume",std::format("job not continued after {} parts",p_->parts.size()));
             p_->parts.clear();
             if(p_->shared)p_->clear();
@@ -235,12 +235,12 @@ ExportJobSnapshot ExportJobManager::poll(){
         // Preserve the worker's actual outcome, including codec substitutions.
         const bool explained=(p_->snapshot.state==ExportState::Failed||p_->snapshot.state==ExportState::Succeeded)&&InterlockedCompareExchange(&s.state,0,0)==LONG(p_->snapshot.state)&&s.message[0];
         p_->snapshot.message=explained?s.message:label(p_->snapshot.state);
-        if(p_->snapshot.state==ExportState::Cancelled){p_->removeParts();std::wstring cleanup;if(!removeExportTemporaryFile(p_->snapshot.temporaryPath,cleanup))p_->snapshot.message+=L"\n"+cleanup;else p_->snapshot.message=L"导出已取消，可重新开始";}
+        if(p_->snapshot.state==ExportState::Cancelled){p_->removeParts();std::wstring cleanup;if(!removeExportTemporaryFile(p_->snapshot.temporaryPath,cleanup))p_->snapshot.message+=L"\n"+cleanup;else p_->snapshot.message=L"Export cancelled; you can start again";}
         if(p_->snapshot.state==ExportState::Failed){
             std::wstring kept;
             for(const auto& part:p_->parts)
                 if(p_->snapshot.message.find(part.first)==std::wstring::npos)kept+=L"\n"+part.first;
-            if(!kept.empty())p_->snapshot.message+=L"；已导出的部分保留在："+kept;
+            if(!kept.empty())p_->snapshot.message+=L"; the exported parts are kept at: "+kept;
         }
         // The previous job's recoverable parts belong to its result. Detach
         // their paths so starting the next export cannot delete them.
@@ -248,7 +248,7 @@ ExportJobSnapshot ExportJobManager::poll(){
         const auto& final=p_->snapshot;
         log::info("export-worker",std::format("finished jobId={} pid={} exit={} state={} source={} generated={} holds={} encoded={} log={}",final.jobId,final.workerPid,code,int(final.state),final.sourceFrames,final.generated,final.holds,final.encoded,std::filesystem::path(final.workerLog).string()));
         log::info("export-worker",utf8(final.message));
-        if(final.state==ExportState::Failed)p_->snapshot.message+=L"\n日志："+final.workerLog;
+        if(final.state==ExportState::Failed)p_->snapshot.message+=L"\nLog: "+final.workerLog;
         p_->clear();
         if(!p_->queue.empty()){
             // The finished job's outcome is reported by this poll; the next one
@@ -277,18 +277,18 @@ int runExportWorker(HANDLE mapping){
         }
         UnmapViewOfFile(s);CloseHandle(mapping);return 1;
     };
-    if(s->signature!=magic||s->version!=Shared::kVersion||s->bytes!=sizeof(Shared))return reject(L"导出任务通信协议不匹配");
+    if(s->signature!=magic||s->version!=Shared::kVersion||s->bytes!=sizeof(Shared))return reject(L"Export task protocol mismatch");
     if(const auto error=s->settings.validate();!error.empty()){
         log::error("export-worker",std::format("invalid frozen settings: {}",error));
-        return reject(L"导出任务的增强参数无效，请查看任务日志中的具体参数错误");
+        return reject(L"Invalid export enhancement settings. See the task log for the parameter error.");
     }
-    if(!s->media.valid()||s->audioStreamIndex< -1||s->rateControl>uint32_t(sink::ExportRateControl::Cq)||!std::isfinite(s->trimStartSeconds)||!std::isfinite(s->trimEndSeconds)||s->trimStartSeconds<0||s->trimEndSeconds<0||(s->trimEndSeconds>0&&s->trimEndSeconds<=s->trimStartSeconds)||s->input[32767]||s->output[32767]||s->temporary[32767]||!s->temporary[0]||s->priorCount>=kMaxExportParts)return reject(L"导出任务的路径、剪辑、封装或轨道参数无效");
+    if(!s->media.valid()||s->audioStreamIndex< -1||s->rateControl>uint32_t(sink::ExportRateControl::Cq)||!std::isfinite(s->trimStartSeconds)||!std::isfinite(s->trimEndSeconds)||s->trimStartSeconds<0||s->trimEndSeconds<0||(s->trimEndSeconds>0&&s->trimEndSeconds<=s->trimStartSeconds)||s->input[32767]||s->output[32767]||s->temporary[32767]||!s->temporary[0]||s->priorCount>=kMaxExportParts)return reject(L"Invalid export path, trim, container or track settings");
     ExportStreams::enableWorkerLogging(GetEnvironmentVariableW(L"VEYRA_TEST_EXPORT_FFMPEG_DEBUG",nullptr,0)>0);
     // The chain is the description of record for this job; the settings struct
     // stays the runtime input until the executor consumes chains directly.
     // Re-deriving one from the other must agree, otherwise the job is refused.
     {auto fromChainSettings=s->settings;fromChain(s->chain,fromChainSettings);
-     if(fromChainSettings!=s->settings)return reject(L"导出任务的效果链与冻结参数不一致");}
+     if(fromChainSettings!=s->settings)return reject(L"The export effect chain does not match the frozen settings");}
     const auto settings=s->settings;log::info("export-frozen",std::format("revision={} nr={} sr={} multiplier={} intensity={} tone={} structure={} skin={} style={} autoMask={} ui={} total={} darken={} brighten={} color={} luminance={} flow={} content={} nrRuntime={} nrPolicy={} backend={}",settings.revision,settings.nr,settings.sr,settings.multiplier,settings.model.intensity,settings.model.tone,settings.model.structure,settings.model.skin,settings.model.style,settings.model.autoMask,settings.model.uiCorrection,settings.residual.total,settings.residual.darken,settings.residual.brighten,settings.residual.color,settings.residual.luminance,int(settings.flow),int(settings.content),int(settings.nrRuntime),int(settings.nrPolicy),frameGenerationBackendName(settings.frameGenerationBackend)));std::atomic<bool> cancel=false,done=false;
     std::thread monitor([&]{while(!done){if(InterlockedCompareExchange(&s->cancel,0,0))cancel=true;std::this_thread::sleep_for(std::chrono::milliseconds(10));}});
     auto frameBoundary=[&]{

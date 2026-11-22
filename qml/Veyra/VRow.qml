@@ -7,7 +7,7 @@ Item {
     property string hint: ""
     property color hintColor: Theme.t3
     property string value: ""
-    // Narrow panels with a wide control (导出 输出设置): the hint runs under the
+    // Narrow panels with a wide control (Export output settings): the hint runs under the
     // whole row instead of being squeezed beside the control.
     property bool hintBelow: false
     // Width left for the label and hint beside the control.

@@ -55,13 +55,13 @@ int main(){
         return format;
     };
     std::vector<CaptureFormat> listed{
-        media(0,1920,1080,60,L"1080p60-nv12",L"NV12",false,L"逐行"),
-        media(1,1920,1080,60,L"1080p60-yuy2",L"YUY2",false,L"逐行"),
-        media(2,1920,1080,30,L"1080p30-nv12",L"NV12",false,L"逐行"),
-        media(3,1920,1080,30,L"1080i60-nv12",L"NV12",true,L"隔行（59.94 场/秒）"),
-        media(4,3840,2160,30,L"4k30-yuy2",L"YUY2",false,L"逐行"),
-        media(5,1920,1080,60,L"1080p60-nv12-bff",L"NV12",false,L"逐行"),
-        media(6,3840,2160,24,L"4k24-yuy2",L"YUY2",false,L"逐行"),
+        media(0,1920,1080,60,L"1080p60-nv12",L"NV12",false,L"Progressive"),
+        media(1,1920,1080,60,L"1080p60-yuy2",L"YUY2",false,L"Progressive"),
+        media(2,1920,1080,30,L"1080p30-nv12",L"NV12",false,L"Progressive"),
+        media(3,1920,1080,30,L"1080i60-nv12",L"NV12",true,L"Interlaced (59.94 fields/s)"),
+        media(4,3840,2160,30,L"4k30-yuy2",L"YUY2",false,L"Progressive"),
+        media(5,1920,1080,60,L"1080p60-nv12-bff",L"NV12",false,L"Progressive"),
+        media(6,3840,2160,24,L"4k24-yuy2",L"YUY2",false,L"Progressive"),
     };
     const auto resolutions=captureResolutionOptions(listed);
     check(resolutions.size()==2&&resolutions[0].id==L"1920x1080"&&resolutions[1].id==L"3840x2160","resolutions stay unique and in list order");
@@ -99,7 +99,7 @@ int main(){
         check(!selectCapturePixelFormat(listed,resolution,captureFrameRateId(listed[2]),p60->key),"stale 60fps key cannot open at 30fps");
         check(!selectCapturePixelFormat(listed,resolution,rate,L"not-advertised"),"unknown pixel key rejected without fallback");
         for(auto pixel:{L"MJPEG",L"MJPG",L"mjpeg",L"mJpG"}){
-            auto jpeg=media(50,1920,1080,60,L"jpeg",pixel,false,L"逐行");
+            auto jpeg=media(50,1920,1080,60,L"jpeg",pixel,false,L"Progressive");
             const std::array warningFormats{*p60,jpeg};
             const auto choices=capturePixelOptions(warningFormats,p60);
             check(choices.size()==2&&!choices[0].discouraged&&choices[1].discouraged,"only MJPEG/MJPG receives warning, regardless of case");
@@ -117,17 +117,17 @@ int main(){
         check(captureFrameIntervals(nullptr,nullptr,0,{640,480},0)==std::vector<REFERENCE_TIME>{0},"unknown default interval stays visible");
     }
     {
-        auto unusual=media(25,1448,1086,47.952,L"unusual",L"CUSTOM",false,L"逐行");
-        auto huge=media(30,7680,4320,120,L"8k",L"P010",false,L"逐行");huge.supported=false;
-        CaptureFormat automatic;automatic.index=-1;automatic.key=L"decklink:auto";automatic.automatic=true;automatic.pixel=L"自动选择像素格式";
+        auto unusual=media(25,1448,1086,47.952,L"unusual",L"CUSTOM",false,L"Progressive");
+        auto huge=media(30,7680,4320,120,L"8k",L"P010",false,L"Progressive");huge.supported=false;
+        CaptureFormat automatic;automatic.index=-1;automatic.key=L"decklink:auto";automatic.automatic=true;automatic.pixel=L"Automatic pixel format";
         std::vector<CaptureFormat> all{automatic,unusual,huge,unusual};
         const auto sizes=captureResolutionOptions(all);
         check(sizes.size()==3&&sizes[0].id==L"auto"&&sizes[0].label.find(L"0")==std::wstring::npos&&sizes[1].id==L"1448x1086"&&sizes[2].id==L"7680x4320","automatic, nonstandard and oversized device modes all visible");
-        check(captureFrameRateOptions(all,&all[0])[0].label==L"跟随实际信号","DeckLink automatic rate never displayed as zero fps");
+        check(captureFrameRateOptions(all,&all[0])[0].label==L"Follow the input signal","DeckLink automatic rate never displayed as zero fps");
         check(!selectCapturePixelFormat(all,L"auto",L"auto",L""),"blank pixel key cannot select DeckLink automatic ordinal -1");
         check(capturePixelOptions(all,&all[1]).size()==1,"identical media keys are not duplicated");
         const auto unsupported=capturePixelOptions(all,&all[2]);
-        check(unsupported.size()==1&&unsupported[0].disabled&&unsupported[0].label.find(L"不支持")!=std::wstring::npos,"unsupported driver format remains visible with explicit limit");
+        check(unsupported.size()==1&&unsupported[0].disabled&&unsupported[0].label.find(L"Unsupported")!=std::wstring::npos,"unsupported driver format remains visible with explicit limit");
         unusual.fps=1;unusual.interval100ns=10000000;huge.fps=1.0000001;huge.interval100ns=9999999;
         check(captureFrameRateId(unusual)!=captureFrameRateId(huge),"exact driver intervals never collapse from decimal rounding");
         for(const auto& format:all){
@@ -139,7 +139,7 @@ int main(){
     }
     {
         // logs(18): a driver listing 1..120 fps for every format. The menu keeps the common
-        // rates (59.94 and 60.00024 count as 60) and hides the rest behind 显示全部可用帧率.
+        // rates (59.94 and 60.00024 count as 60) and hides the rest behind "Show all available frame rates".
         check(captureCommonFrameRate(60)&&captureCommonFrameRate(60000.0/1001)&&captureCommonFrameRate(60.00024)&&captureCommonFrameRate(29.97)
               &&captureCommonFrameRate(23.976)&&captureCommonFrameRate(143.856)&&captureCommonFrameRate(239.76)&&captureCommonFrameRate(165),"60, 59.94, 60.00024 and the 1000/1001 rates are common");
         check(!captureCommonFrameRate(59)&&!captureCommonFrameRate(61)&&!captureCommonFrameRate(75)&&!captureCommonFrameRate(1),"neighbouring and odd rates are not");

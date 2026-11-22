@@ -5,8 +5,8 @@
 // rotates 90 degrees when open, and the body animates its height rather than
 // appearing instantly.
 //
-// `groups` renders the design's nested collapsible sub-panels (模型参数 6 项,
-// 增强变化量 5 项, 实验 2 项), each with an item count on the right.
+// `groups` renders the design's nested collapsible sub-panels (model parameters 6 items,
+// enhancement deltas 5 items, experiments 2 items), each with an item count on the right.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -27,7 +27,7 @@ Rectangle {
     property var groups: []
     signal toggled(bool on)
     signal headerClicked()
-    // A brief accent pulse on the border: "here it is" after 处理顺序 locates a card.
+    // A brief accent pulse on the border: "here it is" after the chain order locates a card.
     function flash() { flashAnim.restart() }
     property real flashLevel: 0
     SequentialAnimation {
@@ -89,7 +89,7 @@ Rectangle {
 
     readonly property int headerHeight: Math.max(compactHeader ? 42 : 48, headerText.implicitHeight + 10)
     // Space between the header's hairline and the first body row: a body that
-    // starts with buttons or text (NR 层's 复制此层 row) sat on the line itself
+    // starts with buttons or text (NR layer's copy-this-layer row) sat on the line itself
     // (field report 2026-10-05).
     readonly property int bodyTopGap: 8
     implicitHeight: headerHeight + (open ? body.implicitHeight + bodyTopGap + 8 : 0)

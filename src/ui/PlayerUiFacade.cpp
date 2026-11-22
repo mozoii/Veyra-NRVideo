@@ -162,7 +162,7 @@ bool PlayerUiFacade::applying() const {
 
 bool PlayerUiFacade::applyPreset(size_t index) {
     const auto& entries = presets_.entries();
-    if (index >= entries.size()) { error_ = L"预设不存在"; return false; }
+    if (index >= entries.size()) { error_ = L"The preset does not exist"; return false; }
     auto settings = pending_;
     veyra::engine::PresetLibrary::apply(entries[index], settings);
     return applySettings(settings);
@@ -197,7 +197,7 @@ bool PlayerUiFacade::importLegacyStores() {
             if (legacy.name.empty()) continue;
             veyra::engine::PresetEntry entry;
             entry.name = legacy.name;
-            entry.note = chainOnly ? L"由旧的 NR 预设导入" : L"由旧预设导入";
+            entry.note = chainOnly ? L"Imported from an old NR preset" : L"Imported from an old preset";
             entry.kind = veyra::engine::ChainMode::List;
             entry.builtin = false;
             if (chainOnly) {
@@ -275,14 +275,14 @@ bool PlayerUiFacade::savePreferencesLocked() {
     const auto temporary = std::filesystem::path(preferencesPath()).concat(L".tmp");
     const auto data = out.str();
     HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) { error_ = L"界面状态写入失败"; return false; }
+    if (file == INVALID_HANDLE_VALUE) { error_ = L"Could not write the interface state"; return false; }
     DWORD written = 0;
     const bool ok = WriteFile(file, data.data(), DWORD(data.size()), &written, nullptr) && written == data.size() && FlushFileBuffers(file);
     CloseHandle(file);
     if (!ok || !MoveFileExW(temporary.c_str(), preferencesPath().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         std::error_code ec;
         std::filesystem::remove(temporary, ec);
-        error_ = ok ? L"界面状态替换失败" : L"界面状态写入失败";
+        error_ = ok ? L"Could not replace the interface state" : L"Could not write the interface state";
         return false;
     }
     return true;
@@ -294,19 +294,19 @@ bool PlayerUiFacade::loadPreferences() {
     // Missing file is the normal first-run case.
     if (!std::filesystem::exists(preferencesPath())) return true;
     std::ifstream f(preferencesPath(), std::ios::binary);
-    if (!f) { error_ = L"界面状态无法读取"; return false; }
+    if (!f) { error_ = L"The interface state cannot be read"; return false; }
     const std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     std::istringstream in(data);
     in.imbue(std::locale::classic());
     std::string magic;
     int version = 0;
     size_t count = 0;
-    if (!(in >> magic >> version) || magic != "VEYRA_UI_SESSION" || version != 1) { error_ = L"界面状态版本不支持"; return false; }
-    if (!(in >> count) || count > 32) { error_ = L"界面状态条目数非法"; return false; }
+    if (!(in >> magic >> version) || magic != "VEYRA_UI_SESSION" || version != 1) { error_ = L"Interface state version not supported"; return false; }
+    if (!(in >> count) || count > 32) { error_ = L"Invalid number of interface state entries"; return false; }
     std::vector<RecentEntry> recent;
     for (size_t i = 0; i < count; ++i) {
         std::string path, label;
-        if (!(in >> std::quoted(path) >> std::quoted(label))) { error_ = L"界面状态条目损坏"; return false; }
+        if (!(in >> std::quoted(path) >> std::quoted(label))) { error_ = L"An interface state entry is damaged"; return false; }
         RecentEntry entry;
         entry.path = wide(path);
         entry.label = wide(label);
@@ -317,7 +317,7 @@ bool PlayerUiFacade::loadPreferences() {
     CaptureSession session;
     int valid = 0;
     std::string device, format, preset;
-    if (!(in >> valid >> std::quoted(device) >> std::quoted(format) >> std::quoted(preset) >> session.fps)) { error_ = L"界面状态采集会话损坏"; return false; }
+    if (!(in >> valid >> std::quoted(device) >> std::quoted(format) >> std::quoted(preset) >> session.fps)) { error_ = L"The capture session in the interface state is damaged"; return false; }
     session.devicePath = wide(device);
     session.formatKey = wide(format);
     session.presetName = wide(preset);

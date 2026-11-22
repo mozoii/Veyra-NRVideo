@@ -74,13 +74,13 @@ const char* codecLabel(int videoFormat) {
 // What a connection failure or termination means to the user.
 std::wstring describeTermination(int code) {
     switch (code) {
-    case ML_ERROR_GRACEFUL_TERMINATION: return L"主机上的游戏已经退出，串流结束。";
-    case ML_ERROR_NO_VIDEO_TRAFFIC: return L"没有收到视频数据。通常是防火墙或端口转发没有放行 UDP 47998–48010。";
-    case ML_ERROR_NO_VIDEO_FRAME: return L"长时间收不到完整画面。网络很不稳定，或码率设得太高。";
-    case ML_ERROR_UNEXPECTED_EARLY_TERMINATION: return L"串流刚开始就被主机结束，常见原因是主机无法抓取画面（受保护内容或显示器未连接）。";
-    case ML_ERROR_PROTECTED_CONTENT: return L"主机上正在显示受保护的内容，无法串流。";
-    case ML_ERROR_FRAME_CONVERSION: return L"主机转换画面失败。开启 HDR 时，主机桌面分辨率与串流分辨率不兼容会这样。";
-    default: return std::format(L"连接中断（错误码 {}）。请检查网络和主机。", code);
+    case ML_ERROR_GRACEFUL_TERMINATION: return L"The game on the host has exited; streaming ended.";
+    case ML_ERROR_NO_VIDEO_TRAFFIC: return L"No video data received. Usually the firewall or port forwarding does not allow UDP 47998–48010.";
+    case ML_ERROR_NO_VIDEO_FRAME: return L"No complete picture for a long time. The network is very unstable, or the bitrate is set too high.";
+    case ML_ERROR_UNEXPECTED_EARLY_TERMINATION: return L"The host ended the stream right after it started; usually the host cannot capture the picture (protected content or no display connected).";
+    case ML_ERROR_PROTECTED_CONTENT: return L"The host is showing protected content and cannot stream.";
+    case ML_ERROR_FRAME_CONVERSION: return L"The host failed to convert the picture. With HDR on, this happens when the host desktop resolution is incompatible with the stream resolution.";
+    default: return std::format(L"Connection lost (error {}). Check the network and the host.", code);
     }
 }
 
@@ -174,7 +174,7 @@ struct MoonlightSessionSource::Impl {
     moonlight::PadFrame pad;
     bool padArrived = false;
     std::mutex feedbackMutex;
-    remoteplay::ControllerFeedback feedback;
+    input::ControllerFeedback feedback;
     bool feedbackPending = false;
     uint16_t rumbleLow = 0, rumbleHigh = 0;
     Clock::time_point feedbackSent{};
@@ -233,7 +233,7 @@ struct MoonlightSessionSource::Callbacks {
         if (auto* self = g_active.load()) {
             std::lock_guard lock(self->mutex_);
             self->stats_.errorCode = error;
-            self->stats_.message = std::format(L"连接在“{}”阶段失败（错误码 {}）。请确认主机上的 Sunshine 正在运行，并且防火墙放行了 TCP 47984/47989/48010 与 UDP 47998–48010。",
+            self->stats_.message = std::format(L"The connection failed at the \"{}\" stage (error {}). Make sure Sunshine is running on the host and the firewall allows TCP 47984/47989/48010 and UDP 47998–48010.",
                                                widen(LiGetStageName(stage)), error);
         }
     }
@@ -580,7 +580,7 @@ void MoonlightSessionSource::run(std::stop_token, MoonlightConnectDesc desc) {
         const auto& o = desc.options;
         const int formats = moonlight::chooseVideoFormats(o.codec, o.hdr, desc.host.serverCodecModeSupport, o.av1HardwareDecode);
         if (!formats) {
-            fail(o.hdr ? L"主机不支持所选的 HDR 编码。HDR 需要主机支持 HEVC 10-bit 或 AV1 10-bit。" : L"主机不支持所选的编码。");
+            fail(o.hdr ? L"The host does not support the selected HDR codec. HDR needs HEVC 10-bit or AV1 10-bit on the host." : L"The host does not support the selected codec.");
             return;
         }
 
@@ -624,18 +624,18 @@ void MoonlightSessionSource::run(std::stop_token, MoonlightConnectDesc desc) {
         try {
             rtspUrl = client.launch(desc.resume ? "resume" : "launch", launch, desc.host.nvidiaServerSoftware);
         } catch (const moonlight::StatusError& e) {
-            fail(e.status == 401 ? L"主机不认识这台电脑，请重新配对。" : std::format(L"主机拒绝了启动请求（{}）。", widen(e.what())), e.status);
+            fail(e.status == 401 ? L"The host does not recognize this PC; pair again." : std::format(L"The host refused the start request ({}).", widen(e.what())), e.status);
             return;
         } catch (const moonlight::TransportError& e) {
-            if (e.kind == moonlight::TransportError::Kind::Cancelled) { fail(L"已取消。"); return; }
-            fail(e.kind == moonlight::TransportError::Kind::Tls || e.kind == moonlight::TransportError::Kind::CertificateMismatch ? L"与主机的加密连接失败，主机的证书可能已改变，请重新配对。" : L"连不上主机，请检查网络和主机是否开机。");
+            if (e.kind == moonlight::TransportError::Kind::Cancelled) { fail(L"Cancelled."); return; }
+            fail(e.kind == moonlight::TransportError::Kind::Tls || e.kind == moonlight::TransportError::Kind::CertificateMismatch ? L"The encrypted connection to the host failed; the host's certificate may have changed. Pair again." : L"Cannot reach the host; check the network and whether the host is on.");
             return;
         }
         // The identity (the client's private key) is not needed any more.
         SecureZeroMemory(desc.identity.keyPem.data(), desc.identity.keyPem.size());
         desc.identity = {};
-        if (rtspUrl.empty()) { fail(L"主机没有返回串流地址。"); return; }
-        if (cancel_.load()) { fail(L"已取消。"); return; }
+        if (rtspUrl.empty()) { fail(L"The host returned no streaming address."); return; }
+        if (cancel_.load()) { fail(L"Cancelled."); return; }
 
         {
             std::lock_guard lock(mutex_);
@@ -695,7 +695,7 @@ void MoonlightSessionSource::run(std::stop_token, MoonlightConnectDesc desc) {
                 std::lock_guard lock(mutex_);
                 message = stats_.message;
             }
-            fail(message.empty() ? std::format(L"无法建立串流连接（错误码 {}）。", result) : message, result);
+            fail(message.empty() ? std::format(L"Could not establish the streaming connection (error {}).", result) : message, result);
             return;
         }
         {
@@ -719,7 +719,7 @@ void MoonlightSessionSource::run(std::stop_token, MoonlightConnectDesc desc) {
         while (!cancel_.load() && !p_->terminated.load()) std::this_thread::sleep_for(std::chrono::milliseconds(50));
     } catch (const std::exception& e) {
         log::error("moonlight", std::format("session failed: {}", e.what()));
-        fail(L"串流处理异常，已停止，请查看日志。");
+        fail(L"Streaming hit an error and stopped; see the log.");
     }
 }
 
@@ -853,7 +853,7 @@ constexpr uint32_t kPadSupported = moonlight::kPadUp | moonlight::kPadDown | moo
     moonlight::kPadLeftBumper | moonlight::kPadRightBumper | moonlight::kPadGuide | moonlight::kPadA | moonlight::kPadB | moonlight::kPadX | moonlight::kPadY;
 }
 
-void MoonlightSessionSource::controller(const remoteplay::ControllerState& state) {
+void MoonlightSessionSource::controller(const input::ControllerState& state) {
     if (!p_) return;
     const moonlight::PadFrame frame = moonlight::mapPad(state);
     std::lock_guard lib(p_->libMutex);
@@ -871,8 +871,8 @@ void MoonlightSessionSource::controller(const remoteplay::ControllerState& state
                                frame.leftX, frame.leftY, frame.rightX, frame.rightY);
 }
 
-remoteplay::ControllerFeedback MoonlightSessionSource::takeFeedback() {
-    remoteplay::ControllerFeedback out;
+input::ControllerFeedback MoonlightSessionSource::takeFeedback() {
+    input::ControllerFeedback out;
     if (!p_) return out;
     std::lock_guard lock(p_->feedbackMutex);
     const auto now = Clock::now();

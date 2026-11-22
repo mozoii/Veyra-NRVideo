@@ -378,24 +378,24 @@ bool writeReplayFile(const std::wstring& path,const ReplayBuffer::Clip& clip,std
         std::error_code code;std::filesystem::remove(path,code);
         return false;
     };
-    if(avformat_alloc_output_context2(&mux,nullptr,"mp4",nullptr)<0||!mux)return fail(L"无法创建回放文件封装器");
+    if(avformat_alloc_output_context2(&mux,nullptr,"mp4",nullptr)<0||!mux)return fail(L"Could not create the replay file muxer");
     AVStream* video=avformat_new_stream(mux,nullptr);
-    if(!video)return fail(L"无法创建回放视频流");
+    if(!video)return fail(L"Could not create the replay video stream");
     video->time_base=AVRational{1,1000000};
     video->avg_frame_rate=AVRational{int(std::max(1u,clip.video.fps)),1};
     if(!setVideoParameters(video->codecpar,clip.video.width,clip.video.height,clip.video.hdrMode,clip.video.hevc,clip.video.extradata))
-        return fail(L"无法写入回放文件头");
+        return fail(L"Could not write the replay file header");
     std::vector<AVStream*> audio;
     for(const auto& format:clip.audio){
         AVStream* stream=avformat_new_stream(mux,nullptr);
-        if(!stream||!format.parameters||avcodec_parameters_copy(stream->codecpar,format.parameters.get())<0)return fail(L"无法创建回放音频流");
+        if(!stream||!format.parameters||avcodec_parameters_copy(stream->codecpar,format.parameters.get())<0)return fail(L"Could not create the replay audio stream");
         stream->time_base=AVRational{1,kAudioRate};
         if(!format.name.empty())av_dict_set(&stream->metadata,"handler_name",format.name.c_str(),0);
         audio.push_back(stream);
     }
     int rc=avio_open(&mux->pb,utf8(path).c_str(),AVIO_FLAG_WRITE);
-    if(rc<0)return fail(L"无法创建回放文件："+avError(rc));
-    if((rc=avformat_write_header(mux,nullptr))<0)return fail(L"无法写入回放文件头："+avError(rc));
+    if(rc<0)return fail(L"Could not create the replay file: "+avError(rc));
+    if((rc=avformat_write_header(mux,nullptr))<0)return fail(L"Could not write the replay file header: "+avError(rc));
     const int64_t startSamples=av_rescale(clip.startUs,kAudioRate,1000000);
     auto write=[&](AVStream* stream,const ReplayBuffer::Packet& packet,int64_t pts,int64_t duration,AVRational base){
         AVPacket* out=av_packet_alloc();
@@ -428,9 +428,9 @@ bool writeReplayFile(const std::wstring& path,const ReplayBuffer::Clip& clip,std
             const size_t t=size_t(which-1);const auto& packet=clip.audioPackets[t][a[t]++];
             ok=write(audio[t],packet,packet.pts-startSamples,packet.duration,AVRational{1,kAudioRate});
         }
-        if(!ok)return fail(L"写入回放文件失败（磁盘已满或没有写入权限？）");
+        if(!ok)return fail(L"Could not write the replay file (disk full or no write permission?)");
     }
-    if((rc=av_write_trailer(mux))<0)return fail(L"回放文件收尾失败："+avError(rc));
+    if((rc=av_write_trailer(mux))<0)return fail(L"Could not finish the replay file: "+avError(rc));
     avio_closep(&mux->pb);
     return true;
 }
@@ -571,18 +571,18 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
     // ---- creation (engine thread) -------------------------------------------
     bool create(std::wstring& reason){
         std::vector<uint8_t> shader;
-        if(!convert.loadShader("RgbToNv12.dxil",shader)||!convert.create(device.Get(),shader,kSlots+2,1,2)){reason=L"录制转换着色器加载失败";return false;}
-        if(!stager.initialize(device.Get(),kSlots)){reason=L"录制描述符分配失败";return false;}
+        if(!convert.loadShader("RgbToNv12.dxil",shader)||!convert.create(device.Get(),shader,kSlots+2,1,2)){reason=L"Could not load the recording conversion shader";return false;}
+        if(!stager.initialize(device.Get(),kSlots)){reason=L"Could not allocate recording descriptors";return false;}
         const bool hdr=hdrMode!=0;
         y=pipeline::makeTexture(device.Get(),width,height,hdr?DXGI_FORMAT_R16_UNORM:DXGI_FORMAT_R8_UNORM,true);
         uv=pipeline::makeTexture(device.Get(),width/2,height/2,hdr?DXGI_FORMAT_R16G16_UNORM:DXGI_FORMAT_R8G8_UNORM,true);
-        if(!y||!uv){reason=L"录制显存分配失败";return false;}
+        if(!y||!uv){reason=L"Could not allocate recording GPU memory";return false;}
         pipeline::makeUav(device.Get(),y.Get(),hdr?DXGI_FORMAT_R16_UNORM:DXGI_FORMAT_R8_UNORM,pipeline::cpuHandleOf(convert,kSlots));
         pipeline::makeUav(device.Get(),uv.Get(),hdr?DXGI_FORMAT_R16G16_UNORM:DXGI_FORMAT_R8G8_UNORM,pipeline::cpuHandleOf(convert,kSlots+1));
         for(auto& slot:slots){
             if(nvenc){
                 slot.nv12=pipeline::makeTexture(device.Get(),width,height,hdr?DXGI_FORMAT_P010:DXGI_FORMAT_NV12,false);
-                if(!slot.nv12){reason=L"录制显存分配失败";return false;}
+                if(!slot.nv12){reason=L"Could not allocate recording GPU memory";return false;}
                 continue;
             }
             auto readback=[&](UINT rowBytes,UINT rows,ComPtr<ID3D12Resource>& out,UINT& pitch){
@@ -592,7 +592,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
                 bd.DepthOrArraySize=1;bd.MipLevels=1;bd.SampleDesc.Count=1;bd.Layout=D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
                 return SUCCEEDED(device->CreateCommittedResource(&hp,D3D12_HEAP_FLAG_NONE,&bd,D3D12_RESOURCE_STATE_COPY_DEST,nullptr,IID_PPV_ARGS(&out)));
             };
-            if(!readback(width,height,slot.yRead,slot.yPitch)||!readback(width,height/2,slot.uvRead,slot.uvPitch)){reason=L"录制回读缓冲分配失败";return false;}
+            if(!readback(width,height,slot.yRead,slot.yPitch)||!readback(width,height/2,slot.uvRead,slot.uvPitch)){reason=L"Could not allocate recording readback buffers";return false;}
         }
         encoderThread=std::thread([this]{encoderMain();});
         writerThread=std::thread([this]{writerMain();});
@@ -602,7 +602,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
     // ---- capture (engine thread) ---------------------------------------------
     bool capture(ID3D12GraphicsCommandList* list,const PresentCapture::Frame& frame,int64_t nowUs){
         if(closing.load()||!encoderReady.load())return false;
-        if(backlogBytes.load()>=kBacklogFailBytes){fail(L"磁盘写入跟不上录制，已停止录制（请换更快的磁盘或降低码率）");return false;}
+        if(backlogBytes.load()>=kBacklogFailBytes){fail(L"Recording stopped: disk writes are too slow (use a faster drive or lower bitrate)");return false;}
         if(backlogBytes.load()>=kBacklogSkipBytes){++dropped;return false;}
         int index=-1;
         for(unsigned i=0;i<kSlots;++i){int expected=0;if(slots[i].state.compare_exchange_strong(expected,1)){index=int(i);break;}}
@@ -713,7 +713,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
             config.multipass=0;config.psychoAq=false;
             opened=encoder.open(device.Get(),config,inputs);
         }
-        if(!opened){fail(L"NVENC 无法开始录制："+encoder.lastError());return;}
+        if(!opened){fail(L"NVENC could not start recording: "+encoder.lastError());return;}
         if(multipass||psychoAq)veyra::log::info("live-recorder",std::format("encoder tuning multipass={} psychoAq={} applied={}",multipass,psychoAq,config.multipass||config.psychoAq));
         publishHeaders(encoder.headers(),encoder.describe());
         veyra::log::info("live-recorder",std::format("encoder ready {} path={}",utf8(encoder.describe()),name()));
@@ -727,7 +727,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
             }
             for(const auto index:batch){
                 auto& slot=slots[index];
-                if(!encoder.submit(index,slot.fence.Get(),slot.value,slot.ptsUs)){fail(L"NVENC 编码失败："+encoder.lastError());break;}
+                if(!encoder.submit(index,slot.fence.Get(),slot.value,slot.ptsUs)){fail(L"NVENC encoding failed: "+encoder.lastError());break;}
             }
             if(failed.load())break;
             // Hand finished frames to the writer; block on the oldest only
@@ -737,7 +737,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
                 bool more=false;{std::lock_guard lock(jobMutex);more=!jobs.empty();}
                 const bool wait=!(more&&encoder.inFlight()<encoder.capacity())&&!blocked;
                 sink::NvencLiveEncoder::Packet packet;bool ready=false;
-                if(!encoder.takeOldest(packet,wait,kGpuWaitMs,ready)){fail(L"NVENC 编码失败："+encoder.lastError());break;}
+                if(!encoder.takeOldest(packet,wait,kGpuWaitMs,ready)){fail(L"NVENC encoding failed: "+encoder.lastError());break;}
                 if(!ready)break;
                 blocked|=wait;
                 releaseSlot(packet.input);
@@ -755,7 +755,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
             sink::EncoderConfig config;config.hevc=hevc;config.fpsNum=fps;config.fpsDen=1;config.bitrateMbps=bitrateMbps;
             config.rateControl=sink::ExportRateControl::Vbr;config.adapterVendorId=vendor;config.drainTimeoutMs=kGpuWaitMs;
             auto writer=[this](const uint8_t* bytes,size_t size,int64_t ptsUs,bool key){pushVideo(std::vector<uint8_t>(bytes,bytes+size),ptsUs,key);return true;};
-            if(!encoder->openLive(width,height,config,writer)){fail(L"系统硬件编码器无法开始录制："+encoder->liveError());}
+            if(!encoder->openLive(width,height,config,writer)){fail(L"System hardware encoder could not start recording: "+encoder->liveError());}
             else{
                 publishHeaders(encoder->liveHeaders(),encoder->liveDescription());
                 veyra::log::info("live-recorder",std::format("encoder ready {} path={}",utf8(encoder->liveDescription()),name()));
@@ -770,7 +770,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
                     }
                     auto& slot=slots[index];
                     if(slot.fence->GetCompletedValue()<slot.value&&(!event||FAILED(slot.fence->SetEventOnCompletion(slot.value,event))||WaitForSingleObject(event,kGpuWaitMs)!=WAIT_OBJECT_0)){
-                        fail(L"录制画面回读超时");releaseSlot(index);break;
+                        fail(L"Recording frame readback timed out");releaseSlot(index);break;
                     }
                     void* yData=nullptr;void* uvData=nullptr;
                     const D3D12_RANGE yRange{0,size_t(slot.yPitch)*height},uvRange{0,size_t(slot.uvPitch)*(height/2)};
@@ -780,10 +780,10 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
                     if(yData)slot.yRead->Unmap(0,&none);
                     if(uvData)slot.uvRead->Unmap(0,&none);
                     releaseSlot(index);
-                    if(!ok){fail(L"系统硬件编码失败："+encoder->liveError());break;}
+                    if(!ok){fail(L"System hardware encoding failed: "+encoder->liveError());break;}
                 }
                 if(event)CloseHandle(event);
-                if(!failed.load()&&!encoder->finishLive())fail(L"系统硬件编码器收尾失败："+encoder->liveError());
+                if(!failed.load()&&!encoder->finishLive())fail(L"System hardware encoder finalization failed: "+encoder->liveError());
             }
         }
         if(com)CoUninitialize();
@@ -833,7 +833,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
         if(!openAudio()){
             audio=false;trackCount=0;
             for(auto& track:tracks)track.release();
-            setNote(L"没有可用的 AAC 编码器，本次录制不含声音");
+            setNote(L"No AAC encoder is available; this recording has no audio");
             veyra::log::warn("live-recorder","AAC encoder unavailable; recording without sound");
         }
     }
@@ -841,28 +841,28 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
         file.path=destination;
         file.originUs=originUs;
         auto*& mux=file.mux;
-        if(avformat_alloc_output_context2(&mux,nullptr,"mp4",nullptr)<0||!mux){fail(L"无法创建录制封装器");return false;}
+        if(avformat_alloc_output_context2(&mux,nullptr,"mp4",nullptr)<0||!mux){fail(L"Cannot create the recording muxer");return false;}
         auto* videoStream=avformat_new_stream(mux,nullptr);
-        if(!videoStream){fail(L"无法创建录制视频流");return false;}
+        if(!videoStream){fail(L"Cannot create the recording video stream");return false;}
         videoStream->time_base=AVRational{1,1000000};
         videoStream->avg_frame_rate=AVRational{int(fps),1};
-        if(!setVideoParameters(videoStream->codecpar,width,height,hdrMode,hevc,extradata)){fail(L"无法写入录制文件头");return false;}
+        if(!setVideoParameters(videoStream->codecpar,width,height,hdrMode,hevc,extradata)){fail(L"Cannot write the recording file header");return false;}
         for(unsigned i=0;i<trackCount;++i){
             const auto& track=tracks[i];
             auto* stream=avformat_new_stream(mux,nullptr);
-            if(!stream||avcodec_parameters_copy(stream->codecpar,track.parameters.get())<0){fail(L"无法创建录制音频流");return false;}
+            if(!stream||avcodec_parameters_copy(stream->codecpar,track.parameters.get())<0){fail(L"Could not create the recording audio stream");return false;}
             stream->time_base=AVRational{1,kAudioRate};
             av_dict_set(&stream->metadata,"handler_name",track.name.c_str(),0);
         }
         int rc=avio_open(&mux->pb,utf8(destination).c_str(),AVIO_FLAG_WRITE);
-        if(rc<0){fail(L"无法创建录制文件："+avError(rc));return false;}
+        if(rc<0){fail(L"Could not create the recording file: "+avError(rc));return false;}
         // Fragmented MP4: every fragment is playable on its own, so an
         // interrupted recording keeps what was written.
         AVDictionary* options=nullptr;
         av_dict_set(&options,"movflags",originUs?"frag_keyframe+delay_moov+default_base_moof":"frag_keyframe+empty_moov+default_base_moof",0);
         rc=avformat_write_header(mux,&options);
         av_dict_free(&options);
-        if(rc<0){fail(L"无法写入录制文件头："+avError(rc));return false;}
+        if(rc<0){fail(L"Could not write the recording header: "+avError(rc));return false;}
         file.headerWritten=true;
         {std::lock_guard lock(textMutex);currentPath=destination;}
         veyra::log::info("live-recorder",std::format("file open path={} extent={}x{} codec={} hdr={} fps={} bitrateMbps={} audio={} sound={} microphone={} tracks={}",
@@ -1003,7 +1003,7 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
                 held=std::move(packet);
             }
             if(ok&&audio)ok=processAudio(false,held?held->ptsUs:0);
-            if(!ok){fail(replay?L"即时回放写入失败":L"写入录制文件失败（磁盘已满或没有写入权限？）");break;}
+            if(!ok){fail(replay?L"Instant replay buffering failed":L"Could not write the recording (disk full or no write permission?)");break;}
             if(ended)break;
         }
         // Drop what can no longer be written.
@@ -1023,9 +1023,9 @@ struct LiveRecorder::Segment final : sink::RecordingAudioSink, MicrophoneSink {
             const bool previousOk=finishFile(previousFile);
             const bool currentOk=finishFile(file);
             ok=ok&&previousOk&&currentOk;
-            if(!ok&&!failed.load())fail(L"录制文件收尾失败");
+            if(!ok&&!failed.load())fail(L"Could not finalize the recording");
             if(!videoWritten.load()){
-                setNote(L"没有录到画面，未保存文件");
+                setNote(L"No frames were recorded; no file was saved");
             }
             veyra::log::info("live-recorder",std::format("file closed path={} videoFrames={} seconds={:.2f} originUs={} audio={} audioGaps={} audioOverflow={} microphoneGaps={} microphoneOverflow={} dropped={} ok={}",
                 utf8(path),videoWritten.load(),double(end)/1e6,t0Us.load(),audio.load(),soundLane.gaps.load(),soundLane.overflow.load(),micLane.gaps.load(),micLane.overflow.load(),dropped.load(),ok));
@@ -1155,15 +1155,15 @@ bool LiveRecorder::start(const RecordingSettings& settings,std::wstring& error){
             settings.microphone?(settings.microphoneTrack?"track":"mixed"):"off"));
         return true;
     }
-    if(s.armed){error=L"录制已在进行中";return false;}
-    if(!s.finishing.empty()){error=L"上一段录制仍在保存，请稍后再试";return false;}
-    if(settings.directory.empty()){error=L"未设置录制保存位置";return false;}
+    if(s.armed){error=L"A recording is already running";return false;}
+    if(!s.finishing.empty()){error=L"The previous recording is still being saved; try again shortly";return false;}
+    if(settings.directory.empty()){error=L"No recording folder is set";return false;}
     std::error_code code;
     std::filesystem::create_directories(settings.directory,code);
-    if(!std::filesystem::is_directory(settings.directory,code)){error=L"无法创建录制目录："+settings.directory;return false;}
+    if(!std::filesystem::is_directory(settings.directory,code)){error=L"Cannot create the recording folder: "+settings.directory;return false;}
     ULARGE_INTEGER available{};
     if(GetDiskFreeSpaceExW(settings.directory.c_str(),&available,nullptr,nullptr)&&available.QuadPart<(uint64_t(1)<<30)){
-        error=L"录制目录所在磁盘剩余空间不足 1 GB";return false;
+        error=L"Less than 1 GB is free on the recording drive";return false;
     }
     s.settings=settings;s.armed=true;s.failed=false;s.error.clear();s.note.clear();s.encoder.clear();
     s.framesBase=s.droppedBase=0;s.files=0;s.firstFrameUs=0;s.nextDueUs=0;s.lastSeconds=0;s.audioTrack=false;
@@ -1232,17 +1232,17 @@ bool LiveRecorder::saveReplay(const std::wstring& directory,std::wstring& error)
     auto& s=*s_;
     std::lock_guard lock(s.m);
     s.reap();
-    if(!s.replayMode||!s.armed){error=L"即时回放未开启";return false;}
-    if(s.save){error=L"上一段回放仍在保存，请稍后再试";return false;}
+    if(!s.replayMode||!s.armed){error=L"Instant replay is off";return false;}
+    if(s.save){error=L"The previous replay is still being saved; try again shortly";return false;}
     const auto buffer=s.replayToSave();
-    if(!buffer){error=L"回放里还没有画面";return false;}
-    if(directory.empty()){error=L"未设置录制保存位置";return false;}
+    if(!buffer){error=L"The replay buffer has no picture yet";return false;}
+    if(directory.empty()){error=L"No recording folder is set";return false;}
     std::error_code code;
     std::filesystem::create_directories(directory,code);
-    if(!std::filesystem::is_directory(directory,code)){error=L"无法创建录制目录："+directory;return false;}
+    if(!std::filesystem::is_directory(directory,code)){error=L"Cannot create the recording folder: "+directory;return false;}
     ULARGE_INTEGER available{};
     if(GetDiskFreeSpaceExW(directory.c_str(),&available,nullptr,nullptr)&&available.QuadPart<buffer->coverage().bytes+(uint64_t(256)<<20)){
-        error=L"录制目录所在磁盘剩余空间不足，无法保存回放";return false;
+        error=L"Not enough free space on the recording folder's disk to save the replay";return false;
     }
     auto job=std::make_shared<ReplaySave>();
     job->path=uniqueFile(directory,L"Veyra-Replay-"+fileStamp());
@@ -1266,7 +1266,7 @@ bool LiveRecorder::saveReplay(const std::wstring& directory,std::wstring& error)
             std::lock_guard lock(job->m);
             job->ok=ok;job->error=reason;job->seconds=seconds;job->done=true;
         });
-    }catch(...){error=L"无法开始保存回放";return false;}
+    }catch(...){error=L"Could not start saving the replay";return false;}
     s.save=std::move(job);
     return true;
 }
@@ -1333,12 +1333,12 @@ bool LiveRecorder::record(ID3D12GraphicsCommandList* list,const Frame& frame){
     if(s.current&&!s.current->matches(frame)){
         s.reap();
         if(!s.replayMode&&s.finishing.size()>=2){
-            s.armed=false;s.failed=true;s.error=L"录制文件仍在保存，已停止录制以避免积压";
+            s.armed=false;s.failed=true;s.error=L"Recording stopped because previous files are still being saved";
             s.retire(s.current,{});s.current.reset();return false;
         }
         veyra::log::info("live-recorder",std::format("picture changed {}x{} hdr={} -> {}x{} hdr={}; continuing in a new {}",
             s.current->width,s.current->height,s.current->hdrMode,frame.width,frame.height,frame.hdrMode,s.replayMode?"replay buffer":"file"));
-        s.retire(s.current,s.replayMode?std::wstring{}:L"画面尺寸或 HDR 模式变化，已接着写入新文件");s.current.reset();
+        s.retire(s.current,s.replayMode?std::wstring{}:L"Frame size or HDR mode changed; recording continues in a new file");s.current.reset();
     }
     if(!s.current){
         // Rapid source/settings changes must not create an unbounded number
@@ -1352,12 +1352,12 @@ bool LiveRecorder::record(ID3D12GraphicsCommandList* list,const Frame& frame){
             return false;
         };
         auto segment=std::make_shared<Segment>();
-        if(FAILED(frame.texture->GetDevice(IID_PPV_ARGS(&segment->device))))return fail(L"无法获取当前显卡");
+        if(FAILED(frame.texture->GetDevice(IID_PPV_ARGS(&segment->device))))return fail(L"Could not obtain the current GPU device");
         segment->vendor=adapterVendor(segment->device.Get());
         segment->nvenc=segment->vendor==0x10DE&&GetEnvironmentVariableW(L"VEYRA_TEST_FORCE_MF_ENCODER",nullptr,0)==0;
-        if(frame.hdrMode&&!segment->nvenc)return fail(L"HDR 画面录制需要 NVIDIA 显卡（HEVC 10bit）；请关闭 HDR 输出后再录制");
+        if(frame.hdrMode&&!segment->nvenc)return fail(L"HDR recording requires an NVIDIA GPU (HEVC 10-bit); disable HDR output to record");
         if(frame.width<16||frame.height<16||(frame.width&1)||(frame.height&1))
-            return fail(std::format(L"当前画面尺寸 {}×{} 无法录制",frame.width,frame.height));
+            return fail(std::format(L"Cannot record the current frame size {}×{}",frame.width,frame.height));
         segment->width=frame.width;segment->height=frame.height;segment->hdrMode=frame.hdrMode;
         // H.264 hardware encoders stop at 4096 pixels per side.
         segment->hevc=s.settings.hevc||frame.hdrMode!=0||frame.width>4096||frame.height>4096;

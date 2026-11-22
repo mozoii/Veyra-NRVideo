@@ -89,14 +89,14 @@ for vendor in vendors:
             shutil.copy2(ROOT/name,app/name)
         for name in ('CAPTURE_XBOX_FIELD_PLAN_2026-10-05.md',):shutil.copy2(ROOT/'docs'/name,app/'docs'/name)
         (app/'STREAM_FIX_LOCAL.md').write_text(
-            'Xbox 解码恢复本地候选 2.0.3-streamfix1（未发布）\n\n'
-            '针对日志 28 的 H.264 解码持续 Invalid argument：错误或输入队列丢 AU 后清理参考历史并等待关键帧；'
-            '连续失败时每会话最多一次硬解重开、一次软件回退；恢复首帧带时间线断点，日志标签 xbox-decode-recovery。'
-            '软件回退可能增加 CPU 使用和解码耗时，视频仍无法恢复时明确报错。运行库与补帧算法未更换。\n\n'
-            '采集 60→55–57 的现场输入仍约 60Hz，已有增强组合处理欠速；本次只修正日志节奏标签，未承诺恢复该组合 60FPS。'
-            '保留此前 NR 强度 5、三种风格与自动／手动画面调控。\n\n'
-            '本机 RTX5070 的本地协议、软／硬解和正常负载短测不等于 RX9070XT + Xbox 实机通过。'
-            '请在受影响电脑上连接 Xbox，切换原先出问题的 FSR／XeSS 补帧，出现问题时保留这次的新日志。\n',encoding='utf8')
+            'Xbox decode-recovery local candidate 2.0.3-streamfix1 (unpublished)\n\n'
+            'Against log 28 H.264 decode persistent Invalid argument: after a bad frame or the input queue lost an AU, clearing the reference history and waiting for a keyframe;'
+            'on continuous failure, at most one hardware reopen and one software fallback per session; the restored first frame carries a timeline break, log tag xbox-decode-recovery.'
+            'Software fallback may increase CPU usage and decode time, and when video still cannot recover the error is reported explicitly. Runtime and frame-interpolation algorithms unchanged.\n\n'
+            'The 60->55-57 field input still runs at ~60Hz, the existing enhancement combination handling is under 60FPS; this time only fixes the log-beat label, no promise to restore 60FPS for that combination.'
+            'Keeps the previous NR strength 5, three styles and automatic / manual picture control.\n\n'
+            'The local protocol, soft/hard decode and normal-load short test on this RTX5070 are not equal to RX9070XT + Xbox physical-machine pass.'
+            'On the affected computer connect Xbox, switch the frame-interpolation mode that caused the problem, keep the new logs when issues appear.\n',encoding='utf8')
     else:
         assert sha(app/'veyra_qml_ui.exe')==sha(BUILD/'veyra_qml_ui.exe')
         for p in (ROOT/'qml').rglob('*'):

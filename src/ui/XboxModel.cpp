@@ -12,6 +12,7 @@
 #include <chrono>
 
 #include "veyra/Log.h"
+#include "veyra/xbox/ResolutionMode.h"
 #include "veyra/xbox/StreamApi.h"
 
 namespace veyra::ui {
@@ -23,18 +24,18 @@ QString describe(const std::exception& e) {
     if (const auto* service = dynamic_cast<const xbox::ServiceError*>(&e)) {
         const std::wstring xerr = xbox::describeXboxError(service->body);
         if (!xerr.empty()) return veyra::ui::i18n::text(xerr);
-        if (service->status == 400 || service->status == 401 || service->status == 403) return QObject::tr("Xbox 登录已失效，请重新登录。");
-        return QObject::tr("Xbox 服务返回错误（HTTP %1）。").arg(service->status);
+        if (service->status == 400 || service->status == 401 || service->status == 403) return QObject::tr("Xbox sign-in has expired; sign in again.");
+        return QObject::tr("The Xbox service returned an error (HTTP %1).").arg(service->status);
     }
-    if (dynamic_cast<const xbox::NetworkError*>(&e)) return QObject::tr("连不上 Xbox 服务，请检查网络。（%1）").arg(qs(e.what()));
-    return QObject::tr("出错了：%1").arg(qs(e.what()));
+    if (dynamic_cast<const xbox::NetworkError*>(&e)) return QObject::tr("Cannot reach Xbox services; check the network. (%1)").arg(qs(e.what()));
+    return QObject::tr("Something went wrong: %1").arg(qs(e.what()));
 }
 
 QString powerText(const std::string& power) {
-    if (power == "On") return QObject::tr("开机");
-    if (power == "ConnectedStandby") return QObject::tr("睡眠（可唤醒）");
-    if (power == "SystemUpdate") return QObject::tr("正在更新");
-    if (power == "Off") return QObject::tr("关机");
+    if (power == "On") return QObject::tr("Power on");
+    if (power == "ConnectedStandby") return QObject::tr("Asleep (can be woken)");
+    if (power == "SystemUpdate") return QObject::tr("Updating");
+    if (power == "Off") return QObject::tr("Power off");
     return qs(power);
 }
 
@@ -48,6 +49,14 @@ QString typeText(const std::string& type) {
 }
 
 QString settingsPath() { return QString::fromStdWString((xbox::dataDirectory() / L"settings.json").wstring()); }
+
+QVariantList resolutionLabels() {
+    QVariantList out;
+    for (const auto& d : xbox::kResolutionModes) {
+        out << QVariantMap{{"id", QString::fromLatin1(d.name)}, {"label", QString::fromLatin1(d.label)}};
+    }
+    return out;
+}
 
 } // namespace
 
@@ -65,6 +74,9 @@ void XboxModel::loadSettings() {
     lastName_ = o.value("lastName").toString();
     gamepad_ = o.value("gamepad").toBool(true);
     softwareDecode_ = o.value("softwareDecode").toBool(false);
+    const QString saved = o.value("resolutionMode").toString();
+    const auto parsed = xbox::resolutionModeFromName(saved.toStdString(), xbox::ResolutionMode::Auto);
+    resolutionMode_ = xbox::resolutionModeName(parsed);
 }
 
 void XboxModel::saveSettings() const {
@@ -72,7 +84,7 @@ void XboxModel::saveSettings() const {
     std::filesystem::create_directories(xbox::dataDirectory(), ec);
     QSaveFile file(settingsPath());
     if (!file.open(QIODevice::WriteOnly)) return;
-    file.write(QJsonDocument(QJsonObject{{"lastConsole", lastId_}, {"lastName", lastName_}, {"gamepad", gamepad_}, {"softwareDecode", softwareDecode_}}).toJson());
+    file.write(QJsonDocument(QJsonObject{{"lastConsole", lastId_}, {"lastName", lastName_}, {"gamepad", gamepad_}, {"softwareDecode", softwareDecode_}, {"resolutionMode", QString::fromStdString(resolutionMode_)}}).toJson());
     file.commit();
 }
 
@@ -81,11 +93,12 @@ QVariantMap XboxModel::state() const {
         {"signedIn", account_->signedIn()}, {"busy", busy_}, {"status", status_}, {"code", code_},
         {"verificationUri", verificationUri_}, {"signingIn", signingIn_}, {"selected", selected_}, {"gamepad", gamepad_},
         {"streaming", streamActive_}, {"stream", stream_}, {"lastLabel", lastName_}, {"softwareDecode", softwareDecode_},
+        {"resolutionMode", QString::fromStdString(resolutionMode_)}, {"resolutionLabels", resolutionLabels()},
     };
 }
 
 void XboxModel::startJob(const QString& status, std::function<std::function<void()>(const std::atomic<bool>&)> work) {
-    if (busy_) { status_ = tr("正在处理上一个操作，请稍候，或先点取消。"); emit changed(); return; }
+    if (busy_) { status_ = tr("The previous action is still in progress; wait a moment or click Cancel first."); emit changed(); return; }
     busy_ = true;
     cancel_ = false;
     status_ = status;
@@ -109,7 +122,7 @@ void XboxModel::startJob(const QString& status, std::function<std::function<void
 
 void XboxModel::cancel() {
     cancel_ = true;
-    if (busy_) { status_ = tr("正在取消…"); emit changed(); }
+    if (busy_) { status_ = tr("Cancelling…"); emit changed(); }
 }
 
 void XboxModel::load() {
@@ -121,31 +134,31 @@ void XboxModel::load() {
 void XboxModel::signIn() {
     signingIn_ = true;
     code_.clear();
-    startJob(tr("正在向微软请求登录码…"), [this](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Requesting a sign-in code from Microsoft…"), [this](const std::atomic<bool>& cancel) -> std::function<void()> {
         const xbox::DeviceCode code = account_->beginSignIn();
         const QString user = qs(code.userCode), uri = qs(code.verificationUri);
         QMetaObject::invokeMethod(this, [this, user, uri] {
             code_ = user;
             verificationUri_ = uri;
-            status_ = tr("在手机或浏览器打开 %1，输入上面的登录码，用你的 Xbox（微软）账号登录。登录完成后这里会自动继续。").arg(uri);
+            status_ = tr("On your phone or browser, open %1, enter the code above and sign in with your Xbox (Microsoft) account. This continues automatically once you have signed in.").arg(uri);
             emit changed();
         }, Qt::QueuedConnection);
         int interval = code.intervalSeconds;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(code.expiresInSeconds);
         for (;;) {
             for (int i = 0; i < interval * 10; ++i) {
-                if (cancel.load()) return [this] { signingIn_ = false; code_.clear(); status_ = tr("已取消登录。"); };
+                if (cancel.load()) return [this] { signingIn_ = false; code_.clear(); status_ = tr("Sign-in cancelled."); };
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
-            if (std::chrono::steady_clock::now() > deadline) return [this] { signingIn_ = false; code_.clear(); status_ = tr("登录码已过期，请重新点“登录”。"); };
+            if (std::chrono::steady_clock::now() > deadline) return [this] { signingIn_ = false; code_.clear(); status_ = tr("The sign-in code has expired; click Sign in again."); };
             std::string detail;
             const xbox::SignInPoll result = account_->pollSignIn(code, &detail);
             if (result == xbox::SignInPoll::Pending) continue;
             if (result == xbox::SignInPoll::SlowDown) { interval += 5; continue; }
             if (result == xbox::SignInPoll::Done) break;
-            const QString why = result == xbox::SignInPoll::Expired ? tr("登录码已过期，请重新点“登录”。")
-                              : result == xbox::SignInPoll::Declined ? tr("登录被拒绝了。")
-                              : tr("登录失败（%1）。").arg(qs(detail));
+            const QString why = result == xbox::SignInPoll::Expired ? tr("The sign-in code has expired; click Sign in again.")
+                              : result == xbox::SignInPoll::Declined ? tr("Sign-in was refused.")
+                              : tr("Sign-in failed (%1).").arg(qs(detail));
             return [this, why] { signingIn_ = false; code_.clear(); status_ = why; };
         }
         // Signed in: prove the streaming sign-in works and read the consoles straight away.
@@ -159,9 +172,9 @@ void XboxModel::signIn() {
             code_.clear();
             consoles_ = consoles;
             if (selected_.isEmpty() && !consoles_.isEmpty()) selected_ = consoles_.front().toMap().value("id").toString();
-            status_ = consoles_.isEmpty() ? tr("已登录，但这个账号下没有找到主机。请在主机上用同一个账号登录，并在 设置 → 设备和连接 → 远程功能 里启用远程功能。")
-                                          : tr("已登录。");
-            emit notice(tr("已登录 Xbox"), false);
+            status_ = consoles_.isEmpty() ? tr("Signed in, but no console was found under this account. Sign in on the console with the same account and enable remote features under Settings → Devices & connections → Remote features.")
+                                          : tr("Signed in.");
+            emit notice(tr("Signed in to Xbox"), false);
         };
     });
 }
@@ -175,13 +188,13 @@ void XboxModel::signOut() {
     account_->signOut();
     consoles_.clear();
     selected_.clear();
-    status_ = tr("已退出登录，本机保存的登录信息已删除。");
+    status_ = tr("Signed out; the sign-in data saved on this PC was deleted.");
     emit changed();
 }
 
 void XboxModel::refresh() {
     if (!account_->signedIn()) { emit changed(); return; }
-    startJob(tr("正在读取主机列表…"), [this](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Reading the host list…"), [this](const std::atomic<bool>& cancel) -> std::function<void()> {
         const xbox::StreamingAccess access = account_->streamingAccess();
         const auto list = xbox::StreamApi(xbox::makeWinHttpTransport(&cancel), access.host, access.gsToken).consoles();
         QVariantList consoles;
@@ -192,7 +205,7 @@ void XboxModel::refresh() {
             bool known = false;
             for (const QVariant& c : std::as_const(consoles_)) known = known || c.toMap().value("id").toString() == selected_;
             if (!known) selected_ = consoles_.isEmpty() ? QString() : (lastId_.isEmpty() ? consoles_.front().toMap().value("id").toString() : lastId_);
-            status_ = consoles_.isEmpty() ? tr("这个账号下没有找到主机。请在主机上用同一个账号登录，并启用远程功能。") : QString();
+            status_ = consoles_.isEmpty() ? tr("No console was found under this account. Sign in on the console with the same account and enable remote features.") : QString();
         };
     });
 }
@@ -206,11 +219,21 @@ void XboxModel::select(const QString& id) {
 bool XboxModel::set(const QString& key, const QVariant& value) {
     if (key == "gamepad") { gamepad_ = value.toBool(); saveSettings(); emit changed(); return true; }
     if (key == "softwareDecode") { softwareDecode_ = value.toBool(); saveSettings(); emit changed(); return true; }
+    if (key == "resolutionMode") {
+        const QString raw = value.toString().trimmed().toLower();
+        const auto parsed = xbox::resolutionModeFromName(raw.toStdString(), xbox::ResolutionMode::Auto);
+        // Reject unknown names instead of silently mapping them onto Auto.
+        bool known = false;
+        for (const auto& d : xbox::kResolutionModes) known = known || (d.name == raw);
+        if (!known) return false;
+        resolutionMode_ = xbox::resolutionModeName(parsed);
+        saveSettings(); emit changed(); return true;
+    }
     return false;
 }
 
 bool XboxModel::launchConsole(const QString& id, const QString& name) {
-    if (!account_->signedIn()) { status_ = tr("请先登录 Xbox 账号。"); emit changed(); return false; }
+    if (!account_->signedIn()) { status_ = tr("Sign in to your Xbox account first."); emit changed(); return false; }
     if (!launch_ || id.isEmpty()) return false;
     Launch launch;
     launch.desc.account = account_;
@@ -218,12 +241,13 @@ bool XboxModel::launchConsole(const QString& id, const QString& name) {
     launch.desc.consoleName = name.toStdString();
     launch.desc.gamepad = gamepad_;
     launch.desc.softwareDecode = softwareDecode_;
+    launch.desc.resolutionMode = xbox::resolutionModeFromName(resolutionMode_);
     launch.label = name.isEmpty() ? QStringLiteral("Xbox") : name;
-    if (!launch_(std::move(launch))) { status_ = tr("无法开始串流，请查看日志。"); emit changed(); return false; }
+    if (!launch_(std::move(launch))) { status_ = tr("Could not start streaming; see the log."); emit changed(); return false; }
     lastId_ = id;
     lastName_ = name;
     saveSettings();
-    status_ = tr("正在连接主机…（主机在睡眠时唤醒需要一点时间）");
+    status_ = tr("Connecting to the host… (waking a sleeping host takes a moment)");
     emit changed();
     emit started();
     return true;

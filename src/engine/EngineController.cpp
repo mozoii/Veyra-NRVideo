@@ -36,9 +36,6 @@
 #include "veyra/source/DeckLinkCapture.h"
 #include "veyra/source/ScreenCaptureSource.h"
 #include "veyra/xbox/DisconnectPolicy.h"
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-#include "veyra/source/RemotePlaySessionSource.h"
-#endif
 #include "veyra/pipeline/CaptureUploadFrame.h"
 #include "veyra/pipeline/EnhanceGraph.h"
 #include "veyra/pipeline/ResetCoordinator.h"
@@ -89,10 +86,6 @@ EngineController::EngineController(){
     worker_=std::thread(&EngineController::dispatch,this);
 }
 EngineController::~EngineController(){
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    // The PS5 手柄控制 thread starts closing its session now; joined below.
-    controlThread_.request_stop();
-#endif
     {std::lock_guard lock(mutex_);shutdown_=true;pending_={};stop_=true;}wake_.notify_one();
     if(!worker_.joinable()){watchdog_.reset();return;}
     // Field logs(15): an owner thread blocked inside a driver call never returns,
@@ -109,20 +102,6 @@ EngineController::~EngineController(){
         }
     }
     worker_.join();
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    if(controlThread_.joinable()){
-        const auto closing=Clock::now();
-        {std::unique_lock lock(controlMutex_);
-            while(!controlIdle_.wait_for(lock,std::chrono::milliseconds(100),[&]{return controlExited_;})){
-                if(elapsedMs(closing)<8000.0)continue;
-                veyra::log::error("engine-hang","shutdown: PS5 controller-only session still closing after 8 s; ending the process instead of waiting");
-                Logger::instance().flush();
-                TerminateProcess(GetCurrentProcess(),0);
-            }
-        }
-        controlThread_.join();
-    }
-#endif
     // The watchdog callback reads snapshot_ and hangPreviousStatus_. Detach it
     // while all controller members are still alive, before reverse destruction
     // reaches hangPreviousStatus_ (declared after watchdog_).
@@ -130,7 +109,7 @@ EngineController::~EngineController(){
 }
 void EngineController::dispatch(){
     for(;;){std::function<void()> task;{std::unique_lock lock(mutex_);wake_.wait(lock,[&]{return shutdown_||bool(pending_);});if(shutdown_)break;task=std::move(pending_);pending_={};busy_=true;stop_=false;}
-        try{task();}catch(const std::exception&){status(L"任务异常，已停止；请查看诊断",true);}
+        try{task();}catch(const std::exception&){status(L"The job hit an error and stopped; see diagnostics",true);}
         {std::lock_guard lock(mutex_);busy_=false;snapshot_.running=false;if(snapshot_.transport==TransportState::Stopping)snapshot_.transport=TransportState::Empty;}
     }
     prewarmed_.reset();
@@ -193,10 +172,6 @@ void EngineController::open(HWND video,const std::wstring& path,PlayerOptions op
     // below would drop it: the DASH audio address is the difference between a Bilibili
     // video that has sound and one that is silent.
     const std::wstring audioPath=opts.audioPath;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    // PS5 手柄控制 belongs to a capture card source; any other source ends it.
-    if(!path.starts_with(L"capture:")&&!path.starts_with(L"capture2:"))stopRemoteControl();
-#endif
     {std::lock_guard lock(mutex_);snapshot_={};requestedPlaybackRate_=1;activeFlow_.reset();previewView_={};fgMultiFrameMaxCap_=0;xessMaxInterpolatedFramesCap_=0;fsrMaxGeneratedFramesCap_=0;snapshot_.sessionId=++sessionId_;snapshot_.transport=TransportState::Opening;savePath_.clear();desired_=opts.snapshot();desiredNodeOrder_=opts.nodeOrder;desired_.revision=++nextRevision_;snapshot_.desired=desired_;opts=PlayerOptions::from(desired_,desiredNodeOrder_,&opts);}
     opts.captureReplayForTest=captureReplay;
     opts.captureCpuUnpack=captureCpuUnpack;
@@ -205,90 +180,11 @@ void EngineController::open(HWND video,const std::wstring& path,PlayerOptions op
     opts.audioPath=audioPath;
     post([this,video,path,opts]{paused_=false;seekSeconds_=-1;run(video,path,opts);});
 }
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-void EngineController::openRemotePlay(HWND window,source::RemotePlayConnectDesc desc,PlayerOptions opts){
-    stopRemoteControl();
-    auto request=std::make_shared<source::RemotePlayConnectDesc>(std::move(desc));
-    {std::lock_guard lock(mutex_);snapshot_={};requestedPlaybackRate_=1;activeFlow_.reset();previewView_={};fgMultiFrameMaxCap_=0;xessMaxInterpolatedFramesCap_=0;fsrMaxGeneratedFramesCap_=0;snapshot_.sessionId=++sessionId_;snapshot_.transport=TransportState::Opening;snapshot_.remotePlay=true;snapshot_.capture=true;savePath_.clear();desired_=opts.snapshot();desiredNodeOrder_=opts.nodeOrder;desired_.revision=++nextRevision_;snapshot_.desired=desired_;opts=PlayerOptions::from(desired_,desiredNodeOrder_,&opts);}
-    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;waitRemoteControlIdle();run(window,L"remoteplay:",opts,request);});
-}
-// A PS5 stream (activeRemote_) takes precedence; otherwise PS5 手柄控制.
-remoteplay::ControllerFeedback EngineController::remotePlayFeedback(){std::lock_guard lock(mutex_);if(activeRemote_)return activeRemote_->takeFeedback();return controlRemote_?controlRemote_->takeFeedback():remoteplay::ControllerFeedback{};}
-void EngineController::remotePlayController(const remoteplay::ControllerState& state){std::lock_guard lock(mutex_);if(activeRemote_)activeRemote_->controller(state);else if(controlRemote_)controlRemote_->controller(state);}
-void EngineController::remotePlayLoginPin(std::string pin){std::lock_guard lock(mutex_);if(activeRemote_)activeRemote_->loginPin(std::move(pin));else if(controlRemote_)controlRemote_->loginPin(std::move(pin));}
-void EngineController::startRemoteControl(source::RemotePlayConnectDesc desc){
-    desc.controlOnly=true;desc.request.viewOnly=false;
-    auto request=std::make_shared<source::RemotePlayConnectDesc>(std::move(desc));
-    {std::lock_guard lock(controlMutex_);controlPending_=std::move(request);
-        if(!controlThread_.joinable())controlThread_=std::jthread([this](std::stop_token stop){controlLoop(stop);});}
-    controlWake_.notify_all();
-}
-void EngineController::stopRemoteControl(){
-    {std::lock_guard lock(controlMutex_);if(!controlThread_.joinable())return;
-        controlPending_=std::shared_ptr<source::RemotePlayConnectDesc>{};}
-    controlWake_.notify_all();
-}
-void EngineController::controlLoop(std::stop_token stop){
-    for(;;){
-        std::shared_ptr<source::RemotePlayConnectDesc> request;
-        {std::unique_lock lock(controlMutex_);
-            if(!controlWake_.wait(lock,stop,[&]{return controlPending_.has_value();}))break;
-            request=std::move(*controlPending_);controlPending_.reset();controlBusy_=true;controlStarting_=bool(request);}
-        // One Remote Play slot per console: the old session ends before a new one starts.
-        std::shared_ptr<source::RemotePlaySessionSource> old;
-        {std::lock_guard lock(mutex_);old=std::move(controlRemote_);}
-        if(old){const auto closing=Clock::now();old->close();veyra::log::info("remoteplay-control",std::format("controller-only session closed in {:.0f} ms",elapsedMs(closing)));}
-        if(request&&!stop.stop_requested()){
-            auto session=std::make_shared<source::RemotePlaySessionSource>();
-            const bool ok=session->connect(std::move(*request));
-            veyra::log::info("remoteplay-control",std::format("controller-only session start ok={} alive={}",ok,session->alive()));
-            // Kept even when the start failed: its status carries the reason.
-            std::lock_guard lock(mutex_);controlRemote_=std::move(session);
-        }
-        {std::lock_guard lock(controlMutex_);controlBusy_=controlStarting_=false;}
-        controlIdle_.notify_all();
-    }
-    std::shared_ptr<source::RemotePlaySessionSource> last;
-    {std::lock_guard lock(mutex_);last=std::move(controlRemote_);}
-    if(last)last->close();
-    {std::lock_guard lock(controlMutex_);controlBusy_=controlStarting_=false;controlPending_.reset();controlExited_=true;}
-    controlIdle_.notify_all();
-}
-// A PS5 stream needs the console's only Remote Play slot: wait until the
-// controller-only session has closed (bounded, and cut short by Stop).
-void EngineController::waitRemoteControlIdle(){
-    const auto deadline=Clock::now()+std::chrono::seconds(10);
-    std::unique_lock lock(controlMutex_);
-    while((controlBusy_||controlPending_.has_value())&&!stop_.load()){
-        if(Clock::now()>=deadline){veyra::log::warn("remoteplay-control","controller-only session still closing after 10 s; starting the PS5 stream anyway");return;}
-        controlIdle_.wait_for(lock,std::chrono::milliseconds(100));
-    }
-}
-EngineController::RemoteControlStatus EngineController::remoteControlStatus()const{
-    RemoteControlStatus out;
-    std::shared_ptr<source::RemotePlaySessionSource> session;
-    {std::lock_guard lock(mutex_);session=controlRemote_;}
-    {std::lock_guard lock(controlMutex_);out.starting=controlStarting_||(controlPending_.has_value()&&*controlPending_);}
-    out.requested=out.starting||bool(session);
-    if(!session)return out;
-    out.alive=session->alive();out.failed=session->failed();
-    const auto s=session->sessionSnapshot();
-    out.connected=s.state==remoteplay::SessionState::WaitingFirstFrame||s.state==remoteplay::SessionState::Streaming;
-    out.pinRequired=s.state==remoteplay::SessionState::LoginPinRequired;
-    const auto recovery=session->recoveryStatus();out.recovering=recovery.active;out.message=recovery.message;
-    const auto rates=session->rates();out.keepaliveReady=rates.ready;out.keepaliveFps=rates.receivedFps;
-    return out;
-}
-bool EngineController::remoteControlRequested()const{
-    {std::lock_guard lock(mutex_);if(controlRemote_)return true;}
-    std::lock_guard lock(controlMutex_);return controlStarting_||(controlPending_.has_value()&&*controlPending_);
-}
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
 // Input goes straight to the session: the shared pointer is copied under the lock, the send is not.
 #define VEYRA_MOONLIGHT_INPUT(call) std::shared_ptr<source::MoonlightSessionSource> m;{std::lock_guard lock(mutex_);m=activeMoonlight_;}if(m)m->call
-void EngineController::moonlightController(const remoteplay::ControllerState& state){VEYRA_MOONLIGHT_INPUT(controller(state));}
-remoteplay::ControllerFeedback EngineController::moonlightFeedback(){std::shared_ptr<source::MoonlightSessionSource> m;{std::lock_guard lock(mutex_);m=activeMoonlight_;}return m?m->takeFeedback():remoteplay::ControllerFeedback{};}
+void EngineController::moonlightController(const input::ControllerState& state){VEYRA_MOONLIGHT_INPUT(controller(state));}
+input::ControllerFeedback EngineController::moonlightFeedback(){std::shared_ptr<source::MoonlightSessionSource> m;{std::lock_guard lock(mutex_);m=activeMoonlight_;}return m?m->takeFeedback():input::ControllerFeedback{};}
 void EngineController::moonlightKey(uint32_t vk,uint32_t scan,bool extended,bool down){VEYRA_MOONLIGHT_INPUT(keyboard(vk,scan,extended,down));}
 void EngineController::moonlightMouseMove(int dx,int dy){VEYRA_MOONLIGHT_INPUT(mouseMove(dx,dy));}
 void EngineController::moonlightMouseButton(int button,bool down){VEYRA_MOONLIGHT_INPUT(mouseButton(button,down));}
@@ -297,27 +193,21 @@ void EngineController::moonlightReleaseInput(){VEYRA_MOONLIGHT_INPUT(releaseInpu
 #undef VEYRA_MOONLIGHT_INPUT
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-void EngineController::xboxController(const remoteplay::ControllerState& state){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}if(x)x->controller(state);}
-remoteplay::ControllerFeedback EngineController::xboxFeedback(){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}return x?x->takeFeedback():remoteplay::ControllerFeedback{};}
+void EngineController::xboxController(const input::ControllerState& state){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}if(x)x->controller(state);}
+input::ControllerFeedback EngineController::xboxFeedback(){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}return x?x->takeFeedback():input::ControllerFeedback{};}
 #endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
 void EngineController::openMoonlight(HWND window,source::MoonlightConnectDesc desc,PlayerOptions opts){
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    stopRemoteControl();
-#endif
     auto request=std::make_shared<source::MoonlightConnectDesc>(std::move(desc));
     {std::lock_guard lock(mutex_);snapshot_={};requestedPlaybackRate_=1;activeFlow_.reset();previewView_={};fgMultiFrameMaxCap_=0;xessMaxInterpolatedFramesCap_=0;fsrMaxGeneratedFramesCap_=0;snapshot_.sessionId=++sessionId_;snapshot_.transport=TransportState::Opening;snapshot_.moonlightActive=true;snapshot_.capture=true;savePath_.clear();desired_=opts.snapshot();desiredNodeOrder_=opts.nodeOrder;desired_.revision=++nextRevision_;snapshot_.desired=desired_;opts=PlayerOptions::from(desired_,desiredNodeOrder_,&opts);}
-    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"moonlight:",opts,{},request);});
+    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"moonlight:",opts,request);});
 }
 #endif
 #ifdef VEYRA_ENABLE_XBOX
 void EngineController::openXbox(HWND window,source::XboxConnectDesc desc,PlayerOptions opts){
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    stopRemoteControl();
-#endif
     auto request=std::make_shared<source::XboxConnectDesc>(std::move(desc));
     {std::lock_guard lock(mutex_);snapshot_={};requestedPlaybackRate_=1;activeFlow_.reset();previewView_={};fgMultiFrameMaxCap_=0;xessMaxInterpolatedFramesCap_=0;fsrMaxGeneratedFramesCap_=0;snapshot_.sessionId=++sessionId_;snapshot_.transport=TransportState::Opening;snapshot_.xboxActive=true;snapshot_.capture=true;savePath_.clear();desired_=opts.snapshot();desiredNodeOrder_=opts.nodeOrder;desired_.revision=++nextRevision_;snapshot_.desired=desired_;opts=PlayerOptions::from(desired_,desiredNodeOrder_,&opts);}
-    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"xbox:",opts,{},{},request);});
+    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"xbox:",opts,request);});
 }
 #endif
 void EngineController::stop(){
@@ -338,7 +228,7 @@ bool EngineController::selectAudioTrack(uint64_t session,int streamIndex){
     pendingAudioSession_=session;pendingAudioTrack_=streamIndex;return true;
 }
 bool EngineController::requestSettings(EnhancementSettings s,std::optional<ChainRuntimeOrder> order,uint64_t* acceptedRevision){
-    if(!s.validate().empty()){veyra::log::warn("settings","invalid whole settings transaction rejected");status(L"整套设置无效，未应用任何字段",false);return false;}
+    if(!s.validate().empty()){veyra::log::warn("settings","invalid whole settings transaction rejected");status(L"The whole set of settings is invalid; nothing was applied",false);return false;}
     if(order){
         // Fail before changing desired state. This is a shape admission check,
         // not a GPU test; actual dimensions are compiled again at graph creation.
@@ -347,7 +237,7 @@ bool EngineController::requestSettings(EnhancementSettings s,std::optional<Chain
         pipeline::EnhanceGraphDesc desc;describeStages(r,s,desc);
         if(const auto error=desc.validateFixedExecutionPlan();!error.empty()){
             veyra::log::warn("settings",std::format("node order rejected before commit: {}",error));
-            status(L"当前执行器尚不支持此节点顺序，原配置保持不变",false);return false;
+            status(L"The executor does not support this node order yet; the configuration is unchanged",false);return false;
         }
     }
     std::lock_guard lock(mutex_);if(snapshot_.image)s.multiplier=1;
@@ -356,7 +246,7 @@ bool EngineController::requestSettings(EnhancementSettings s,std::optional<Chain
     // off. The previous value is preserved and the reason is surfaced.
     if(s.multiplier>1&&s.frameGenerationBackend==FrameGenerationBackend::Dlss&&fgMultiFrameMaxCap_>0&&
        int(s.multiplier)-1>fgMultiFrameMaxCap_){
-        snapshot_.status=std::format(L"此显卡最多支持 {}X 帧生成；请求未应用",fgMultiFrameMaxCap_+1);
+        snapshot_.status=std::format(L"This GPU supports up to {}X frame generation; request not applied",fgMultiFrameMaxCap_+1);
         snapshot_.failed=false;
         veyra::log::info("settings",std::format("multiplier gate: requested={} maxGeneratedFrames={} applied=unchanged",s.multiplier,fgMultiFrameMaxCap_));
         return false;
@@ -369,7 +259,7 @@ bool EngineController::requestSettings(EnhancementSettings s,std::optional<Chain
     // every requested count, so anything above 2X is refused instead of
     // silently presenting 2X under a 4X label.
     if(s.multiplier>2&&twoXFrameGeneration(s.frameGenerationBackend)){
-        snapshot_.status=L"AMD FSR 帧生成上限为 2X；请求未应用";
+        snapshot_.status=L"AMD FSR frame generation is limited to 2X; request not applied";
         snapshot_.failed=false;
         veyra::log::info("settings",std::format("fsr multiplier gate: requested={} maxGeneratedFrames=1 applied=unchanged",s.multiplier));
         return false;
@@ -401,11 +291,8 @@ RecordingStatus EngineController::replaySnapshot()const{return replay_->status()
 void EngineController::startExport(const std::wstring& input,const std::wstring& output,PlayerOptions opts,bool hevc){
     if(opts.nodeOrder){
         veyra::log::warn("node-order","export has no runtime node-order transport; request rejected before posting");
-        status(L"节点链尚未接入导出执行器，请切换列表模式后导出",false);return;
+        status(L"The node chain is not wired to the export executor yet; switch to list mode to export",false);return;
     }
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    stopRemoteControl(); // the export replaces the capture run it belonged to
-#endif
     const auto frozen=opts.snapshot();const int audioStream=opts.audioStreamIndex;
     post([this,input,output,frozen,audioStream,hevc]{prewarmed_.reset();CoInitializeEx(nullptr,COINIT_MULTITHREADED);auto options=PlayerOptions::from(frozen);options.audioStreamIndex=audioStream;bool ok=exportVideo(input,output,options,hevc,stop_,[this](double p,const std::wstring& s){std::lock_guard lock(mutex_);snapshot_.status=s;snapshot_.position=p;snapshot_.duration=1;snapshot_.running=true;});{std::lock_guard lock(mutex_);snapshot_.running=false;snapshot_.failed=!ok&&!stop_;}CoUninitialize();});
 }
@@ -422,9 +309,6 @@ PlayerSnapshot EngineController::snapshot()const{
     PlayerSnapshot copy;std::shared_ptr<FrameFlowWindow> flowWindow;
     // The session pointers are copied under the lock: teardown resets them on the
     // engine thread while the UI polls.
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    std::shared_ptr<source::RemotePlaySessionSource> activeRemote;
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
     std::shared_ptr<source::MoonlightSessionSource> activeMoonlight;
 #endif
@@ -432,9 +316,6 @@ PlayerSnapshot EngineController::snapshot()const{
     std::shared_ptr<source::XboxSessionSource> activeXbox;
 #endif
     {std::lock_guard lock(mutex_);copy=snapshot_;copy.presentation=presentation_;flowWindow=activeFlow_;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-        activeRemote=activeRemote_;
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
         activeMoonlight=activeMoonlight_;
 #endif
@@ -452,15 +333,6 @@ PlayerSnapshot EngineController::snapshot()const{
         copy.metrics.flow=cached;
     }
     copy.fgBudgetLimited=playing&&copy.metrics.flow.lastFgRejected100ns>0&&monotonic100ns()-copy.metrics.flow.lastFgRejected100ns<10000000;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    if(copy.remotePlay&&activeRemote){
-        const auto s=activeRemote->sessionSnapshot();copy.remoteStream=s;copy.remotePlayState=int(s.state);
-        const auto recovery=activeRemote->recoveryStatus();copy.remoteRecovering=recovery.active;copy.remoteReconnectAttempts=recovery.attempts;copy.remoteRecoveryMessage=recovery.message;
-        copy.remoteReceivedFps=s.receivedFps;copy.remoteDecodedFps=s.decodedFps;copy.remoteRatesReady=s.ratesReady;
-        copy.remoteReceived=s.video.accessUnits;copy.remoteDecoded=s.decodedFrames;copy.remoteIngressDropped=s.video.dropped;
-        copy.remotePlaySkipped=activeRemote->skipped();copy.captureAudio=activeRemote->audioState();copy.audioAvailable=copy.captureAudio.available;
-    }
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
     if(copy.moonlightActive&&activeMoonlight){
         copy.moonlight=activeMoonlight->stats();
@@ -490,16 +362,16 @@ struct MmcssScope {
     ~MmcssScope(){if(handle)AvRevertMmThreadCharacteristics(handle);}
 };
 }
-void EngineController::run(HWND window,std::wstring path,PlayerOptions options,std::shared_ptr<source::RemotePlayConnectDesc> remoteRequest,std::shared_ptr<source::MoonlightConnectDesc> moonlightRequest,std::shared_ptr<source::XboxConnectDesc> xboxRequest){
+void EngineController::run(HWND window,std::wstring path,PlayerOptions options,std::shared_ptr<source::MoonlightConnectDesc> moonlightRequest,std::shared_ptr<source::XboxConnectDesc> xboxRequest){
     CoInitializeEx(nullptr,COINIT_MULTITHREADED);
     MmcssScope mmcss(L"Pro Audio");
-    status(L"正在初始化GPU与本地运行时…");
+    status(L"Initializing the GPU and local runtimes…");
     // A recording belongs to the session (and device) it started in.
-    if(recorder_->active())recorder_->sessionEnded(L"已切换播放内容，录制已保存");
+    if(recorder_->active())recorder_->sessionEnded(L"Playback source changed; recording saved");
     replay_->sessionEnded({});
     virtualCamera_->sessionEnded();
     auto extension=std::filesystem::path(path).extension().wstring();for(auto& c:extension)c=towlower(c);
-    const bool ordinaryFile=!remoteRequest&&!moonlightRequest&&!xboxRequest&&
+    const bool ordinaryFile=!moonlightRequest&&!xboxRequest&&
         !path.starts_with(L"capture:")&&!path.starts_with(L"capture2:")&&!path.starts_with(L"screen:")&&
         extension!=L".png"&&extension!=L".jpg"&&extension!=L".jpeg";
     if(!prewarmEnabled_||!ordinaryFile)prewarmed_.reset();
@@ -523,13 +395,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
     // image): the cached source frame must be re-rendered before the next
     // present, otherwise the new colour tables never reach the GPU.
     bool refreshPausedFrame_=false;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    auto remote=remoteRequest?std::make_shared<source::RemotePlaySessionSource>():nullptr;
-    const bool isRemote=bool(remote);
-    {std::lock_guard lock(mutex_);activeRemote_=remote;}
-#else
-    (void)remoteRequest;const bool isRemote=false;
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
     auto moon=moonlightRequest?std::make_shared<source::MoonlightSessionSource>():nullptr;
     const bool isMoonlight=bool(moon);
@@ -545,8 +410,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
 #else
     (void)xboxRequest;const bool isXbox=false;
 #endif
-    // PS5, Moonlight and Xbox are all decoded network streams with the same live scheduling.
-    const bool isStream=isRemote||isMoonlight||isXbox;
+    // Moonlight and Xbox are decoded network streams with the same live scheduling.
+    const bool isStream=isMoonlight||isXbox;
     const bool isCapture=physicalCapture||options.captureReplayForTest||isStream||isScreen;
     // File replay has no hardware arrival clock; retain its continuous PTS anchor.
     // VEYRA_TEST_REPLAY_AS_CARD=1 delivers it like a capture card instead (see below).
@@ -555,9 +420,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
     const bool pairAnchoredLive=physicalCapture||isStream||isScreen||testReplayAsCard;
     source::IFrameSource* activeSource=physicalCapture?static_cast<source::IFrameSource*>(&captureSource):&source;
     if(isScreen)activeSource=&screenSource;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    if(remote)activeSource=remote.get();
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
     if(moon)activeSource=moon.get();
 #endif
@@ -573,22 +435,22 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             // MFG lists. Allocators must not stall the presentation owner.
             wchar_t testSlots[16]{};unsigned commandSlots=16;
             if(GetEnvironmentVariableW(L"VEYRA_TEST_COMMAND_SLOTS",testSlots,16))commandSlots=std::clamp(unsigned(_wtoi(testSlots)),6u,24u);
-            if(!gpu->initialize(commandSlots)){status(L"D3D12初始化失败，请查看诊断",true);break;}
+            if(!gpu->initialize(commandSlots)){status(L"D3D12 initialization failed; see diagnostics",true);break;}
             auto ext=std::filesystem::path(path).extension().wstring();for(auto& c:ext)c=towlower(c);
             const bool isImage=!media::networkMediaInput(path)&&(ext==L".png"||ext==L".jpg"||ext==L".jpeg");
             sink::RgbaImage image;
             uint32_t width=0,height=0;double duration=0;
             if(isImage){
-                if(!sink::loadImage(path,image)){status(L"无法解码PNG/JPEG",true);break;}
+                if(!sink::loadImage(path,image)){status(L"Could not decode the PNG/JPEG",true);break;}
                 if(!pipeline::Extent{image.width,image.height}.valid()||uint64_t(image.width)*image.height>16777216){
                     if(options.nodeOrder){
                         veyra::log::warn("node-order","large-image tiling has no runtime node-order transport; request rejected");
-                        status(L"节点模式尚未接入大图分块处理，请切换列表模式后打开",true);break;
+                        status(L"Node mode does not do tiled processing of large images yet; switch to list mode and open it again",true);break;
                     }
                     runLargeImage(window,image,options,ctx,ring);break;
                 }
                 imageFrame=av_frame_alloc();imageFrame->format=AV_PIX_FMT_RGBA;imageFrame->width=image.width;imageFrame->height=image.height;imageFrame->pts=0;imageFrame->color_range=AVCOL_RANGE_JPEG;imageFrame->colorspace=AVCOL_SPC_RGB;imageFrame->color_trc=AVCOL_TRC_IEC61966_2_1;
-                if(av_frame_get_buffer(imageFrame,32)<0){status(L"图片资源分配失败",true);break;}
+                if(av_frame_get_buffer(imageFrame,32)<0){status(L"Image resource allocation failed",true);break;}
                 for(unsigned y=0;y<image.height;++y)memcpy(imageFrame->data[0]+size_t(y)*imageFrame->linesize[0],image.pixels.data()+size_t(y)*image.width*4,size_t(image.width)*4);
                 width=image.width;height=image.height;options.fg=false;
                 {std::lock_guard lock(mutex_);desired_.multiplier=1;snapshot_.image=true;snapshot_.desired=desired_;
@@ -623,7 +485,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 veyra::log::info("decode", std::format("p7 compose setting={}", options.settings.doviP7Compose?1:0));
                 if(!isCapture)veyra::log::info("decode",std::format("file decode preference={}",options.softwareDecode?"software":options.hardwareDecodeOnly?"hardware-only":"hardware-first"));
                 // Diagnostic uses the production graph/presenter to validate
-                // D3D12VA imports without needing a paired PS5 or credentials.
+                // D3D12VA imports without needing a paired stream or credentials.
                 if(!isCapture&&GetEnvironmentVariableW(L"VEYRA_TEST_FILE_HW_DECODE",nullptr,0)){
                     od.preferHardwareDecode=true;od.d3d12Device=ctx.device();od.d3d12Queue=ctx.directQueue();od.d3d12AdapterLuid=ctx.adapter().luid;
                 }
@@ -631,7 +493,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // graph negotiates its media type, otherwise the first connect
                 // silently uses the previous mode. Kept above the branch chain:
                 // inserting statements between `}else` and the open call
-                // silently re-binds the `else` and made PS5 sessions fall
+                // silently re-binds the `else` and made stream sessions fall
                 // through to the file open check (fixed 2026-09-16).
                 if(physicalCapture)captureSource.setAudioIngress(unsigned(options.settings.captureAudio));
                 if(physicalCapture)captureSource.setVerticalFlip(options.settings.captureFlipVertical);
@@ -639,17 +501,17 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 if(physicalCapture)captureSource.setCpuUnpack(options.captureCpuUnpack);
 #ifdef VEYRA_ENABLE_MOONLIGHT
                 if(moon){
-                    status(L"正在连接串流主机…");
+                    status(L"Connecting to the streaming host…");
                     ctx.device()->AddRef();moonlightRequest->decodeDevice=std::shared_ptr<ID3D12Device>(ctx.device(),[](ID3D12Device* device){device->Release();});
                     ctx.directQueue()->AddRef();moonlightRequest->decodeQueue=std::shared_ptr<ID3D12CommandQueue>(ctx.directQueue(),[](ID3D12CommandQueue* queue){queue->Release();});
-                    if(!moon->connect(std::move(*moonlightRequest))){const auto message=moon->stats().message;status(message.empty()?L"串流连接失败，请查看诊断":message,true);break;}
+                    if(!moon->connect(std::move(*moonlightRequest))){const auto message=moon->stats().message;status(message.empty()?L"Streaming connection failed; see diagnostics":message,true);break;}
                     moonlightRequest.reset();
                     const auto firstFrameDeadline=Clock::now()+std::chrono::seconds(20);
                     while(!stop_){
                         const AVFrame* first=nullptr;const auto result=moon->read(cachedPacket,&first);
                         if(result==source::SourceReadStatus::Frame){cachedFrame=av_frame_clone(first);break;}
-                        if(result==source::SourceReadStatus::Error){const auto message=moon->stats().message;status(message.empty()?L"主机没有返回可解码的画面，请检查主机和网络后重新连接。":message,true);break;}
-                        if(Clock::now()>firstFrameDeadline){status(L"已连接，但 20 秒内没有收到画面。请检查主机画面输出和编码设置。",true);break;}
+                        if(result==source::SourceReadStatus::Error){const auto message=moon->stats().message;status(message.empty()?L"The host sent no decodable picture; check the host and network and reconnect.":message,true);break;}
+                        if(Clock::now()>firstFrameDeadline){status(L"Connected, but no picture arrived within 20 seconds. Check the host's display output and encoding settings.",true);break;}
                         std::this_thread::sleep_for(std::chrono::milliseconds(2));
                     }
                     if(stop_||!cachedFrame)break;
@@ -657,39 +519,21 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
 #endif
 #ifdef VEYRA_ENABLE_XBOX
                 if(xb){
-                    status(L"正在连接 Xbox…");
+                    status(L"Connecting to Xbox…");
                     ctx.device()->AddRef();xboxRequest->decodeDevice=std::shared_ptr<ID3D12Device>(ctx.device(),[](ID3D12Device* device){device->Release();});
                     ctx.directQueue()->AddRef();xboxRequest->decodeQueue=std::shared_ptr<ID3D12CommandQueue>(ctx.directQueue(),[](ID3D12CommandQueue* queue){queue->Release();});
                     xboxRequest->stopRequested=&stop_;
-                    if(!xb->connect(*xboxRequest)){const auto message=xb->stats().message;status(message.empty()?L"Xbox 串流连接失败，请查看诊断":message,true);break;}
+                    if(!xb->connect(*xboxRequest)){const auto message=xb->stats().message;status(message.empty()?L"Xbox streaming connection failed; see diagnostics":message,true);break;}
                     const auto firstFrameDeadline=Clock::now()+std::chrono::seconds(20);
                     while(!stop_){
                         const AVFrame* first=nullptr;const auto result=xb->read(cachedPacket,&first);
                         if(result==source::SourceReadStatus::Frame){cachedFrame=av_frame_clone(first);break;}
-                        if(result==source::SourceReadStatus::Error){const auto message=xb->stats().message;status(message.empty()?L"Xbox 没有返回可解码的画面，请重新连接。":message,true);break;}
-                        if(Clock::now()>firstFrameDeadline){status(L"已连接 Xbox，但 20 秒内没有收到画面。请重新连接。",true);break;}
+                        if(result==source::SourceReadStatus::Error){const auto message=xb->stats().message;status(message.empty()?L"The Xbox sent no decodable picture; reconnect.":message,true);break;}
+                        if(Clock::now()>firstFrameDeadline){status(L"Connected to the Xbox, but no picture arrived within 20 seconds. Reconnect.",true);break;}
                         std::this_thread::sleep_for(std::chrono::milliseconds(2));
                     }
                     if(stop_||!cachedFrame)break;
                 }
-#endif
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                if(remote){
-                    status(L"正在连接 PS5…");
-                    ctx.device()->AddRef();remoteRequest->decodeDevice=std::shared_ptr<ID3D12Device>(ctx.device(),[](ID3D12Device* device){device->Release();});
-                    if(!remote->connect(std::move(*remoteRequest))){status(L"PS5 连接失败，请查看诊断",true);break;}
-                    remoteRequest.reset();
-                    while(!stop_){
-                        const AVFrame* first=nullptr;const auto result=remote->read(cachedPacket,&first);
-                        const auto state=remote->sessionSnapshot().state;
-                        {std::lock_guard lock(mutex_);snapshot_.remotePlayState=int(state);}
-                        if(result==source::SourceReadStatus::Frame){cachedFrame=av_frame_clone(first);break;}
-                        if(result==source::SourceReadStatus::Error){const auto recovery=remote->recoveryStatus();status(recovery.message.empty()?L"PS5 未返回可解码画面，请检查主机及网络后重新连接。":recovery.message,true);break;}
-                        if(state==remoteplay::SessionState::LoginPinRequired)status(L"PS5 要求登录 PIN，请在串流面板输入");
-                        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                    }
-                    if(stop_||!cachedFrame)break;
-                }else{
 #endif
                 // Opening a source runs FFmpeg's demuxer, which can throw. Letting that
                 // escape ends the whole session with a message that says nothing about
@@ -702,10 +546,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         e.what(),od.networkHeaders.size(),od.audioPath.size()));
                     sourceOpened=false;
                 }
-                if(!isMoonlight&&!isXbox&&!sourceOpened){status(isScreen?screenSource.status():physicalCapture&&!captureSource.errorMessage().empty()?captureSource.errorMessage():!isCapture&&!source.errorMessage().empty()?source.errorMessage():L"无法打开视频，请查看诊断",true);break;}
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                }
-#endif
+                if(!isMoonlight&&!isXbox&&!sourceOpened){status(isScreen?screenSource.status():physicalCapture&&!captureSource.errorMessage().empty()?captureSource.errorMessage():!isCapture&&!source.errorMessage().empty()?source.errorMessage():L"Could not open the video; see diagnostics",true);break;}
                 // A file's actual decoded pixel format and HDR VUI are only
                 // reliable on AVFrame. Prime one frame before constructing
                 // the graph so AV1/MOV 10-bit and HDR inputs do not get an
@@ -731,11 +572,11 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     }
                     if(firstStatus!=source::SourceReadStatus::Frame||firstFrame==nullptr||firstPacket.pts.isUnknown()){
                         status(activeSource->info().kind==pipeline::SourceKind::File&&source.errorMessage().empty()
-                            ?L"视频首帧无法解码或没有有效时间戳，请查看诊断":source.errorMessage().empty()?L"视频首帧读取失败":source.errorMessage(),true);
+                            ?L"The first video frame cannot be decoded or has no valid timestamp; see diagnostics":source.errorMessage().empty()?L"Could not read the first video frame":source.errorMessage(),true);
                         break;
                     }
                     cachedFrame=av_frame_clone(firstFrame);
-                    if(!cachedFrame){status(L"视频首帧缓存失败",true);break;}
+                    if(!cachedFrame){status(L"Could not cache the first video frame",true);break;}
                     cachedPacket=firstPacket;
                 }
                 width=activeSource->info().width;height=activeSource->info().height;duration=isCapture?0:activeSource->info().duration.toDouble();
@@ -755,15 +596,15 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                      snapshot_.posterRgba=std::move(poster);snapshot_.posterWidth=pw;snapshot_.posterHeight=ph;
                  }else{snapshot_.posterRgba.clear();snapshot_.posterWidth=snapshot_.posterHeight=0;}}
                 {std::lock_guard lock(mutex_);snapshot_.sourceNotice=activeSource->info().dolbyVision.description();
-                 const auto& si=activeSource->info();if(si.deinterlaced)snapshot_.sourceNotice+=std::format(L"{}去隔行：{} · {:.3f}i → {:.3f}p",snapshot_.sourceNotice.empty()?L"":L" · ",si.deinterlacePath=="d3d12-video-processor"?L"GPU":L"兼容软解",si.averageFps,si.averageFps);}
+                 const auto& si=activeSource->info();if(si.deinterlaced)snapshot_.sourceNotice+=std::format(L"{}Deinterlacing: {} · {:.3f}i → {:.3f}p",snapshot_.sourceNotice.empty()?L"":L" · ",si.deinterlacePath=="d3d12-video-processor"?L"GPU":L"software compatibility",si.averageFps,si.averageFps);}
             }
-            if(!pipeline::Extent{width,height}.valid()){status(L"图像尺寸超出单张GPU纹理能力，需要分块处理",true);break;}
+            if(!pipeline::Extent{width,height}.valid()){status(L"The image is larger than one GPU texture allows; it needs tiled processing",true);break;}
             HdrDisplayState displayHdrState;
             bool displayQueryFailed=false;
             uint64_t hdrDisplaySerial=0;
             // Windows HDR comes from the shared display state (the same background
             // query as refresh and VRR, asked again only on a display change, a
-            // monitor change or 刷新显示器状态). A new graph waits for a missing or
+            // monitor change or refresh the monitor state). A new graph waits for a missing or
             // answer once (100ms maximum). A stale target-local cache stays
             // usable while the worker refreshes it; a settings transaction must
             // never wait for an unrelated slow VRR/driver call to finish.
@@ -798,7 +639,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             // Every source is resampled to the screen with the high-quality present
             // path (bounded Catmull-Rom up, Catmull-Rom widened by the shrink factor
             // down; PresentBlit.hlsl).
-            // Until 2026-11-18 only PS5 Remote Play was: fullscreen captures and files
+            // Until 2026-11-18 streaming was the only path that was: fullscreen captures and files
             // were magnified bilinearly (soft) and shrunk without filtering (jagged).
             // VEYRA_TEST_PRESENT_BILINEAR=1 restores the old sampling for comparison.
             static const bool bilinearPresent=GetEnvironmentVariableW(L"VEYRA_TEST_PRESENT_BILINEAR",nullptr,0)>0;
@@ -844,8 +685,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     // Same stage rules as every other build: AMD FSR upscaling
                     // survives the normalization, it used to be dropped here.
                     describeStages(stageRequest(selected),selected.snapshot(),desc);
-                    backendRecoveryWarning=amdNrAdapter?L"当前 GPU 不支持 NVIDIA 增强；超分及 DLSS 已关闭，NR 使用 AMD 运行库，XeSS选择保留":
-                        L"当前 GPU 不支持 NVIDIA 增强；NR、超分及 DLSS 已关闭，XeSS选择保留";
+                    backendRecoveryWarning=amdNrAdapter?L"This GPU does not support NVIDIA enhancements; upscaling and DLSS are off, NR uses the AMD runtime, and the XeSS choice is kept":
+                        L"This GPU does not support NVIDIA enhancements; NR, super resolution and DLSS are off, the XeSS choice is kept";
                     veyra::log::warn("capability","normalized requested NVIDIA effects before graph creation; applied settings reflect actual disabled stages");
                 }
                 for(unsigned attempt=0;attempt<6;++attempt){
@@ -879,7 +720,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     nrAutoStatus.clear();
                     if(admitted)desc.nrAutoPoolLayer=0;
                     else if(autoRequested)nrAutoStatus=nrAutoPoolUnavailable?
-                        L"自动NR实例池不可用，保留1080p NR":L"当前配置未启用自动NR，保留1080p NR";
+                        L"Auto NR instance pool unavailable; keeping 1080p NR":L"Auto NR is inactive for this configuration; keeping 1080p NR";
                     // The only graph allowed beside an inactive NR adapter is
                     // effects-off. Evict before any other NGX initialization.
                     if(recentGraphCache.hasCachedGraph()&&!RecentGraphCache::effectsOff(desc)){
@@ -925,8 +766,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 auto reduced=selected.snapshot();
                 // Requested multiplier above this GPU's capability: clamp to what
                 // the runtime supports and say so, instead of dropping frame
-                // generation entirely (the old behaviour users saw as "选了 4X
-                // 之后补帧直接没了").
+                // generation entirely (the old behaviour users saw as "picked 4X
+                // and the frame generation just vanished").
                 bool clampedOverCapability=false;
                 int capabilityGeneratedFrames=-1;
                 if(failure==FailedBackend::Fg&&reduced.multiplier>1){
@@ -947,31 +788,31 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     veyra::log::warn("backend-recovery",std::format("requested multiplier {} exceeds capability maxGeneratedFrames={}; applying {}X with frame generation kept",reduced.multiplier,capabilityGeneratedFrames,clamped));
                     reduced.multiplier=clamped;
                     clampedOverCapability=true;
-                    if(!backendRecoveryWarning.empty())backendRecoveryWarning+=L"；";
-                    backendRecoveryWarning+=std::format(L"当前最多支持 {}X 帧生成，已按 {}X 应用",clamped,clamped);
+                    if(!backendRecoveryWarning.empty())backendRecoveryWarning+=L"; ";
+                    backendRecoveryWarning+=std::format(L"Up to {}X frame generation is supported now; applied as {}X",clamped,clamped);
                 }
                 if(FAILED(ctx.device()->GetDeviceRemovedReason()))return false;
                 if(!clampedOverCapability&&!disableFailedBackend(reduced,failure))return false;
                     veyra::log::warn("backend-recovery",std::format("initialization failed component={} attempt={} revision={} -> nr={} sr={} multiplier={}; original SDK error above",unsigned(failure),attempt+1,reduced.revision,reduced.nr,reduced.sr,reduced.multiplier));
-                    if(!backendRecoveryWarning.empty())backendRecoveryWarning+=L"；";
+                    if(!backendRecoveryWarning.empty())backendRecoveryWarning+=L"; ";
                     const uint32_t ngxResult=uint32_t(graph->failedNgxResult());
                     if(selected.settings.frameGenerationBackend==FrameGenerationBackend::Anr&&failure==FailedBackend::Fg)
-                        backendRecoveryWarning+=L"ANR 帧生成未能启用，已关闭补帧；请检查运行组件、驱动与工作尺寸（至少 640×360），详细原因见日志";
+                        backendRecoveryWarning+=L"ANR frame generation could not start and has been turned off. Check its runtime, driver and processing size (at least 640×360); see the log for details.";
                     else if(selected.settings.frameGenerationBackend==FrameGenerationBackend::Vfg&&failure==FailedBackend::Fg)
-                        backendRecoveryWarning+=L"NVIDIA VFG 未能启用（需要 Ada / Blackwell 显卡、VFG 运行组件和支持的输出格式），已关闭补帧；原因见日志";
+                        backendRecoveryWarning+=L"NVIDIA VFG could not start (requires an Ada / Blackwell GPU, VFG runtime and a supported output format). Frame generation is off; see the log.";
                     else if(selected.settings.frameGenerationBackend==FrameGenerationBackend::AmdFrc&&failure==FailedBackend::Fg)
-                        backendRecoveryWarning+=L"AMD FRC 未能启用（需要 AMD 显卡和驱动自带的 AMF 运行库），已关闭补帧；原因见日志";
+                        backendRecoveryWarning+=L"AMD FRC could not start (needs an AMD GPU and the AMF runtime from its driver); frame generation turned off. See the log";
                     else if(selected.settings.frameGenerationBackend==FrameGenerationBackend::Fsr4&&failure==FailedBackend::Fg)
                     {
-                        backendRecoveryWarning+=L"FSR 4 ML 提供方不可用（需要支持的 RX 9000 和驱动），已改用 FSR 3.1；原因见日志";
+                        backendRecoveryWarning+=L"FSR 4 ML provider unavailable (needs a supported RX 9000 and driver); switched to FSR 3.1. See the log";
                         veyra::log::warn("fsr-fg","FSR 4 ML unavailable on this adapter/driver; switching to FSR 3.1 at 2X");
                     }
                     else if((ngxResult&0xFFF00000u)==0xBAD00000u)
-                        backendRecoveryWarning+=std::wstring(backendFailureName(failure))+L"："+ngxFailureHint(ngxResult)+std::format(L"（NGX 0x{:08X}，驱动 {}），已关闭依赖效果",ngxResult,ctx.adapter().driverVersion);
+                        backendRecoveryWarning+=std::wstring(backendFailureName(failure))+L": "+ngxFailureHint(ngxResult)+std::format(L" (NGX 0x{:08X}, driver {}); effects that depend on it are off",ngxResult,ctx.adapter().driverVersion);
                     else if(!clampedOverCapability)
-                        backendRecoveryWarning+=std::wstring(backendFailureName(failure))+L" 初始化失败，已关闭依赖效果；原因见诊断日志";
-                    if(!graph->driverRequirementNotice().empty())backendRecoveryWarning+=L"；"+graph->driverRequirementNotice();
-                    if(failure==FailedBackend::Fg&&(ngx::AmpereMfgUnlock::applied()||(ngx::DlssgTransfusion::applied()&&ngx::DlssgTransfusion::snapshot().target==ngx::DlssgTransfusion::Target::Ampere)))backendRecoveryWarning+=L"；RTX 30 系补帧解锁已应用，但当前驱动/运行库组合下运行时不开放补帧，可改用 AMD FSR 补帧";
+                        backendRecoveryWarning+=std::wstring(backendFailureName(failure))+L" failed to initialize; effects that depend on it are off. See the diagnostic log";
+                    if(!graph->driverRequirementNotice().empty())backendRecoveryWarning+=L"; "+graph->driverRequirementNotice();
+                    if(failure==FailedBackend::Fg&&(ngx::AmpereMfgUnlock::applied()||(ngx::DlssgTransfusion::applied()&&ngx::DlssgTransfusion::snapshot().target==ngx::DlssgTransfusion::Target::Ampere)))backendRecoveryWarning+=L"; the RTX 30 frame generation unlock is applied, but with the current driver/runtime the runtime does not offer frame generation. You can use AMD FSR frame generation instead";
 
                     if(!ring.drainQueue()||!ring.discardRecording())return false;
                     if(!presenter.prepareGraphChange())return false;
@@ -1007,20 +848,20 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             const bool previewInitialized=initializePreview(gd,options);
             if(stop_)break;
             publishFrameGenerationCapabilities();
-            if(!previewInitialized){status(L"视频初始化失败，请查看对应组件的诊断日志",true);break;}
+            if(!previewInitialized){status(L"Video initialization failed; see the diagnostic log of the component involved",true);break;}
             if(!backendRecoveryWarning.empty()){
                 std::lock_guard lock(mutex_);desired_.rejectVideoRequest(initialRequested,options.snapshot());snapshot_.desired=desired_;snapshot_.rejectedRevision=initialRequested.revision;snapshot_.backendWarning=backendRecoveryWarning;
             }
             if(!nvidiaAdapter&&nvidiaOnlyStagesRequested(options.nr,options.sr,options.fg,options.settings,amdNrAdapter)){
                 veyra::log::warn("capability",std::format("non-NVIDIA adapter disabled requested features: nr={} sr={} fgBackend={} flowBackend={}",options.nr,options.sr,frameGenerationBackendName(options.settings.frameGenerationBackend),opticalFlowBackendName(options.settings.opticalFlowBackend)));
-                status(L"当前非 NVIDIA 适配器：NR、NVIDIA 超分与 DLSS 已禁用；可使用 XeSS 预览和 AMD 光流",false);
+                status(L"Not an NVIDIA adapter: NR, NVIDIA super resolution and DLSS are disabled; XeSS preview and AMD optical flow are available",false);
             }
-            if(gd.hdrInput)status(gd.hdrOutput?L"HDR输入 · HDR保留增强/显示":L"HDR输入 · SDR色调映射后增强/显示（1000nit参考峰值）",false);
-            if(graph->xessEnabled()&&!presenter.xessActive())status(L"XeSS 未启用：运行时或设备不兼容；当前为普通呈现",false);
+            if(gd.hdrInput)status(gd.hdrOutput?L"HDR input · HDR kept for enhancement/display":L"HDR input · tone-mapped to SDR, then enhanced/shown (1000-nit reference peak)",false);
+            if(graph->xessEnabled()&&!presenter.xessActive())status(L"XeSS not enabled: runtime or device incompatible; using normal presentation",false);
             {
                 std::lock_guard lock(mutex_);
-                if(!nvidiaAdapter&&nvidiaOnlyStagesRequested(options.nr,options.sr,options.fg,options.settings,amdNrAdapter))snapshot_.backendWarning=L"当前 GPU 不支持所选 NVIDIA 增强";
-                if(graph->xessEnabled()&&!presenter.xessActive())snapshot_.backendWarning=L"XeSS 初始化失败；当前为普通呈现";
+                if(!nvidiaAdapter&&nvidiaOnlyStagesRequested(options.nr,options.sr,options.fg,options.settings,amdNrAdapter))snapshot_.backendWarning=L"This GPU does not support the selected NVIDIA enhancement";
+                if(graph->xessEnabled()&&!presenter.xessActive())snapshot_.backendWarning=L"XeSS failed to initialize; using normal presentation";
             }
             captureSource.setAudioSync(unsigned(options.settings.audioSync),options.settings.audioOffsetMs);
             captureSource.setAudioIngress(unsigned(options.settings.captureAudio));
@@ -1031,10 +872,10 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // including deferred bitstream/vendor sessions.
                 captureSource.setAudioGain(muted_||!captureAudioMonitoring_?0.0f:volume_.load());
                 captureSource.setAudioSync(unsigned(options.settings.audioSync),options.settings.audioOffsetMs);
-                if(!captureSource.start()){status(L"无法启动采集，请查看诊断",true);break;}
+                if(!captureSource.start()){status(L"Could not start capture; see diagnostics",true);break;}
             }
             {std::lock_guard lock(mutex_);snapshot_.duration=duration;snapshot_.nominalSourceFps=isImage?0:activeSource->info().averageFps;snapshot_.running=true;snapshot_.transport=TransportState::Playing;snapshot_.image=isImage;snapshot_.capture=isCapture;snapshot_.applied=options.snapshot();snapshot_.desired=desired_;}
-            status(isImage?L"图片已增强，可保存PNG/JPEG":std::format(L"{} | 输入 {}×{} / 底图 {}×{} / NR {}×{} / 光流 {}×{} / FG与输出 {}×{} | {}",isRemote?L"PS5 串流":isMoonlight?L"PC 串流":isXbox?L"Xbox 串流":isCapture?L"实时采集":L"播放",width,height,gd.workWidth,gd.workHeight,gd.nrWidth,gd.nrHeight,gd.flowWidth,gd.flowHeight,gd.workWidth,gd.workHeight,gd.nrBeforeSr?L"低延迟 · NR先行后超分":gd.nrWidth<gd.workWidth?L"实时内部处理并回填":L"原生NR（性能成本较高）"));
+            status(isImage?L"Image enhanced; it can be saved as PNG/JPEG":std::format(L"{} | input {}×{} / base {}×{} / NR {}×{} / optical flow {}×{} / FG and output {}×{} | {}",isMoonlight?L"PC streaming":isXbox?L"Xbox streaming":isCapture?L"Live capture":L"Play",width,height,gd.workWidth,gd.workHeight,gd.nrWidth,gd.nrHeight,gd.flowWidth,gd.flowHeight,gd.workWidth,gd.workHeight,gd.nrBeforeSr?L"Low latency · NR first, then SR":gd.nrWidth<gd.workWidth?L"Processed internally in real time and written back":L"Native NR (higher performance cost)"));
             pipeline::EnhanceGraph::FrameOutputs out;bool reset=true,hasOutput=false,audioRebuffering=false,seekPreviewPending=false;
             bool initialRemoteFramePending=isStream;
             bool initialFileFramePending=!isImage&&!isCapture;
@@ -1343,7 +1184,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             };
             OnExit resetExit{[&]{finishReset(stop_?diagnostics::ResetOutcome::Cancelled:diagnostics::ResetOutcome::Failed);
                 // The recording ends with the session; its file is finished in the background.
-                recorder_->sessionEnded(stop_?L"播放已停止，录制已保存":L"播放已结束，录制已保存");
+                recorder_->sessionEnded(stop_?L"Playback stopped; recording saved":L"Playback ended; recording saved");
                 replay_->sessionEnded({});virtualCamera_->sessionEnded();}};
             auto collectTimings=[&]{
                 auto record=[&](const diagnostics::GpuFrameTiming& sample){
@@ -1370,7 +1211,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // The graph object is replaced on rebuilds (core reuse, recent-graph
                 // cache, prewarm adoption). Re-arm recording on whichever graph is
                 // current; arming only the first one left every later graph
-                // unmeasured ("未测量" after any effect change, 2026-10-05).
+                // unmeasured ("not measured" after any effect change, 2026-10-05).
                 graph->recordGpuTimings();
                 for(const auto& sample:graph->takeGpuTimings())record(sample);
                 for(const auto& sample:presenter.takeGpuTimings(ctx.fence()))record(sample);
@@ -1488,8 +1329,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // It must not make synchronous driver calls on the GPU owner.
                 const double refreshHz=presenter.displayRefreshHz();
                 const bool capRefreshChanged=requested.outputRate==OutputRateMode::FollowDisplay&&std::abs(refreshHz-pacingRefreshHz)>0.001;
-                // 可变刷新: the monitor's VRR availability is read again on events
-                // (another monitor, a display change, 重新检测, the VRR
+                // Variable refresh: the monitor's VRR availability is read again on events
+                // (another monitor, a display change, re-detection, the VRR
                 // confirmation); a change re-applies.
                 const bool vrrChanged=presenter.vrrSync()!=VideoPresenter::vrrSyncWanted(requested,presenter.displayVrr());
                 if(revision==pacingRevision&&presenterGeneration==presenter.generation()&&!vrrChanged&&!capRefreshChanged){
@@ -1497,13 +1338,13 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     // low-latency setting stays, so only the status line changes.
                     if(presentationEffective.nvidiaLowLatency!=NvidiaLowLatency::Off&&!presenter.reflexActive()&&presenter.reflexFailed()){
                         presentationEffective.nvidiaLowLatency=NvidiaLowLatency::Off;
-                        std::lock_guard lock(mutex_);snapshot_.presentationEffective=presentationEffective;snapshot_.presentationStatus=presenter.reflexDisablePending()?L"英伟达低延迟调用及撤销失败；请关闭视频后重试":
-                            presenter.reflexStalled()?L"英伟达低延迟：驱动每帧等待过长，本次播放已关闭；当前使用低排队":L"英伟达低延迟调用失败，当前使用低排队；详见日志";
+                        std::lock_guard lock(mutex_);snapshot_.presentationEffective=presentationEffective;snapshot_.presentationStatus=presenter.reflexDisablePending()?L"NVIDIA Low Latency call and disable failed; close the video and retry":
+                            presenter.reflexStalled()?L"NVIDIA Low Latency: the driver waited too long every frame and was turned off for this session; using low queue depth":L"NVIDIA Low Latency call failed; using low queue depth. See logs.";
                     }
                     if(presentationPaced&&!presenter.pacingActive()){
                         // The sink already stopped waiting; reconfiguring would arm it again.
                         presentationPaced=false;cadence.reset();
-                        std::lock_guard lock(mutex_);snapshot_.presentationStatus=L"显示队列等待失败，垂直同步屏幕队列不再限制；详见日志";
+                        std::lock_guard lock(mutex_);snapshot_.presentationStatus=L"Display queue wait failed; the VSync display queue is no longer limited; see the log";
                     }
                     return;
                 }
@@ -1575,11 +1416,11 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             // mapped, a monotonic anchor without audio, and its frozen value
             // while an endpoint recovers. Steady-state video scheduling reads
             // this clock; it never waits on audio coverage.
-            // 网络源是否正被缓冲按住。nowMs() 要用它区分「音频真的放完了」和
-            // 「只是网络暂时没数据」：后者不能把媒体时钟交给墙钟。
+            // Whether a network source is being held by buffering. nowMs() uses it to tell "the audio really played out" from
+            // "the network simply has no data for a moment": the latter must not hand the media clock to the wall clock.
             std::atomic<bool> networkHolding{false};
-            // 缓冲相位每秒会在 buffering / playing 之间抖好几次，直接拿它去暂停音频会
-            // 让声音断断续续。只有连续处于缓冲状态半秒以上才真的停声音；恢复则立即生效。
+            // The buffering phase flaps between buffering and playing several times a second; using it directly to pause audio
+            // makes the sound break up. Only an uninterrupted half second of buffering really stops the sound; recovery applies immediately.
             // The buffering phase flaps between buffering and playing several times a
             // second; pausing the audio straight from it makes the sound stutter. Only a
             // stretch of half a second really stops it, while resuming applies at once.
@@ -1588,9 +1429,9 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             auto nowMs=[&](){
                 if(!audioStarted)return anchorMs+std::chrono::duration<double,std::milli>(Clock::now()-anchor).count()*playbackRate;
                 publishAudioStatus();const double a=audio.mediaTimeMs();
-                // 音频正在等网络重试：让媒体时钟停住，画面跟着停下等声音。不这么做
-                // 画面会一直往前跑，声音补上来时就落后几秒，对不上口型 —— 现场
-                // 2026-10-25：leadMs 到过 -1081 和 -7495。
+                // Audio is waiting for a network retry: freeze the media clock and hold the picture until the sound is back. Without this
+                // the picture runs ahead and the sound lands seconds behind once it catches up, out of sync with the mouths - field
+                // 2026-10-25: leadMs reached -1081 and -7495.
                 // The audio is between read attempts: freeze the media clock so the picture
                 // waits for the sound. Otherwise the picture runs ahead and the sound comes
                 // back seconds behind (field log 2026-10-25: leadMs -1081, -7495).
@@ -1599,10 +1440,10 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // A disconnected endpoint freezes the shared media clock. Only a
                 // fully exhausted audio stream may hand its tail to the wall clock.
                 if(audioPipe.clockExhausted()){
-                    // 但网络正在缓冲时必须继续冻结：网络源的数据是「暂时没有」，不是
-                    // 「放完了」。这时若用墙钟推进，媒体时钟会跑到没有画面的地方去，
-                    // 缓冲恢复后视频要等很久才追上来 —— 观感就是「画面卡住不恢复」
-                    // （现场 2026-10-24：clockMs 8 秒内前进 10 秒，coverage 停在原处）。
+                    // But while the network is buffering the freeze must continue: the source's data is "not here yet", not
+                    // "played out". If the wall clock advanced here, the media clock would run ahead of the picture;
+                    // after buffering recovers the video waits a long time to catch up - the visible result is a picture that freezes and never recovers
+                    // (field 2026-10-24: clockMs advanced 10 s in 8 s, coverage stalled in place).
                     if(networkHolding.load()){
                         audioClockExhausted=false;
                         return lastAudioClockMs;
@@ -1634,16 +1475,16 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             // Runs every loop turn and inside the presentation back-pressure wait: while playback is held
             // for buffering the frozen clock keeps queued pictures from presenting, and that wait must
             // neither look like a hang to the watchdog nor stop the statistics.
-            // P0 缓冲闸门：视频侧的水位由 demux 的 phase 给出，音频侧没有对应信号 ——
-            // B 站那种音轨单独打开（session_ 为空）的来源掉数据时，demux 一无所知，
-            // 于是画面照跑、声音断了。这里用音频自己的两个水位把它补上：PCM 缓冲见底，
-            // 或者预读队列见底。阈值带滞回（300→1000、500→1500），否则会在阈值附近
-            // 一秒钟抖好几次，声音断断续续。
+            // P0 buffering gate: the video side's watermark comes from the demux phase, and the audio side has no equivalent signal -
+            // when a Bilibili-style source (audio track opened separately, session_ empty) drops data, the demux does not know,
+            // so the picture runs on while the sound breaks. Here the two audio watermarks are used to cover it: the PCM buffer runs dry,
+            // or the read-ahead queue runs dry. The thresholds carry hysteresis (300→1000, 500→1500), otherwise
+            // the sound flaps several times a second around the threshold, breaking up.
             // P0 buffering gate: the video side reports through the demux phase, the audio
             // side has no such signal - for a separately opened track (Bilibili) the demux
             // knows nothing when the sound runs dry, so the picture kept going in silence.
             // Two audio water levels fill that gap, with hysteresis so it cannot flap.
-            // P2：阈值从环境变量读，现场按网络情况调，不必重新编译。
+            // P2: the thresholds are read from an environment variable, so they can be adjusted per network condition without recompiling.
             // P2: thresholds come from the environment so a field can be tuned without
             // rebuilding; anything unset or <= 0 falls back to the built-in value.
             auto gateEnvMs=[](const char* name,double fallback){
@@ -1658,8 +1499,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
             gateLimits.exitPcmMs=gateEnvMs("VEYRA_GATE_EXIT_PCM_MS",gateLimits.exitPcmMs);
             gateLimits.exitQueuedMs=gateEnvMs("VEYRA_GATE_EXIT_QUEUED_MS",gateLimits.exitQueuedMs);
             gateLimits.warmupMs=static_cast<long long>(gateEnvMs("VEYRA_GATE_WARMUP_MS",static_cast<double>(gateLimits.warmupMs)));
-            // 判定在 BufferingGate 里，有单元测试兜着（tests/unit/BufferingGateTests.cpp）：
-            // 阈值滞回、5 秒窗口、重连预算、放弃。
+            // The decision lives in BufferingGate, guarded by unit tests (tests/unit/BufferingGateTests.cpp):
+            // threshold hysteresis, the 5 s window, the reconnect budget, giving up.
             // The decision lives in BufferingGate, covered by unit tests: the hysteresis,
             // the 5 s window, the reconnect budget and giving up.
             engine::BufferingGate bufferingGate(gateLimits);
@@ -1678,9 +1519,10 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 if(audioStarted&&separateAudio){
                     const double pcmMs=audioPipe.bufferedMs();
                     const double queuedMs=audioPipe.queuedMs();
-                    // 流已经读到结尾时水位自然会掉到 0 —— 那不是断流。当成断流会做一次毫无
-                    // 意义的重连（地址已经播完），重连失败又把会话标成 failed，B 站层据此
-                    // 「换镜像重开」，表现就是播完之后重新缓冲、又把最后几秒重播一遍。
+                    // When the stream has already reached its end, the watermark naturally falls to 0 - that is not a break. Treating it as one would
+                    // trigger a pointless reconnect (the address is already played out) and, on reconnect failure, mark the session failed,
+                    // and the Bilibili layer would then "switch mirror and restart" - the visible result is a re-buffer after the end
+                // and a replay of the last few seconds.
                     // A finished stream drains its queue: that is not dryness. Treating it as
                     // such fired a pointless reconnect, marked the session failed, and made the
                     // Bilibili layer reopen on another mirror - replaying the last few seconds.
@@ -1697,9 +1539,9 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         veyra::log::info("buffering-gate",std::format(
                             "audio recovered: pcmMs={:.0f} queuedMs={:.0f}",pcmMs,queuedMs));
                     audioGateWasHolding=gateHolding;
-                    // P1：5 秒还没回来就不是「慢」，是连接死了。用原地址重开一次（B 站音频
-                    // 地址在播放期内仍有效），从当前媒体时刻接上。刻意让**音频**当基准：
-                    // 画面为此微跳一帧，好过让口型一直漂。
+                    // P1: still not back after 5 s is not "slow", it is a dead connection. Reopen once at the original address (the Bilibili audio
+                    // address stays valid during playback), continuing from the current media moment. Deliberately the **audio** is the
+                    // reference: the picture may step one frame for it, which is better than the mouths drifting.
                     // P1: five seconds means the connection is dead, not slow. Reopen the same
                     // audio address and continue from the current media time. The sound stays
                     // the reference on purpose - the picture takes one small step instead of
@@ -1730,8 +1572,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                                 "audio reopened; continuing at {:.0f} ms (the picture follows the sound)",resumeMs));
                         }else{
                             veyra::log::error("buffering-gate","audio address could not be reopened");
-                            // 重连也失败：这次会话没有可用的声音了。把音频从时钟与闸门里摘掉，
-                            // 否则水位恒为 0，闸门会永远保持，用户点播放只看到冻结的画面。
+                            // The reconnect also failed: this session has no usable sound. Remove the audio from the clock and the gate,
+                            // otherwise the watermark stays 0, the gate never clears, and the user sees a frozen picture on play.
                             // Reopening failed too: this session has no usable sound left. Take the
                             // audio out of the clock and the gate, or a zero water level holds the
                             // picture for ever and pressing play changes nothing.
@@ -1739,19 +1581,19 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                             bufferingGate.abandon();
                             {
                                 std::lock_guard lock(mutex_);
-                                snapshot_.audioAvailable=false;   // 界面上也不要再声称有声音
+                                snapshot_.audioAvailable=false;   // also stop the UI from claiming there is sound
                             }
                         }
                     }
                 }
                 const bool holding=videoHolding||bufferingGate.holding();
                 networkHolding.store(holding);
-                // P2：每秒把两路水位和判定结果写一行，掉一次缓冲也能从日志还原现场。
+                // P2: write one line per second with both watermarks and the decision, so a buffering drop can be reconstructed from the log.
                 // P2: one line a second with both water levels and the verdict, so a single
                 // buffering episode can be reconstructed from the log alone.
                 if(Clock::now()>=nextGateLog){
-                    // 五秒一条：既能在掉一次缓冲时还原现场，又不会把日志撑爆
-                    // （每秒一条意味着看两小时片子多出七千行）。
+                    // One line per five seconds: enough to reconstruct a buffering drop, without blowing up the log
+                    // (one per second would add seven thousand lines for a two-hour film).
                     // One line every five seconds: enough to reconstruct an episode,
                     // few enough not to flood a two-hour session.
                     nextGateLog=Clock::now()+std::chrono::seconds(5);
@@ -1761,12 +1603,12 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         audioStarted?audioPipe.queuedMs():-1.0,
                         videoHolding,bufferingGate.holding(),holding,bufferingGate.reconnects()));
                 }
-                // B 站那种「音轨单独打开」的来源，音频管道看不到视频会话的阶段，
-                // 必须由这里把缓冲状态推过去：否则画面因缓冲停住、声音继续播。
+                // Bilibili-style "audio track opened separately" sources: the audio pipeline cannot see the video session's phase,
+                // so the buffering status must be pushed in from here - otherwise the picture stalls on buffering while the sound keeps playing.
                 // For a source whose audio is opened separately (Bilibili) the pipeline
                 // cannot see the video session's phase, so the buffering state is pushed
                 // here - otherwise the picture stalls while the sound keeps going.
-                // 半秒防抖后再停声音（见上面 audioHoldSince 的说明）。
+                // The sound stops after half a second of debounce (see the audioHoldSince note above).
                 // Half a second of debounce before the sound is actually stopped.
                 if(holding){
                     if(audioHoldSince==Clock::time_point{})audioHoldSince=Clock::now();
@@ -1810,7 +1652,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     std::lock_guard lock(mutex_);
                     desired_.rejectVideoRequest(options.snapshot(),reduced);
                     desired_.revision=++nextRevision_;snapshot_.desired=desired_;snapshot_.applying=true;
-                    snapshot_.backendWarning=L"XeSS 呈现失败，正在恢复基础播放；错误码见日志";
+                    snapshot_.backendWarning=L"XeSS presentation failed; returning to basic playback. Error code in the log";
                 }
                 veyra::log::warn("backend-recovery",std::format("{} presentation failed; drained commands, requesting swapchain rebuild without FG","XeSS"));
                 xessPresentationRecovery=true;
@@ -1856,14 +1698,14 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 collectTimings();
                 loopTrace.mark("collect");
                 networkTick();
-                // P0 缓冲闸门：音频 5 秒没回来就不再一起等 —— 暂停并明确告诉用户重开，
-                // 而不是让画面和声音一起冻住、什么提示都没有。
+                // P0 buffering gate: once the audio has not come back in 5 s, stop waiting together - pause and tell the user explicitly to reopen,
+                // rather than freeze the picture and the sound together with no hint at all.
                 // P0: once the sound has been gone for five seconds, stop waiting together:
                 // pause and say so, instead of freezing picture and sound in silence.
                 if(bufferingGate.gaveUp()){
                     if(!audioGateNotified){
                         audioGateNotified=true;
-                        status(L"音频已中断超过 5 秒，已暂停播放，请重新打开该视频", true);
+                        status(L"Audio stalled for over 5 seconds. Playback paused; reopen the video", true);
                         pause(true);
                     }
                 }else if(audioGateNotified)audioGateNotified=false;
@@ -1871,7 +1713,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     if(Clock::now()<captureRetryAt){std::this_thread::sleep_for(std::chrono::milliseconds(20));continue;}
                     ++captureRetries;
                     {std::lock_guard lock(mutex_);snapshot_.captureReconnectAttempts=captureRetries;}
-                    status(std::format(L"采集信号中断，正在重连原设备（第 {} 次）",captureRetries));
+                    status(std::format(L"Capture signal lost; reconnecting to the same device (attempt {})",captureRetries));
                     captureSource.setAudioIngress(unsigned(options.settings.captureAudio));
                     captureSource.setVerticalFlip(options.settings.captureFlipVertical);
                     captureSource.setBufferMode(unsigned(options.settings.captureBuffer));
@@ -1879,14 +1721,14 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         captureRecovering=false;reset=true;pendingResetCause=pipeline::ResetReason::DeviceLost;captureSampler.reset();
                         {std::lock_guard lock(mutex_);snapshot_.captureRecovering=false;
                             if(captureSource.info().videoDecodePath=="decklink")snapshot_.nominalSourceFps=captureSource.info().averageFps;}
-                        status(L"采集设备已重新连接，等待新画面");
+                        status(L"The capture device reconnected; waiting for a new picture");
                     }else{
                         captureRetryAt=Clock::now()+std::chrono::seconds(std::min(5u,captureRetries));
                         continue;
                     }
                 }
                 // Windows HDR flips with a newer display answer (a display or monitor
-                // change, 刷新显示器状态, a session start). Reading it calls no driver; the
+                // change, refresh the monitor state, a session start). Reading it calls no driver; the
                 // owner used to enumerate DXGI outputs here every 2 s (0.25-0.64 ms each).
                 if((gd.hdrInput||options.settings.videoHdr.enabled)&&GetTickCount64()-hdrDisplayCheck>250){
                     hdrDisplayCheck=GetTickCount64();
@@ -1922,7 +1764,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     if(!alive)ctx.reportDeviceFailure("live-presentation-failed-after-reset");
                     gpuFailureAwaitingRemoval=alive;
                     {std::lock_guard lock(mutex_);snapshot_.gpuFailed=true;}
-                    status(alive?L"视频队列或呈现失败；GPU 未报告设备移除，请查看诊断":L"GPU 设备已移除或驱动已重置；请稍后重新连接，可切换 NR 运行库后重试",true);break;
+                    status(alive?L"Video queue or presentation failed; the GPU did not report a device removal. See diagnostics":L"The GPU was removed or the driver was reset; reconnect in a moment, or switch the NR runtime and retry",true);break;
                 }
                 const float gain=muted_?0.0f:volume_.load();audio.setGain(gain);
                 const float captureGain=captureAudioMonitoring_?gain:0.0f;
@@ -1930,11 +1772,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 captureSource.setAudioSync(unsigned(options.settings.audioSync),options.settings.audioOffsetMs);
                 captureSource.setVerticalFlip(options.settings.captureFlipVertical);
                 if(physicalCapture){const bool available=captureSource.setAudioGain(captureGain);const auto audioState=captureSource.audioState();std::lock_guard lock(mutex_);snapshot_.audioAvailable=available;snapshot_.captureAudio=audioState;snapshot_.audioInputChannels=audioState.inputChannels;snapshot_.audioOutputChannels=audioState.outputChannels;}
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                if(remote){remote->setAudioGain(gain);remote->setAudioSync(unsigned(options.settings.audioSync),options.settings.audioOffsetMs);
-                    const auto state=remote->audioState();const auto session=remote->sessionSnapshot();const auto rates=remote->rates();
-                    std::lock_guard lock(mutex_);snapshot_.audioAvailable=state.available;snapshot_.captureAudio=state;snapshot_.remotePlayState=int(session.state);snapshot_.remotePlaySkipped=remote->skipped();snapshot_.remoteReceivedFps=rates.receivedFps;snapshot_.remoteDecodedFps=rates.decodedFps;snapshot_.remoteRatesReady=rates.ready;snapshot_.remoteReceived=rates.received;snapshot_.remoteDecoded=rates.decoded;snapshot_.remoteIngressDropped=rates.ingressDropped;}
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
                 if(moon){moon->setAudioGain(gain);moon->setAudioSync(unsigned(options.settings.audioSync),options.settings.audioOffsetMs);
                     const auto state=moon->audioState();
@@ -1955,8 +1792,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         status(message);
                     };
                     drainLivePresentation();
-                    if(graph->hdrOutput()){auto hdrPath=std::filesystem::path(save);hdrPath.replace_extension(L".jxr");if(sink::saveHdrScreenshot(hdrPath.wstring(),ctx,ring,graph->videoFrameResource(out.videoSlot)))saved(hdrPath.wstring(),L"HDR截图已保存："+hdrPath.wstring());else status(L"HDR截图保存失败，请查看日志",false);}else if(!sink::readRgba8(ctx,ring,graph->videoFrameResource(out.videoSlot),result)||!sink::saveImage(save,result,e==L".jpg"||e==L".jpeg",isImage?sink::ImageAlpha::Preserve:sink::ImageAlpha::Opaque))status(L"保存失败（目标文件可能已存在），播放已保留",false);else{saved(save,L"图片已保存："+save);veyra::log::info("image-save",std::format("saved extent={}x{} revision={}",gd.workWidth,gd.workHeight,options.settings.revision));}}
-                    catch(const std::exception& e){veyra::log::warn("image-save",std::format("save exception; retaining session: {}",e.what()));status(L"保存异常，播放已保留；可再次保存",false);}}
+                    if(graph->hdrOutput()){auto hdrPath=std::filesystem::path(save);hdrPath.replace_extension(L".jxr");if(sink::saveHdrScreenshot(hdrPath.wstring(),ctx,ring,graph->videoFrameResource(out.videoSlot)))saved(hdrPath.wstring(),L"HDR screenshot saved: "+hdrPath.wstring());else status(L"Could not save the HDR screenshot; see the log",false);}else if(!sink::readRgba8(ctx,ring,graph->videoFrameResource(out.videoSlot),result)||!sink::saveImage(save,result,e==L".jpg"||e==L".jpeg",isImage?sink::ImageAlpha::Preserve:sink::ImageAlpha::Opaque))status(L"Save failed (the file may already exist); playback kept",false);else{saved(save,L"Image saved: "+save);veyra::log::info("image-save",std::format("saved extent={}x{} revision={}",gd.workWidth,gd.workHeight,options.settings.revision));}}
+                    catch(const std::exception& e){veyra::log::warn("image-save",std::format("save exception; retaining session: {}",e.what()));status(L"Save error; playback kept and can be saved again",false);}}
                 if(isImage)requested.multiplier=1;
                 if(requested.revision==options.settings.revision&&requested!=options.settings){
                     options.settings.audioSync=requested.audioSync;options.settings.audioOffsetMs=requested.audioOffsetMs;
@@ -1967,14 +1804,14 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     if(requested.captureAudio!=options.settings.captureAudio){
                         options.settings.captureAudio=requested.captureAudio;
                         captureSource.setAudioIngress(unsigned(requested.captureAudio));
-                        status(L"采集音频模式已记录；重新连接采集卡后生效",false);
+                        status(L"Capture audio mode recorded; applies after reconnecting the capture card",false);
                     }
                     // The manual capture flip is applied per sample on the
                     // DirectShow callback thread, so it is a live edit.
                     if(requested.captureFlipVertical!=options.settings.captureFlipVertical){
                         options.settings.captureFlipVertical=requested.captureFlipVertical;
                         captureSource.setVerticalFlip(requested.captureFlipVertical);
-                        status(requested.captureFlipVertical?L"采集画面已上下翻转（仅影响本机采集画面）":L"采集画面方向已恢复",false);
+                        status(requested.captureFlipVertical?L"The captured picture is flipped vertically (affects only this PC's capture)":L"The captured picture's orientation is restored",false);
                     }
                     // The video-pin allocator is created while the graph is
                     // built: record the mode now and let the reconnect below
@@ -1982,7 +1819,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     if(requested.captureBuffer!=options.settings.captureBuffer){
                         options.settings.captureBuffer=requested.captureBuffer;
                         captureSource.setBufferMode(unsigned(requested.captureBuffer));
-                        status(L"设备缓冲模式已记录；重新连接采集卡后生效",false);
+                        status(L"Device buffer mode recorded; applies after reconnecting the capture card",false);
                     }
                     std::lock_guard lock(mutex_);snapshot_.applied=options.snapshot();snapshot_.applying=desired_!=snapshot_.applied;
                     veyra::log::info("settings",std::format("Audio applied videoRevision={} mode={} offsetMs={} (video history retained)",requested.revision,unsigned(requested.audioSync),requested.audioOffsetMs));
@@ -2002,9 +1839,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     // invalidated here. Audio transport reset is reserved for
                     // an actual pause/stop or input discontinuity.
                     if(physicalCapture)captureSource.videoReset(false);
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                    if(remote)remote->videoReset(false);
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
                     if(moon)moon->videoReset(false);
 #endif
@@ -2049,13 +1883,13 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     resetRecord->rebuilt=rebuild;
                     markResetStage(diagnostics::ResetStage::Drain);
                     if(stop_)break;
-                    if(!accepted){finishReset(diagnostics::ResetOutcome::Failed);status(L"设置切换排空失败，已停止",true);break;}
+                    if(!accepted){finishReset(diagnostics::ResetOutcome::Failed);status(L"Could not drain while switching settings; stopped",true);break;}
                     backendRecoveryWarning.clear();
                     const bool preserveWorkingFg=previous.multiplier>1&&requested.multiplier>1&&
                         (previous.frameGenerationBackend!=requested.frameGenerationBackend||previous.multiplier!=requested.multiplier||previous.vfgQuality!=requested.vfgQuality||previous.vfgAutoRegulate!=requested.vfgAutoRegulate);
                     const bool preserveWorkingNr=previous.nr&&requested.nr&&previous.nrRuntime!=requested.nrRuntime;
                     if(accepted&&rebuild){
-                        if(!presenter.prepareGraphChange()){finishReset(diagnostics::ResetOutcome::Failed);status(L"设置切换呈现排空失败，已停止",true);break;}
+                        if(!presenter.prepareGraphChange()){finishReset(diagnostics::ResetOutcome::Failed);status(L"Could not drain presentation for the settings change. Playback stopped.",true);break;}
                         bool reused=false;
                         const bool mayRetain=recentCacheAllowed&&!isCapture&&!isImage&&
                             RecentGraphCache::eligible(gd)&&RecentGraphCache::effectsOff(nextDesc);
@@ -2079,15 +1913,15 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         markResetStage(diagnostics::ResetStage::Create);
                         if(stop_){veyra::log::info("engine","settings rebuild cancelled; skipping rollback on exit");break;}
                         if(!accepted){
-                            if(!presenter.prepareGraphChange()){status(L"设置恢复呈现排空失败，已停止",true);break;}
+                            if(!presenter.prepareGraphChange()){status(L"Could not drain presentation to restore settings. Playback stopped.",true);break;}
                             graph->shutdown();recentGraphCache.evict("build-rollback");
                             graph=std::make_unique<pipeline::EnhanceGraph>(ctx,ring,&coreCache);graphBytes=0;
-                            if(!gpu->configureQueue(gd,!isCapture&&!isImage)||!graph->initialize(gd)||!openPreparedPresenter(options)){if(!stop_)status(L"设置失败且旧资源恢复失败，已停止",true);break;}
+                            if(!gpu->configureQueue(gd,!isCapture&&!isImage)||!graph->initialize(gd)||!openPreparedPresenter(options)){if(!stop_)status(L"Settings failed and the old resources could not be restored; stopped",true);break;}
                         }
                     }else if(accepted)accepted=graph->applySettings(requested);
                     if(rebuild)publishFrameGenerationCapabilities();
                     if(accepted){
-                        if(xessPresentationRecovery){backendRecoveryWarning=L"XeSS 呈现失败，已关闭补帧并恢复播放；错误码见日志";xessPresentationRecovery=false;}
+                        if(xessPresentationRecovery){backendRecoveryWarning=L"XeSS presentation failed; frame generation turned off and playback resumed. Error code in the log";xessPresentationRecovery=false;}
                         if(!backendRecoveryWarning.empty()){
                             std::lock_guard lock(mutex_);desired_.rejectVideoRequest(requested,next.snapshot());snapshot_.desired=desired_;snapshot_.rejectedRevision=requested.revision;snapshot_.backendWarning=backendRecoveryWarning;
                         }
@@ -2097,8 +1931,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     }
                     else {
                         finishReset(diagnostics::ResetOutcome::RolledBack);
-                        std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.rejectedRevision=requested.revision;snapshot_.applying=desired_!=previous;snapshot_.status=L"设置应用失败，已恢复上一套参数";snapshot_.backendWarning=requested.nrRuntime!=previous.nrRuntime?L"NR运行版本切换失败，已恢复上一套参数":requested.frameGenerationBackend==FrameGenerationBackend::XeSS?L"XeSS 未能启用，已恢复上一套参数":requested.frameGenerationBackend==FrameGenerationBackend::AmdFrc?L"AMD FRC 未能启用（需要 AMD 显卡和驱动自带的 AMF 运行库），已恢复上一套参数":
-                            requested.frameGenerationBackend==FrameGenerationBackend::Fsr4?L"FSR 4 ML 未能启用（需要支持的 RX 9000 和驱动），已恢复上一套参数":fsrFrameGeneration(requested.frameGenerationBackend)?L"FSR 3.1 帧生成未能启用，已恢复上一套参数":L"后端切换失败，已恢复上一套参数";}
+                        std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.rejectedRevision=requested.revision;snapshot_.applying=desired_!=previous;snapshot_.status=L"Settings failed to apply; previous settings restored";snapshot_.backendWarning=requested.nrRuntime!=previous.nrRuntime?L"Could not switch the NR runtime; previous settings restored":requested.frameGenerationBackend==FrameGenerationBackend::XeSS?L"XeSS could not be enabled; previous settings restored":requested.frameGenerationBackend==FrameGenerationBackend::AmdFrc?L"AMD FRC could not start (needs an AMD GPU and the AMF runtime from its driver); the previous settings were restored":
+                            requested.frameGenerationBackend==FrameGenerationBackend::Fsr4?L"FSR 4 ML could not be enabled (needs a supported RX 9000 and driver); previous settings restored":fsrFrameGeneration(requested.frameGenerationBackend)?L"FSR 3.1 frame generation could not be enabled; previous settings restored":L"Could not switch the backend; previous settings restored";}
                 }
                 // Live uniform update. The revision identifies the graph *shape*
                 // (NR/SR/FG/resolution and the colour master switch); colour
@@ -2120,7 +1954,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         // be re-rendered before the next present.
                         if(videoChanged&&(paused_||isImage))refreshPausedFrame_=true;
                     }else{
-                        std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.applying=desired_!=previous;snapshot_.status=L"这套参数需要重建管线，已回到上一套数值";
+                        std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.applying=desired_!=previous;snapshot_.status=L"These settings need a pipeline rebuild; went back to the previous values";
                     }
                 }
                 if(stop_)break;
@@ -2134,10 +1968,10 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     audioPipe.setPaused(paused_);audioPipe.startThread(&audio,true,std::max(0.0,trackPosition*1000));
                     switchedAudio=true;
                     {std::lock_guard lock(mutex_);snapshot_.selectedAudioTrack=audioPipe.selectedTrack();snapshot_.audioInputChannels=audioPipe.pcmFormat().channels;
-                        if(!changed)snapshot_.backendWarning=L"音轨切换失败，已保留原音轨";
+                        if(!changed)snapshot_.backendWarning=L"Could not switch the audio track; the previous one is kept";
                         if(seekSeconds_.load()<0){snapshot_.seekTarget=trackPosition;++snapshot_.seekRequested;seekSeconds_=trackPosition;}}
                     log::info("audio-track",std::format("requested={} selected={} changed={} positionSeconds={:.3f}",track,audioPipe.selectedTrack(),changed,trackPosition));
-                    bufferingGate.rearm(gateNow());   // 换音轨后缓冲会先清空再填，别当成断流
+                    bufferingGate.rearm(gateNow());   // after a track switch the buffer empties and refills; do not treat that as a break
                 }
                 if(!isImage&&!isCapture&&playbackRate!=requestedPlaybackRate_.load()){
                     playbackRate=requestedPlaybackRate_.load();audioPipe.setPlaybackRate(playbackRate);
@@ -2159,10 +1993,10 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     seekStarted=Clock::now();seekDecoded=0;
                     holdFileAudio();fileAudioAlignPending=true;
                     drainLivePresentation();
-                    if(!ring.drainQueue()){status(L"跳转失败",true);break;}
+                    if(!ring.drainQueue()){status(L"Seek failed",true);break;}
                     if(!activeSource->seek({static_cast<int64_t>(seek*1000000),1000000})){
                         const auto session=source.sharedSession();
-                        if(!session||!session->timeshiftEnabled()){status(L"跳转失败",true);break;}
+                        if(!session||!session->timeshiftEnabled()){status(L"Seek failed",true);break;}
                         // The live window can lose its last keyframe at the memory cap.
                         // Keep the receiver alive and let the next keyframe recover it.
                         audioRebuffering=false;
@@ -2172,7 +2006,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     veyra::log::info("seek-latency",std::format("request={} targetSeconds={:.3f} drainAndDemuxMs={:.3f}",activeSeekId,seek,elapsedMs(seekStarted)));
                     initialFileFramePending=false;av_frame_free(&cachedFrame);out={};hasOutput=false;
                     discardBefore=seek*1000;seekPreviewPending=true;reset=true;pendingResetCause=pipeline::ResetReason::Seek;anchorMs=discardBefore;anchor=Clock::now();lastAudioClockMs=discardBefore;audioClockExhausted=false;audioRebuffering=false;if(audioStarted){audioPipe.setPaused(paused_);if(!switchedAudio||std::abs(seek-trackPosition)>.001)audioPipe.requestSeek(discardBefore);}
-                    bufferingGate.rearm(gateNow());   // 跳转后同理：先清空再填
+                    bufferingGate.rearm(gateNow());   // after a seek the same: empty first, then fill
                 }
                 if(!transaction&&((paused_&&!seekPreviewPending)||(isImage&&hasOutput))){
                     // A parameter change while paused (or on a still image) only
@@ -2207,9 +2041,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     }
                     drainLivePresentation();
                     if(!wasPaused){holdFileAudio();if(physicalCapture)captureSource.videoReset();
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                    if(remote)remote->videoReset();
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
                     if(moon)moon->videoReset();
 #endif
@@ -2220,7 +2051,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     presenter.cancelReflexInput();
                     if(audioStarted)audioPipe.setPaused(true);wasPaused=true;
                     const bool referencesValid=hasOutput&&out.batch.count&&out.batch.frames[out.batch.count-1].lease&&out.batch.frames[out.batch.count-1].lease->referencesValid;
-                    if(hasOutput&&!presenter.present(ctx,ring,*graph,out.videoSlot,false,referencesValid,comparisonMode_,comparisonBase_,comparisonSplit_,out.batch.identity,previewView(),-1,true)){if(recoverXessPresentation())continue;status(L"画面呈现失败",true);break;}
+                    if(hasOutput&&!presenter.present(ctx,ring,*graph,out.videoSlot,false,referencesValid,comparisonMode_,comparisonBase_,comparisonSplit_,out.batch.identity,previewView(),-1,true)){if(recoverXessPresentation())continue;status(L"Picture presentation failed",true);break;}
                     if(hasOutput&&graph->resolveGeneration(out))completeReset(out.batch.identity);
                     // Poll live view/size changes at 50 ms; unchanged flip
                     // buffers are retained without commands or another Present.
@@ -2250,7 +2081,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     while((liveScheduler->occupancy()>=2||!graph->nextFrameSlotAvailable()||enhancementPending())&&!stop_&&(!paused_||seekPreviewPending)&&!liveScheduler->failed()){
                         networkTick();
                         advanceLive();if(seekSeconds_>=0)break;
-                        if(liveScheduler->occupancy()==0&&!graph->nextFrameSlotAvailable()&&elapsedMs(leaseWaitStart)>2000){status(L"等待输出纹理释放超时",true);stop_=true;break;}
+                        if(liveScheduler->occupancy()==0&&!graph->nextFrameSlotAvailable()&&elapsedMs(leaseWaitStart)>2000){status(L"Timed out waiting for the output texture to be released",true);stop_=true;break;}
                         if(liveScheduler->occupancy()>=2||!graph->nextFrameSlotAvailable()||enhancementPending()){
                             // Only the display queue is outstanding: wake on its latency object
                             // (acquiring it) instead of a 1 ms poll.
@@ -2285,12 +2116,12 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         }
                         if(stop_||paused_||seekSeconds_>=0)continue;
                         if((liveScheduler&&liveScheduler->failed())||!ring.drainQueue()){
-                            status(L"自动NR切档排空失败",true);break;
+                            status(L"Failed to drain pending work for an Auto NR switch",true);break;
                         }
                         pollCompletions();pendingCompletions.clear();out={};hasOutput=false;
                         if(!graph->selectAutoNrLevel(*next)){
                             veyra::log::error("nr-auto","normal playback switch refused after draining presentation leases");
-                            status(L"自动NR切档失败",true);break;
+                            status(L"Auto NR level switch failed",true);break;
                         }
                         autoNrControl.discardObservations(host100ns());
                         veyra::log::info("nr-auto",std::format("level={} budgetMs={:.3f} p95Ms={:.3f} reason={} boundaryMs={:.3f} cancelledJobs={}",
@@ -2354,25 +2185,22 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         fileInputEnded=true;
                         while(liveScheduler&&liveScheduler->occupancy()&&!stop_&&(!paused_||seekPreviewPending)&&!liveScheduler->failed()){advanceLive();if(liveScheduler->occupancy())waitLive();}
                         if(stop_)break;
-                        if(liveScheduler&&liveScheduler->failed()){status(L"视频尾帧呈现失败，请查看诊断",true);break;}
+                        if(liveScheduler&&liveScheduler->failed()){status(L"Could not present the last video frame; see diagnostics",true);break;}
                         if(paused_)continue;
-                        collectTimings();seekPreviewPending=false;status(L"视频已播放完毕");paused_=true;
+                        collectTimings();seekPreviewPending=false;status(L"The video has finished playing");paused_=true;
                         publishWaitingProgress(true);{std::lock_guard lock(mutex_);snapshot_.transport=TransportState::Ended;}
                         continue;
                     }
                     if(rs!=source::SourceReadStatus::Frame||pkt.pts.isUnknown()){
                         if(physicalCapture){
-                            drainLivePresentation();if(!ring.drainQueue()){status(L"采集恢复时GPU排空失败",true);break;}
+                            drainLivePresentation();if(!ring.drainQueue()){status(L"Could not drain the GPU while recovering capture",true);break;}
                             captureSource.videoReset();av_frame_free(&cachedFrame);hasOutput=false;out={};
                             captureRecovering=true;captureRetries=0;captureRetryAt=Clock::now()+std::chrono::milliseconds(500);
                             {std::lock_guard lock(mutex_);snapshot_.captureRecovering=true;snapshot_.captureFps=0;}
-                            status(captureSource.errorMessage().empty()?L"采集信号中断，等待原设备恢复":captureSource.errorMessage());continue;
+                            status(captureSource.errorMessage().empty()?L"Capture signal lost; waiting for the device to come back":captureSource.errorMessage());continue;
                         }
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                        if(remote){const auto recovery=remote->recoveryStatus();status(recovery.message.empty()?L"PS5 串流异常，请检查主机状态后重新连接。":recovery.message,true);break;}
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
-                        if(moon){const auto message=moon->stats().message;status(message.empty()?L"串流中断，请检查主机和网络后重新连接。":message,true);break;}
+                        if(moon){const auto message=moon->stats().message;status(message.empty()?L"Stream interrupted; check the host and network and reconnect.":message,true);break;}
 #endif
 #ifdef VEYRA_ENABLE_XBOX
                         if(xb){
@@ -2380,12 +2208,12 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                             if(failure.reconnectable && xboxRequest && !stop_){
                                 xboxReconnectBudget.disconnected();
                                 drainLivePresentation();
-                                if(!ring.drainQueue()){status(L"Xbox 重连时 GPU 排空失败",true);break;}
+                                if(!ring.drainQueue()){status(L"Could not drain the GPU queue during Xbox reconnection.",true);break;}
                                 xb->videoReset();av_frame_free(&cachedFrame);out={};hasOutput=false;
                                 bool recovered=false;
                                 while(!stop_ && xboxReconnectBudget.take()){
                                     const auto attempt=xboxReconnectBudget.attempts();
-                                    status(std::format(L"Xbox 串流中断（{}），正在重连 {}/3…",std::wstring(failure.disconnectReason.begin(),failure.disconnectReason.end()),attempt));
+                                    status(std::format(L"Xbox stream interrupted ({}); reconnecting {}/3…",std::wstring(failure.disconnectReason.begin(),failure.disconnectReason.end()),attempt));
                                     veyra::log::warn("xbox-reconnect",std::format("attempt={} reason={}",attempt,failure.disconnectReason));
                                     for(unsigned wait=0;wait<attempt*10&&!stop_;++wait)std::this_thread::sleep_for(std::chrono::milliseconds(100));
                                     if(stop_)break;
@@ -2403,22 +2231,22 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                                 }
                                 if(recovered){
                                     initialRemoteFramePending=true;reset=true;pendingResetCause=pipeline::ResetReason::SourceSwitch;
-                                    status(L"Xbox 已重新连接");veyra::log::info("xbox-reconnect","first decoded frame received; reset all graph history");
+                                    status(L"Xbox reconnected");veyra::log::info("xbox-reconnect","first decoded frame received; reset all graph history");
                                     continue;
                                 }
                                 if(stop_)break;
-                                status(L"Xbox 重连失败："+xb->stats().message,true);break;
+                                status(L"Xbox reconnection failed: "+xb->stats().message,true);break;
                             }
-                            status(failure.message.empty()?L"Xbox 串流中断，请重新连接。":failure.message,true);break;
+                            status(failure.message.empty()?L"Xbox streaming was interrupted; reconnect.":failure.message,true);break;
                         }
 #endif
-                        status(isScreen?screenSource.status():isCapture?L"采集信号中断，请检查设备连接或格式":source.errorMessage().empty()?L"视频解码或时间戳错误":source.errorMessage(),true);break;}
+                        status(isScreen?screenSource.status():isCapture?L"Capture signal lost; check the device connection or format":source.errorMessage().empty()?L"Video decoding or timestamp error":source.errorMessage(),true);break;}
                 }
                 if(isScreen){std::lock_guard lock(mutex_);snapshot_.sourceNotice=screenSource.status();}
                 const bool nativeCapture=physicalCapture&&activeSource->info().videoDecodePath=="decklink";
                 if((isStream||isScreen||nativeCapture)&&frame&&(uint32_t(frame->width)!=width||uint32_t(frame->height)!=height||(isScreen&&gd.hdrInput!=activeSource->info().color.isHdrPath())||
                     (nativeCapture&&!source::decklink::sameColor(captureGraphColor,activeSource->info().color)))){
-                    drainLivePresentation();if(!ring.drainQueue()){status(L"串流尺寸切换排空失败",true);break;}
+                    drainLivePresentation();if(!ring.drainQueue()){status(L"Could not drain before switching the stream size",true);break;}
                     width=uint32_t(frame->width);height=uint32_t(frame->height);
                     describeStages(stageRequest(options),options.snapshot(),gd);
                     gd.hdrInput=!isImage&&activeSource->info().color.isHdrPath();gd.hdrOutput=options.settings.useHdrPreview(gd.hdrInput,displayHdrActive());
@@ -2435,23 +2263,23 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     if(isScreen||nativeCapture){
                         std::lock_guard lock(mutex_);snapshot_.sourceWidth=width;snapshot_.sourceHeight=height;snapshot_.sourceHdr=gd.hdrInput;snapshot_.sourceMasteringPeakNits=resizeMastering;snapshot_.sourceMaxCllNits=resizeCll;snapshot_.sourceMaxFallNits=resizeFall;snapshot_.sourceDisplayAspect=activeSource->info().displayAspect;
                     }
-                    if(!presenter.prepareGraphChange()){status(L"输入尺寸切换呈现排空失败",true);break;}
+                    if(!presenter.prepareGraphChange()){status(L"Could not drain presentation for the input size change.",true);break;}
                     graph->shutdown();recentGraphCache.evict("source-resize");
                     graph=std::make_unique<pipeline::EnhanceGraph>(ctx,ring,&coreCache);graphBytes=0;out={};hasOutput=false;
-                    if(!graph->initialize(gd)||!openPreparedPresenter(options)){if(!stop_)status(L"串流尺寸切换失败",true);break;}
+                    if(!graph->initialize(gd)||!openPreparedPresenter(options)){if(!stop_)status(L"Could not switch the stream size",true);break;}
                     reset=true;pendingResetCause=pipeline::ResetReason::Resize;
                 }
                 if(vramRecoverStep){
                     // Video memory watchdog (see watchVram): rebuild between frames, measure later.
                     const int step=vramRecoverStep;vramRecoverStep=0;
-                    drainLivePresentation();if(!ring.drainQueue()){status(L"显存回收时排空失败",true);break;}
+                    drainLivePresentation();if(!ring.drainQueue()){status(L"Could not drain while reclaiming VRAM",true);break;}
                     recentGraphCache.evict("memory-recovery");
                     uint64_t budget=0;ctx.videoMemoryInfo(budget,vramRecoverBefore);
                     veyra::log::warn("vram-watch",std::format("rebuilding the {} to release video memory (usage {} MiB)",step==1?"presentation swapchain":"processing graph and swapchain",vramRecoverBefore>>20));
                     presenter.close();
                     if(step==2){graph->shutdown();graph=std::make_unique<pipeline::EnhanceGraph>(ctx,ring,&coreCache);graphBytes=0;out={};hasOutput=false;}
                     if(step==1&&testLeakReleases)testLeak.clear();
-                    if((step==2&&!graph->initialize(gd))||!openPreparedPresenter(options,step==2)){if(!stop_)status(L"显存回收后重建失败，请重新打开片源",true);break;}
+                    if((step==2&&!graph->initialize(gd))||!openPreparedPresenter(options,step==2)){if(!stop_)status(L"Rebuild after reclaiming VRAM failed; open the source again",true);break;}
                     reset=true;pendingResetCause=pipeline::ResetReason::Resize;
                     vramRecoverDone=step;vramRecoverCheckAt=Clock::now()+std::chrono::seconds(3);
                 }
@@ -2599,9 +2427,9 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         pts=nextPts;
                         ++previewSkippedTotal;++previewSkippedSinceSubmit;previewSkipSinceProcess=true;
                     }
-                    if(previewSourceFailed){status(source.errorMessage().empty()?L"视频读取或候选帧保存失败":source.errorMessage(),true);break;}
+                    if(previewSourceFailed){status(source.errorMessage().empty()?L"Could not read the video or keep a candidate frame":source.errorMessage(),true);break;}
                 }
-                if(!retainCandidate()){status(L"无法保存解码帧，已停止播放",true);break;}
+                if(!retainCandidate()){status(L"Could not keep the decoded frame; playback stopped",true);break;}
                 if(testReplayAsCard||(testArrivalJitterMs>0&&isScreen)){
                     double sum=0;for(int i=0;i<12;++i){testArrivalSeed=testArrivalSeed*1664525u+1013904223u;sum+=double(testArrivalSeed>>8)/double(1u<<24);}
                     // A card's clock: 800 ppm slow against the host, as in the field log.
@@ -2613,7 +2441,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 }
                 const auto processStart=Clock::now();
                 const auto captureArrival=pkt.arrivalHost100ns?pkt.arrivalHost100ns:host100ns();
-                // A PS5 callback is a compressed AU, not a decoded video frame.
+                // A streaming callback is a compressed AU, not a decoded video frame.
                 // Its decode baseline must not consume the entire FG lookahead
                 // budget. Still measure full ingress latency from captureArrival.
                 const auto liveInputReady=isStream&&pkt.decodedHost100ns>0?pkt.decodedHost100ns:captureArrival;
@@ -2751,7 +2579,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     double contentFps=0,refreshHz=0;
                     // The monitor refresh is reported for EVERY source, not only
                     // capture ones: the automatic multiplier needs a target rate when
-                    // the output cap is 关闭 (2026-10-24). It used to stay 0 for files
+                    // the output cap is off (2026-10-24). It used to stay 0 for files
                     // because the hint below is capture-only.
                     if(!isImage)refreshHz=displayFgTestHz>0?displayFgTestHz:presenter.displayRefreshHz();
                     if(hinted){
@@ -2821,7 +2649,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 if(isCapture&&!rereadCached&&!presentSinkFrameGeneration(options.settings.frameGenerationBackend)){
                     const auto presentP95=livePresentGpu.p95();
                     admitFg=[&,presentP95](const pipeline::FrameBatch& batch,bool warmingHistory){
-                        // Physical capture and PS5 delivery clocks are not
+                        // Physical capture and streaming delivery clocks are not
                         // guaranteed to match the host clock. Anchor each new
                         // input pair before enhancement, so a 59.94-vs-60Hz
                         // mismatch cannot accumulate into a stale deadline.
@@ -2981,18 +2809,18 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         if(SUCCEEDED(ctx.device()->GetDeviceRemovedReason())&&disableFailedBackend(reduced,failedComponent)){
                             const auto attempted=options.snapshot();
                             drainLivePresentation();
-                            if(!ring.drainQueue()||!ring.discardRecording()){status(L"增强故障恢复排空失败",true);break;}
-                            if(!presenter.prepareGraphChange()){status(L"增强故障恢复排空失败",true);break;}
+                            if(!ring.drainQueue()||!ring.discardRecording()){status(L"Could not drain while recovering from the enhancement failure",true);break;}
+                            if(!presenter.prepareGraphChange()){status(L"Could not drain while recovering from the enhancement failure",true);break;}
                             out={};hasOutput=false;graph->shutdown();
                             {std::lock_guard lock(mutex_);reduced.revision=++nextRevision_;}
                             options=PlayerOptions::from(reduced,options.nodeOrder,&options);
                             describeStages(stageRequest(options),options.snapshot(),gd);
-                            if(!initializePreview(gd,options)){if(!stop_)status(L"增强故障后的基础图重建失败",true);break;}
+                            if(!initializePreview(gd,options)){if(!stop_)status(L"Could not rebuild the base picture after the enhancement failure",true);break;}
                             publishFrameGenerationCapabilities();
                             const bool mlToFsr3=failedComponent==FailedBackend::Fg&&attempted.frameGenerationBackend==FrameGenerationBackend::Fsr4&&
                                 options.settings.frameGenerationBackend==FrameGenerationBackend::Fsr;
-                            backendRecoveryWarning=(mlToFsr3?std::wstring(L"FSR 4 ML 运行失败，已改用 FSR 3.1；错误码见日志"):
-                                std::wstring(backendFailureName(failedComponent))+L"运行失败，已关闭对应效果；错误码见日志")+(backendRecoveryWarning.empty()?L"":L"；"+backendRecoveryWarning);
+                            backendRecoveryWarning=(mlToFsr3?std::wstring(L"FSR 4 ML failed while running; switched to FSR 3.1. Error codes are in the log"):
+                                std::wstring(backendFailureName(failedComponent))+L"Running failed; the effect involved was turned off. Error code in the log")+(backendRecoveryWarning.empty()?L"":L"; "+backendRecoveryWarning);
                             {std::lock_guard lock(mutex_);desired_.rejectVideoRequest(attempted,options.snapshot());snapshot_.desired=desired_;snapshot_.applied=options.snapshot();snapshot_.rejectedRevision=attempted.revision;snapshot_.applying=desired_!=snapshot_.applied;snapshot_.backendWarning=backendRecoveryWarning;}
                             veyra::log::warn("backend-recovery",std::format("runtime component={} disabled; rebuilt revision={} nr={} sr={} multiplier={}; retry next source frame",unsigned(failedComponent),options.settings.revision,options.nr,options.sr,options.snapshot().multiplier));
                             finishReset(diagnostics::ResetOutcome::Failed);reset=true;pendingResetCause=pipeline::ResetReason::Settings;
@@ -3001,15 +2829,15 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         }
                     }
                     if(transaction){
-                        if(!ring.drainQueue()||!presenter.prepareGraphChange()){status(L"设置恢复呈现排空失败，已停止",true);break;}
+                        if(!ring.drainQueue()||!presenter.prepareGraphChange()){status(L"Could not drain presentation to restore settings. Playback stopped.",true);break;}
                         out={};graph->shutdown();recentGraphCache.evict("process-rollback");
                         graph=std::make_unique<pipeline::EnhanceGraph>(ctx,ring,&coreCache);graphBytes=0;options=PlayerOptions::from(previous,previousOrder);
                         gd=previousDesc;
                         if(graph->initialize(gd)&&openPreparedPresenter(options)&&graph->process(frame,pts,true,out,pkt.sequence,&pkt.colorInfo,&pkt.hardwareSurface,comparisonMode_!=0,{},0,false,{},pkt.doviEl,&pkt.doviP7)){
                             publishFrameGenerationCapabilities();
                             finishReset(diagnostics::ResetOutcome::RolledBack);
-                            std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.rejectedRevision=requested.revision;snapshot_.applying=desired_!=previous;snapshot_.status=L"参数执行失败，已整套回滚";transaction=false;
-                        }else{if(!stop_)status(L"参数回滚失败，已停止",true);break;}
+                            std::lock_guard lock(mutex_);if(desired_.revision==requested.revision)desiredNodeOrder_=previousOrder;desired_.rejectVideoRequest(requested,previous);snapshot_.desired=desired_;snapshot_.rejectedRevision=requested.revision;snapshot_.applying=desired_!=previous;snapshot_.status=L"Settings failed to apply; the whole set was rolled back";transaction=false;
+                        }else{if(!stop_)status(L"Settings rollback failed; stopped",true);break;}
                     }else{
                         // Custom: a bare "failed; see the log" leaves the user with
                         // nothing to do. Name the likely cause and the action that
@@ -3017,20 +2845,19 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         std::wstring advice;
                         switch(failedComponent){
                         case FailedBackend::Infrastructure:
-                            advice=L"。常见原因是硬件解码器分配内存失败（4K 片源居多）：关闭后重开播放器可恢复；"
-                                   L"若反复出现，可在 设置→播放 把解码改成「软件」";
+                            advice=L". Hardware decoding may have failed to allocate memory, especially for 4K. Restart the player; if it recurs, choose Software decoding in Settings → Playback";
                             break;
                         case FailedBackend::VideoHdr:
-                            advice=L"。RTX Video HDR 未能启动：可在设置里关闭该效果，或更新 NVIDIA 驱动";
+                            advice=L". RTX Video HDR could not start: turn the effect off in settings, or update the NVIDIA driver";
                             break;
                         case FailedBackend::OpticalFlow:
-                            advice=L"。光流后端不可用：可在设置里改用 AMD FidelityFX 或关闭相关效果";
+                            advice=L". The optical-flow backend is unavailable: switch to AMD FidelityFX in settings, or disable the dependent effects";
                             break;
                         default:
-                            advice=L"；详细原因见日志";
+                            advice=L"; see the log for details";
                             break;
                         }
-                        status(std::wstring(backendFailureName(failedComponent))+L"执行失败"+advice,true);
+                        status(std::wstring(backendFailureName(failedComponent))+L" failed"+advice,true);
                         break;
                     }
                 }
@@ -3088,7 +2915,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // Published after the metrics window switch above: a snapshot that already reports
                 // the new revision never carries the previous revision's totals. The publish of
                 // this frame's metrics can be a while later.
-                if(transaction||pendingSettingsAck){std::lock_guard lock(mutex_);snapshot_.applied=options.snapshot();snapshot_.applying=desired_!=snapshot_.applied;pendingSettingsAck=false;snapshot_.status=std::format(L"输入 {}×{} / 底图 {}×{} / NR {}×{} / 光流 {}×{} / FG与输出 {}×{} | {}",width,height,gd.workWidth,gd.workHeight,gd.nrWidth,gd.nrHeight,gd.flowWidth,gd.flowHeight,gd.workWidth,gd.workHeight,gd.nrBeforeSr?L"低延迟 · NR先行后超分":gd.nrWidth<gd.workWidth?L"实时内部处理并回填":L"原生NR（性能成本较高）");veyra::log::info("display-color",std::format("hdrInput={} hdrOutput={} forceSdrPreview={}",gd.hdrInput,gd.hdrOutput,options.settings.forceSdrPreview));veyra::log::info("settings",std::format("Applied revision={} sourcePtsMs={} fgBackend={} flowBackend={} multiplier={} (source kept open)",options.settings.revision,pts,frameGenerationBackendName(options.settings.frameGenerationBackend),opticalFlowBackendName(options.settings.opticalFlowBackend),options.snapshot().multiplier));}
+                if(transaction||pendingSettingsAck){std::lock_guard lock(mutex_);snapshot_.applied=options.snapshot();snapshot_.applying=desired_!=snapshot_.applied;pendingSettingsAck=false;snapshot_.status=std::format(L"Input {}×{} / base {}×{} / NR {}×{} / optical flow {}×{} / FG and output {}×{} | {}",width,height,gd.workWidth,gd.workHeight,gd.nrWidth,gd.nrHeight,gd.flowWidth,gd.flowHeight,gd.workWidth,gd.workHeight,gd.nrBeforeSr?L"Low latency · NR first, then SR":gd.nrWidth<gd.workWidth?L"Processed internally in real time and written back":L"Native NR (higher performance cost)");veyra::log::info("display-color",std::format("hdrInput={} hdrOutput={} forceSdrPreview={}",gd.hdrInput,gd.hdrOutput,options.settings.forceSdrPreview));veyra::log::info("settings",std::format("Applied revision={} sourcePtsMs={} fgBackend={} flowBackend={} multiplier={} (source kept open)",options.settings.revision,pts,frameGenerationBackendName(options.settings.frameGenerationBackend),opticalFlowBackendName(options.settings.opticalFlowBackend),options.snapshot().multiplier));}
                 const double processMs=std::chrono::duration<double,std::milli>(processDone-processStart).count();
                 frameFlow->advanceHistory(out.batch.identity);
                 frameFlow->update([&](auto& m){m.counters.historyResets+=uint64_t(out.historyReset);m.counters.captureDropResets+=uint64_t(pipeline::hasFrameFlag(pkt.flags,pipeline::FrameFlagBits::Drop));});
@@ -3116,7 +2943,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 const bool paceSourcePts=livePacesSourcePts(options.fg,physicalCapture,isScreen);
                 if(isCapture&&!rereadCached&&(isStream||pairPacing||!liveTimeline.anchored(out.batch.identity.epoch,paceSourcePts))){
                     const auto duration100ns=liveSourceInterval100ns(pkt.duration,activeSource->info().averageFps);
-                    if(!liveTimeline.anchored(out.batch.identity.epoch,paceSourcePts)||(pairPacing&&frames==0))veyra::log::info("capture-timeline",std::format("interval100ns={} packetDurationKnown={} packetDurationPositive={} nominalFps={} FG={} pacing={}",duration100ns,!pkt.duration.isUnknown(),pkt.duration.num>0,activeSource->info().averageFps,options.fg,pairPacing?(isRemote?"decoded-pair":"capture-pair"):paceSourcePts?"source-pts":"capture-ready"));
+                    if(!liveTimeline.anchored(out.batch.identity.epoch,paceSourcePts)||(pairPacing&&frames==0))veyra::log::info("capture-timeline",std::format("interval100ns={} packetDurationKnown={} packetDurationPositive={} nominalFps={} FG={} pacing={}",duration100ns,!pkt.duration.isUnknown(),pkt.duration.num>0,activeSource->info().averageFps,options.fg,pairPacing?"capture-pair":paceSourcePts?"source-pts":"capture-ready"));
                     if(pairPacing||isStream){
                         // LiveFgRejectionHold: after a second of FG rejections the real frame goes
                         // out when ready. Admission above still used the FG phase.
@@ -3186,9 +3013,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     // local declared after that guard is now a compile error instead of a
                     // silent dangling reference.
                     if(!liveScheduler->push([this,&anchor,&anchorMs,&captureSource,&xessSubmissions,&lastFilePresentLateness,&lastFilePresentedMs,&liveSubmissions,&presentationCompletedReal,
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                        &remote,
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
                         &moon,
 #endif
@@ -3365,9 +3189,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                             // Real B owns captureArrival. Generated A/B frames and
                             // paused cached frames must not invent input anchors.
                             if(didPresent&&physicalCapture&&!generated&&!rereadCached)captureSource.videoPresented(double(captureClockCorrected?driverPts100ns:item.pts100ns)/10000,host100ns(),captureArrival);
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                            if(didPresent&&remote)remote->videoPresented(double(item.pts100ns)/10000,host100ns());
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
                             if(didPresent&&moon)moon->videoPresented(double(item.pts100ns)/10000,host100ns());
 #endif
@@ -3418,7 +3239,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                             // An early (B1) present learns its GPU-ready time in the completion poll.
                             if(!watch->presentedBeforeReady){liveStats.readyMs=s.readyMs;liveReady.add(s.readyMs);liveStats.readyP95=liveReady.p95();}}
                         liveStats.fps=liveSubmissions.size()>1?double(liveSubmissions.size()-1)*1e7/(liveSubmissions.back()-liveSubmissions.front()):0;
-                    })){status(L"视频呈现队列失败",true);break;}
+                    })){status(L"Video presentation queue failed",true);break;}
                     frameFlow->update([&](auto& m){m.pendingOutputFrames+=step->remaining;});
                     advanceLive();
                     const auto occupancy=liveScheduler->occupancy();frameFlow->update([&](auto& m){m.counters.presentationBatchHighWater=std::max(m.counters.presentationBatchHighWater,occupancy);});
@@ -3428,7 +3249,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     // Images have no media clock, audio or temporal batches.
                     const auto readyStart=Clock::now();
                     while(!stop_&&!graph->resolveGeneration(out)){
-                        if(elapsedMs(readyStart)>2000){status(L"图片 GPU 就绪超时",true);stop_=true;break;}
+                        if(elapsedMs(readyStart)>2000){status(L"Image GPU ready timed out",true);stop_=true;break;}
                         deadlineWait.slice(.2);
                     }
                     if(stop_)break;
@@ -3444,7 +3265,7 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                         frameFlow->cpu(diagnostics::CpuStage::Present,elapsedMs(begin),host100ns());
                         if(presenter.submittedCount()>before){++submitted;frameFlow->presented(false,item.lease->consumerFence,host100ns());}
                     }
-                    if(presentFailed){status(L"图片呈现失败",true);break;}
+                    if(presentFailed){status(L"Image presentation failed",true);break;}
                 }
                 if(!liveScheduler){scheduleWaits.add(frameWaitMs);presentTimes.add(framePresentMs);}
                 loopTrace.mark("scheduleAndPresent");
@@ -3453,11 +3274,6 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                 // Sample only actual presentations above, not each engine iteration.
                 auto captureStats=physicalCapture?captureSource.metrics():source::CaptureMetrics{};
                 if(isScreen){const auto screen=screenSource.metrics();captureStats.received=screen.received;captureStats.delivered=screen.delivered;captureStats.dropped=screen.dropped;captureStats.readAgeMs=screen.ageMs;captureStats.frameAgeMs=double(std::max<int64_t>(0,host100ns()-pkt.pts.to100ns()))/10000;}
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-                if(remote){const auto rp=remote->sessionSnapshot();captureStats.received=rp.video.accessUnits;captureStats.dropped=remote->skipped();captureStats.delivered=sourceFrames;
-                    captureStats.readAgeMs=double(std::max<int64_t>(0,host100ns()-pkt.arrivalHost100ns))/10000;
-                }
-#endif
 #ifdef VEYRA_ENABLE_XBOX
                 if(xb){captureStats.received=xb->unitsReceived();captureStats.dropped=xb->skipped();captureStats.delivered=sourceFrames;
                     captureStats.readAgeMs=double(std::max<int64_t>(0,host100ns()-pkt.arrivalHost100ns))/10000;
@@ -3532,20 +3348,20 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
                     }();
                     const std::wstring hdrSource = (gd.hdrInput && !sourceHdrLabel.empty()) ? sourceHdrLabel : L"HDR";
                     snapshot_.sourceHdrLabel=sourceHdrLabel;
-                    snapshot_.colorStatus=graph->videoHdrActive()?L"SDR → RTX Video HDR":options.settings.videoHdr.enabled&&!gd.hdrInput?L"SDR → SDR（HDR显示未启用）":gd.hdrOutput?(graph->hdr10Output()?hdrSource+L" → HDR10 / PQ":hdrSource+L" → scRGB / 浮点"):gd.hdrInput?hdrSource+L" → SDR色调映射":L"SDR → SDR";snapshot_.position=(isCapture||isImage?pts:lastFilePresentedMs)/1000;snapshot_.frames=sourceFrames;snapshot_.generated=graphStats.fgGeneratedFrames;snapshot_.lateMs=lateness;snapshot_.lateP95Ms=presentReturnDeviation.p95();
+                    snapshot_.colorStatus=graph->videoHdrActive()?L"SDR → RTX Video HDR":options.settings.videoHdr.enabled&&!gd.hdrInput?L"SDR → SDR (HDR display off)":gd.hdrOutput?(graph->hdr10Output()?hdrSource+L" → HDR10 / PQ":hdrSource+L" → scRGB / floating point"):gd.hdrInput?hdrSource+L" → SDR tone mapping":L"SDR → SDR";snapshot_.position=(isCapture||isImage?pts:lastFilePresentedMs)/1000;snapshot_.frames=sourceFrames;snapshot_.generated=graphStats.fgGeneratedFrames;snapshot_.lateMs=lateness;snapshot_.lateP95Ms=presentReturnDeviation.p95();
                     snapshot_.videoHdrActive=graph->videoHdrActive();
                     snapshot_.beautyActive=graph->beautyNodesActive();snapshot_.beautyFaces=graph->beautyFaceCount();
                     snapshot_.beautyNotice=graph->beautyNotice();
-                    snapshot_.videoHdrStatus=graph->videoHdrActive()?L"预览：SDR 转 HDR 已运行":
-                        !options.settings.videoHdr.enabled?L"RTX Video HDR 已关闭":
-                        gd.hdrInput?L"原生 HDR 输入，无需 SDR 转 HDR":
-                        L"当前为 SDR 预览，HDR 转换未运行";
+                    snapshot_.videoHdrStatus=graph->videoHdrActive()?L"Preview: SDR to HDR is running":
+                        !options.settings.videoHdr.enabled?L"RTX Video HDR is off":
+                        gd.hdrInput?L"Native HDR input; no SDR-to-HDR needed":
+                        L"SDR preview at the moment; HDR conversion is not running";
                     // Measured playback speed: media-PTS advance per wall time
                     // over ~1s windows (1.0 = normal speed), resampled on seek.
                     // A rejected LUT input space must be visible, not only logged
                     // (plan v5.2: never apply a mismatched LUT silently).
-                    if(!graph->colorLutNotice().empty())snapshot_.colorStatus+=L"；"+graph->colorLutNotice();
-                    if(!graph->antiAliasNotice().empty())snapshot_.colorStatus+=L"；"+graph->antiAliasNotice();
+                    if(!graph->colorLutNotice().empty())snapshot_.colorStatus+=L"; "+graph->colorLutNotice();
+                    if(!graph->antiAliasNotice().empty())snapshot_.colorStatus+=L"; "+graph->antiAliasNotice();
                     const auto speedNow=Clock::now();
                     if(playbackSpeedLastWall==Clock::time_point()||pts+0.5<playbackSpeedLastPts){playbackSpeedLastPts=pts;playbackSpeedLastWall=speedNow;}
                     else if(std::chrono::duration<double>(speedNow-playbackSpeedLastWall).count()>=0.9){
@@ -3622,12 +3438,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
         }while(false);
     }catch(const std::exception& e){
         veyra::log::error("engine",std::format("{} (engine run loop)",e.what()));
-        status(L"引擎异常，请查看诊断",true);failed=true;}
+        status(L"Engine error; see diagnostics",true);failed=true;}
     (void)failed;
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    {std::lock_guard lock(mutex_);activeRemote_.reset();}
-    if(remote)remote->close();
-#endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
     {std::lock_guard lock(mutex_);activeMoonlight_.reset();}
     if(moon)moon->close();
@@ -3636,8 +3448,8 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
     {std::lock_guard lock(mutex_);activeXbox_.reset();}
     if(xb)xb->close();
 #endif
-    // Each step is logged: a session that stopped responding after a remote
-    // play failure left "graph shutdown complete" as its last line.
+    // Each step is logged: a session that stopped responding after a stream
+    // failure left "graph shutdown complete" as its last line.
     audioPipe.stopThread();audio.shutdown();veyra::log::info("engine","teardown: audio stopped");
     ring.drainQueue();presenter.close();graph->shutdown();recentGraphCache.evict("session-close");
     (void)coreCache.close();

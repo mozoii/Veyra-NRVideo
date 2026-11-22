@@ -51,7 +51,7 @@ private:
     uint64_t nextId_=0,batch_=0,active_=0,successEvent_=0;
     unsigned successes_=0,failures_=0;
     bool running_=false,interrupted_=false;
-    std::wstring status_=L"添加文件后，点击开始导出",directory_;
+    std::wstring status_=L"Add files, then click Start export",directory_;
     std::future<ExportMediaInfo> probe_;
     std::atomic<bool> stopProbe_{false};
     uint64_t probingId_=0,probingRevision_=0;

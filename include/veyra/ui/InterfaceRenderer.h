@@ -5,22 +5,22 @@ namespace veyra::ui {
 // docs/SOFTWARE_UI_DEFAULT_PLAN_2026-10-26.md). Software is the default: the
 // interface then avoids a GPU scene-graph swapchain/device. Video rendering
 // still uses the GPU; software drawing is not a guarantee against video-driver
-// faults or all overlay interactions. 设置 → 界面绘制 = GPU
+// faults or all overlay interactions. Settings → interface rendering = GPU
 // draws it with the GPU again. The compatibility switches keep their meaning:
-// OBS game capture and an overlay seen at start (监控软件兼容 = 自动) still draw
+// OBS game capture and an overlay seen at start (overlay compatibility = auto) still draw
 // in software when GPU is chosen, and VEYRA_UI_RHI still picks a GPU renderer.
 struct InterfaceRendererInputs {
-    bool gpuChosen=false;        // 设置 → 界面绘制 = GPU
-    bool obsGameCapture=false;   // 设置 → OBS 游戏采集兼容, or --obs-game-capture
-    bool overlayCompatAuto=true; // 设置 → 监控软件兼容 = 自动
-    bool overlayRunning=false;   // RTSS / NVIDIA overlay / GamePP / 抖音直播伴侣 at start
+    bool gpuChosen=false;        // Settings → interface rendering = GPU
+    bool obsGameCapture=false;   // Settings → OBS game capture compatibility, or --obs-game-capture
+    bool overlayCompatAuto=true; // Settings → overlay compatibility = auto
+    bool overlayRunning=false;   // RTSS / NVIDIA overlay / GamePP / TikTok LIVE companion at start
     bool compatRestart=false;    // --overlay-compat-restart: an accepted compatibility restart
     bool rendererForced=false;   // VEYRA_UI_RHI
 };
 enum class InterfaceRendererReason { Gpu, Default, ObsGameCapture, OverlayCompat };
 struct InterfaceRendererDecision {
     bool software=false;
-    bool overlayCompat=false;    // the 监控软件兼容 rule applied (logged, shown in 设置)
+    bool overlayCompat=false;    // the overlay compatibility rule applied (logged, shown in Settings)
     InterfaceRendererReason reason=InterfaceRendererReason::Gpu;
 };
 constexpr InterfaceRendererDecision decideInterfaceRenderer(const InterfaceRendererInputs& in) {

@@ -52,7 +52,7 @@ if sys.argv[1:]==['cmake-check']:
         # runtime prefix used in tests contains DLLs/DEFs, not MSVC libraries.
         flags+=['-DVEYRA_FFMPEG_ROOT='+cache['VEYRA_FFMPEG_ROOT'],
                 '-DVEYRA_ENABLE_EXPERIMENTAL_DLSSNR=ON','-DVEYRA_ENABLE_D3D12_DEBUG=OFF','-DVEYRA_BUILD_QML_UI=ON',
-                '-DVEYRA_ENABLE_REMOTEPLAY=OFF','-DVEYRA_ENABLE_MOONLIGHT=OFF','-DVEYRA_ENABLE_XBOX=OFF',
+                '-DVEYRA_ENABLE_MOONLIGHT=OFF','-DVEYRA_ENABLE_XBOX=OFF',
                 '-DVEYRA_DECKLINK_SDK_DIR='+(str(SDK) if native else ''),'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+tool]
         run([cmake,'-S',str(ROOT),'-B',str(directory),'-G','Ninja',*flags],name+'-configure')
         run([cmake,'--build',str(directory),'--target','CMakeFiles/veyra_sources.dir/src/source/DeckLinkDriver.cpp.obj','-j','2'],name+'-compile')

@@ -78,29 +78,29 @@ NvidiaVrrProfileController::NvidiaVrrProfileController(const std::filesystem::pa
     backupPath_ = QDir(QString::fromStdWString(dataDirectory.wstring())).filePath(QStringLiteral("driver-profiles/vrr-%1.json").arg(key));
 }
 QString NvidiaVrrProfileController::summary() const {
-    if (busy_) return tr("正在处理驱动配置…");
-    if (!checked_) return tr("尚未检查");
-    if (storageError_) return tr("无法保存或清理恢复记录");
-    if (error_ == gfx::VrrProfileError::Busy) return tr("驱动配置正在被占用");
-    if (driverStatus_ == -175) return tr("需要管理员权限");
-    if (error_ != gfx::VrrProfileError::None) return tr("未能确认驱动配置");
-    if (backupConflict_) return tr("恢复记录与当前配置不一致");
-    if (!state_.isolated) return tr("当前配置无法单独修改");
-    return state_.configured() ? tr("已允许窗口和全屏") : tr("尚未配置窗口和全屏");
+    if (busy_) return tr("Processing driver profile…");
+    if (!checked_) return tr("Not checked");
+    if (storageError_) return tr("Cannot save or remove the backup");
+    if (error_ == gfx::VrrProfileError::Busy) return tr("Driver profile is in use");
+    if (driverStatus_ == -175) return tr("Administrator rights required");
+    if (error_ != gfx::VrrProfileError::None) return tr("Driver profile not confirmed");
+    if (backupConflict_) return tr("Backup does not match the current profile");
+    if (!state_.isolated) return tr("This profile cannot be changed independently");
+    return state_.configured() ? tr("Windowed and fullscreen allowed") : tr("Windowed and fullscreen not configured");
 }
 QString NvidiaVrrProfileController::detail() const {
-    if (error_ == gfx::VrrProfileError::Busy) return tr("另一个软件实例正在处理驱动配置，请稍后重试。");
-    if (driverStatus_ == -175) return tr("请以管理员身份启动本软件后重试；完成配置后可恢复普通方式启动。");
-    if (error_ == gfx::VrrProfileError::Unavailable) return tr("无法读取 NVIDIA 驱动配置；请检查显卡和驱动是否支持此功能。");
+    if (error_ == gfx::VrrProfileError::Busy) return tr("Another application instance is updating the driver profile. Try again shortly.");
+    if (driverStatus_ == -175) return tr("Run this application as administrator and try again. After setup, you can start it normally.");
+    if (error_ == gfx::VrrProfileError::Unavailable) return tr("Cannot read NVIDIA driver profiles. Check whether the GPU and driver support this feature.");
     if (error_ == gfx::VrrProfileError::Changed || backupConflict_)
-        return tr("配置或恢复记录发生变化，已停止本次操作。请重新检查，必要时使用 Profile Inspector 手动处理。");
+        return tr("The profile or backup changed, so this operation was stopped. Check again, or use Profile Inspector to handle it manually.");
     if (error_ == gfx::VrrProfileError::UnsafeProfile || (readable_ && !state_.isolated))
-        return tr("配置未独立绑定当前程序路径，可能由其他程序共用。请使用 Profile Inspector 单独配置本软件。");
-    if (storageError_) return tr("请检查软件数据目录是否可写。恢复记录保留在该目录的 driver-profiles 文件夹中。");
+        return tr("The profile is not exclusive to this application path and may be shared. Use Profile Inspector to configure this application separately.");
+    if (storageError_) return tr("Check that the application data directory is writable. Backups are kept in its driver-profiles folder.");
     if (error_ != gfx::VrrProfileError::None)
-        return tr("操作结果尚未确认，请重新检查。已有恢复记录会保留，不会自动重试写入。");
-    if (restartRequired_) return tr("驱动配置已保存，请手动重启本软件。是否实际生效仍以驱动和显示器报告为准。");
-    return tr("仅为当前软件路径配置窗口和全屏 G-SYNC，可恢复原设置；显示器和驱动的 G-SYNC 总开关仍需开启。");
+        return tr("The result has not been confirmed. Check again. The backup is retained; writes will not be retried automatically.");
+    if (restartRequired_) return tr("The driver profile was saved. Restart this application manually. Actual activation still depends on the driver and monitor reports.");
+    return tr("Configure windowed and fullscreen G-SYNC for this application path, with an option to restore the original settings. G-SYNC must also be enabled on the monitor and in the driver.");
 }
 void NvidiaVrrProfileController::check() { run(Operation::Check); }
 void NvidiaVrrProfileController::repair() { if (canRepair()) run(Operation::Repair); }
@@ -165,7 +165,7 @@ void NvidiaVrrProfileController::run(Operation operation) {
         busy_ = false; emit changed();
         log::info("vrr-profile", "operation=" + std::to_string(int(operation)) + " status=" + std::to_string(driverStatus_)
             + " error=" + std::to_string(int(error_)) + " changed=" + std::to_string(result->mutation.changed));
-        if (operation != Operation::Check) emit notice(summary() + QStringLiteral("。") + detail(),
+        if (operation != Operation::Check) emit notice(summary() + QStringLiteral(". ") + detail(),
             error_ != gfx::VrrProfileError::None || storageError_ || backupConflict_);
     });
     // Value copies only; destroying the controller cancels its completion

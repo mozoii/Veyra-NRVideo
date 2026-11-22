@@ -7,7 +7,7 @@
 
 namespace veyra::engine {
 // Engine status while a stall is being reported (the bridge raises it once).
-inline constexpr wchar_t kEngineHangStatus[] = L"画面引擎无响应，已记录诊断信息；如画面未恢复，请关闭软件后重新打开";
+inline constexpr wchar_t kEngineHangStatus[] = L"The picture engine stopped responding; diagnostics were recorded. If the picture does not recover, close and reopen Veyra.";
 // Field logs(15), 2026-10-10: the engine owner thread stopped without a single
 // log line while capture, audio and the interface kept running, and closing the
 // app then waited for that thread forever. The watchdog notices an owner thread

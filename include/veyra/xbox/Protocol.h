@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "veyra/remoteplay/Types.h"
+#include "veyra/input/ControllerTypes.h"
 
 namespace veyra::xbox {
 
@@ -99,11 +99,11 @@ inline std::vector<uint8_t> gamepadReport(uint32_t sequence, double timeMs, cons
 }
 
 // SDL state (down-positive sticks, 0..255 triggers) to the report's frame.
-inline GamepadFrame gamepadFromController(const remoteplay::ControllerState& s, uint8_t index = 0) {
+inline GamepadFrame gamepadFromController(const input::ControllerState& s, uint8_t index = 0) {
     GamepadFrame f;
     f.index = index;
     if (!s.inputActive) return f;
-    using B = remoteplay::ControllerState;
+    using B = input::ControllerState;
     struct Pair { uint32_t from; uint16_t to; };
     static constexpr Pair map[] = {
         {B::Cross, BtnA}, {B::Circle, BtnB}, {B::Square, BtnX}, {B::Triangle, BtnY},

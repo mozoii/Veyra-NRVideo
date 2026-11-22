@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
     check(QTest::qWaitForWindowExposed(win), "playlist window opens");
     QTest::qWait(250);
     auto* badge = find(win->contentItem(), "playlist-state-0");
-    check(badge && badge->property("text").toString() == QString::fromUtf8("正在播放"), "real model state shown in row");
+    check(badge && badge->property("text").toString() == QStringLiteral("Playing"), "real model state shown in row");
     auto* grip = find(win->contentItem(), "playlist-grip-0");
     auto* row2 = find(win->contentItem(), "playlist-row-2");
     if (grip && row2) {
@@ -98,14 +98,14 @@ int main(int argc, char** argv) {
     } else check(false, "visible drag handles");
     model.setPlayback(playing, "paused"); QTest::qWait(50);
     badge = find(win->contentItem(), "playlist-state-2");
-    check(badge && badge->property("text").toString() == QString::fromUtf8("已暂停"), "paused badge changes without replacing playlist");
+    check(badge && badge->property("text").toString() == QStringLiteral("Paused"), "paused badge changes without replacing playlist");
     click(win, "playlist-select-1", true);
     check(veyra::ui::PlaylistModel::normalizedPath(requested) == model.pathAt(1), "double click emits playback request");
     const auto removed = model.pathAt(1); click(win, "playlist-remove-1");
     check(model.count() == 11 && QFileInfo::exists(removed), "remove button only removes list item");
     requested.clear();
-    QDir().mkpath(path + "/追加"); QFile extra(path + "/追加/added.mkv"); extra.open(QIODevice::WriteOnly); extra.write("new"); extra.close();
-    drop(win, path + "/追加");
+    QDir().mkpath(path + "/appended"); QFile extra(path + "/appended/added.mkv"); extra.open(QIODevice::WriteOnly); extra.write("new"); extra.close();
+    drop(win, path + "/appended");
     QTest::qWait(20);
     for (int i = 0; i < 200 && model.busy(); ++i) QTest::qWait(10);
     std::printf("DROP count=%d current=%d requested=%s status=%s\n", model.count(), model.currentIndex(), requested.toUtf8().constData(), model.status().toUtf8().constData());

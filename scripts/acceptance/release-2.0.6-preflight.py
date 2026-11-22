@@ -30,51 +30,51 @@ qr='5cb236ce664cd523681a6a4fa83180d2ada6d9fe7209a70921a0d95d93fd62bd';assert sha
 for name in ('README.md','README_CN.md','docs/RELEASE_SUPPORT.md'):
  t=(ROOT/name).read_text(encoding='utf8');assert t.count('width="220"')==2 and 'https://discord.gg/c9aREyMj8' in t and 'https://ko-fi.com/likely7' in t
  assert '/v1.4.0/docs/images/1.4.0/donate-wechat.jpg' in t and '/v2.0.6/docs/images/2.0.6/community-group.png' in t
- assert ('community group 5' if name=='README.md' else '交流群 5') in t
+ assert ('community group 5' if name=='README.md' else 'community group 5') in t
 for p in (ROOT/'scripts/acceptance').glob('release-2.0.6-*.py'):ast.parse(p.read_text(encoding='utf8'),filename=str(p))
 testrows='\n'.join('| '+r['target']+' | '+str(round(r['seconds'],3))+' | exit0 / PASS |' for name in ('amd-graph','amd-abi','effect-chain','units','gpu') for r in load(name+'/summary.json'))
 perftable='\n'.join('| '+name+' | '+str(r['fps'])+' | '+str(r['observations'])+' | '+str(round(r['wallSeconds'],3))+' |' for name,r in zip(('Medium4X','High2X'),perf))
-report=f'''# Veyra 2.0.6 新构建发布验收
+report=f'''# Veyra 2.0.6 new build release acceptance
 
-产品源码起点bf6e651，包含VFG、Blackmagic和NR→FSR已完成修复；本轮生产改动仅CMake数字/显示版本2.0.6，其余为发布文档/脚本/用户授权的群码。全新构建使用正式2.0.5外置依赖cache，build-product.py的sourceFiles逐hash绑定最终源码（{len(build['sourceFiles'])}个输入），不以历史构建冒充本次通过。
+Product source base bf6e651 includes VFG, Blackmagic and NR->FSR fixes; this round's production change is only the CMake number/display version 2.0.6, the rest is release documentation/scripts/user-authorized QR codes. The fresh build uses the official 2.0.5 external-dependency cache; build-product.py's sourceFiles binds the final source per-hash ({len(build['sourceFiles'])} inputs), not a historical build substituting for this pass.
 
-## 本轮实际运行
+## What actually ran this round
 
-`python -B scripts/acceptance/release-2.0.6-build.py build-product veyra_qml_ui veyra_amd_nr_graph_tests veyra_lmxxf_nr_tests veyra_effect_chain_tests veyra_vfg_gpu_tests veyra_vfg_settings_tests veyra_vfg_export_probe veyra_capture_color_tests veyra_capture_format_selection_tests veyra_hdr_color_tests`：exit0，{build['seconds']:.3f}秒。EXE SHA256 {sha(BASE/'build'/TASK/'veyra_qml_ui.exe')}；版本资源由打包独立PE核对2.0.6.0。编译保留既有C4244转换警告，没有构建错误。
+`python -B scripts/acceptance/release-2.0.6-build.py build-product veyra_qml_ui veyra_amd_nr_graph_tests veyra_lmxxf_nr_tests veyra_effect_chain_tests veyra_vfg_gpu_tests veyra_vfg_settings_tests veyra_vfg_export_probe veyra_capture_color_tests veyra_capture_format_selection_tests veyra_hdr_color_tests`: exit0, {build['seconds']:.3f}s. EXE SHA256 {sha(BASE/'build'/TASK/'veyra_qml_ui.exe')}; version resource independently PE-checked as 2.0.6.0 at packaging. Compile kept existing C4244 conversion warnings, no build errors.
 
-`release-2.0.6-amd-tests.py amd-graph after / amd-abi abi / effect-chain units`，`release-2.0.6-tests.py prepare / units / gpu`依次执行，无同时GPU工作，私有E盘profile/TEMP。NR图20用例0失败、10个marker全通过/最大码值偏差0/D3D12错误0；ABI62检查、效果链264条PASS；采集颜色213条PASS、格式选择0失败；GPU颜色{colorcount}项pass=1含HDYC/翻转709；VFG913检查/settings331检查均0失败。
+`release-2.0.6-amd-tests.py amd-graph after / amd-abi abi / effect-chain units`, `release-2.0.6-tests.py prepare / units / gpu` run in sequence, no simultaneous GPU work, private E-drive profile/TEMP. NR graph 20 cases 0 failures, 10 markers all pass / max code-value deviation 0 / D3D12 errors 0; ABI62 checks, effect chain 264 PASS; capture color 213 PASS, format selection 0 failures; GPU color {colorcount} items pass=1 including HDYC/flip 709; VFG913 checks/settings331 checks both 0 failures.
 
-| 程序 | 秒 | 结果 |
+| Program | seconds | result |
 |---|---:|---|
 {testrows}
 
-`release-2.0.6-preview.py case gta-medium4 --multiplier 4 --quality 1 --no-verbose`及`case gta-high2 --multiplier 2 --quality 2 --no-verbose`：新2.0.6 EXE、用户GTA4K30视频、单层原版内部1080p NR、5秒预热+20秒观察；实际GPU请求/生效class2（普通）、呈现队列priority0；无竞争负载。均PASS/无错误日志、正常状态，读数为软件提交统计：
+`release-2.0.6-preview.py case gta-medium4 --multiplier 4 --quality 1 --no-verbose` and `case gta-high2 --multiplier 2 --quality 2 --no-verbose`: new 2.0.6 EXE, user GTA4K30 video, single-layer original internal 1080p NR, 5s warmup + 20s observation; actual GPU request/effective class2 (normal), presentation queue priority0; no competing load. Both PASS / no error logs, normal state; readings are software-submission statistics:
 
-| 本轮复测 | FPS中位数 | 1秒采样数 | 进程总秒 |
+| This round's retest | FPS median | 1-second sample count | process total seconds |
 |---|---:|---:|---:|
 {perftable}
 
-本轮只做新版本正常运行确认，没有新跑修改前二进制。发布说明中的+50.0%/+69.0%来自[VFG优化报告](VFG_OPTIMIZATION_REPORT_2026-10-07.md)相邻匹配实验（80→120/35.5→60），不是用本轮单次值拼算百分比；相同核心源码hash可追溯。不能推断所有显卡、屏幕延迟或显存收益。
+This round only confirmed the new version runs normally; no new run of the pre-change binary. The +50.0%/+69.0% in the release note comes from the [VFG optimization report](VFG_OPTIMIZATION_REPORT_2026-10-07.md) adjacent matched experiment (80->120/35.5->60), not computed from this round's single value; the same core-source hash is traceable. Do not infer all cards, screen latency or VRAM gains.
 
-`release-2.0.6-exports.py exports`：真实NVENC HEVC导出720p30中等4X、GTA4K30+原版1080p NR中等4X，均8源帧→32编码帧、120fps/CFR/严格递增PTS、时长约8/30秒；4K尺寸3840×2160。另取消和缺失运行库失败清理通过（缺失运行库exit1是预期）。只读沿用已保存8帧GTA fixture，不修改用户原视频。四项输出/ffprobe/PTS详见logs/exports/summary.json。
+`release-2.0.6-exports.py exports`: real NVENC HEVC export 720p30 medium4X, GTA4K30+original1080p NR medium4X, both 8 source frames -> 32 encoded frames, 120fps/CFR/strictly increasing PTS, duration ~8/30s; 4K size 3840x2160. Also cancellation and missing-runtime-library failure cleanup passes (missing runtime library exit1 is expected). Reads saved 8-frame GTA fixture only, does not modify the user's original video. Details of the four outputs/ffprobe/PTS: logs/exports/summary.json.
 
-## 发布阶段的后置门槛
+## Post-release gate
 
-干净源码提交并无快进合并main后，package.py生成两厂商完整包及应用/依赖源码/校验共5资产，逐载荷hash/ZIP CRC/PE依赖/vendor边界必须通过；cold.py只从最终ZIP独立解压、仅系统PATH/私有profile运行基本播放并核对包内Qt/FFmpeg模块。remote.py必须在全部通过后才允许草稿→正式发布。最终阶段结果以E:/项目/Veyra/logs/{TASK}/的source-audit.json、stage-AMD/NVIDIA.json、cold-verify-results.json、verify-draft.json、verify-public.json和发布后main回执为准；此文档在打包前固定，不伪造尚未发生的冷启/远端结果。
+After a clean source commit and fast-forward-merge to main, package.py generates the two-vendor full packages plus application/dependency sources/verification for 5 assets in total; per-payload hashes/ZIP CRC/PE dependencies/vendor boundaries must pass. cold.py only unpacks from the final ZIP, runs basic playback with system PATH/private profile, and checks the package's Qt/FFmpeg modules. remote.py may only allow draft->publish after everything passes. The final-stage result is authoritative in E:/项目/Veyra/logs/{TASK}/source-audit.json, stage-AMD/NVIDIA.json, cold-verify-results.json, verify-draft.json, verify-public.json and the post-release main receipt; this document is fixed before packaging and must not fabricate cold-start/remote results that have not happened.
 
-## 边界、审查与保护
+## Boundaries, review and protection
 
-NR graph使用RTX5070+真实FSR3.1.5+确定性测试NR provider，验证结果传递，不能代替AMD HIP/FSR4.1/Xbox实卡。测试provider只放tests，不随包发布。Blackmagic无本机硬件；2.0.6未重跑此前USB真卡连接验收，也不宣称真实HDMI已恢复。NVIDIA显存持续增长未修复，Xbox独立硬解回退不在范围内。
+NR graph uses RTX5070 + real FSR3.1.5 + deterministic test NR provider, verifying result passing, and cannot substitute for AMD HIP/FSR4.1/Xbox physical card. Test providers stay in tests only, never shipped. Blackmagic has no local hardware; 2.0.6 did not rerun the prior USB-card connection acceptance and does not claim real HDMI restored. NVIDIA VRAM growth unresolved; Xbox independent hardware-decode fallback is out of scope.
 
-本轮自动产品测试未发生失败；脚本检索阶段曾读取不存在的旧脚本文件名，改用实际vfg-opt-export.py，不影响产品验证。发布审查修正README英文二维码alt遗留group4为group5。既有编译警告与测试provider故障注入的ERROR均有原始日志，不把ABI预期错误误报为真实AMD推理失败。其他阶段的意外失败必须另记，不覆盖原始回执。
+No automatic product-test failures this round; the script-search stage read a nonexistent old script filename, changed to actual vfg-opt-export.py, which does not affect product verification. Release review fixed the README English QR alt from legacy group4 to group5. Existing compile warnings and test-provider fault-injection ERRORs both have original logs, and expected ABI errors are not misreported as real AMD inference failures. Any unexpected failure in other phases must be recorded separately, not overwrite the original receipt.
 
-开工baseline SHA256 ee8aab7b3484eabc90d55b59547dd5bd7934b14385ebff791c6f11b2eab3aba4；guard保护33个其他工作树/495个已有修改/3678旧文件。newQR原字节SHA256 {qr}，双QR220、原赞助/Discord/Ko-fi保留。无SDK/模型新增源码Git，无修改旧产物/用户profile/驱动/其他FG，无代发群消息/关机。
+Baseline SHA256 ee8aab7b3484eabc90d55b59547dd5bd7934b14385ebff791c6f11b2eab3aba4; guard protected 33 other worktrees / 495 existing modifications / 3678 old files. New QR original-byte SHA256 {qr}, dual QR220, original sponsor/Discord/Ko-fi kept. No new SDK/model source added to Git, no modification of old artifacts/user profiles/drivers/other FG, no forwarding group messages/shutdown.
 
-全套产物在E:/项目/Veyra/build、tests、logs、tmp、releases、verify、archives/{TASK}对应目录。实际命令、结果、日志和来源以本计划/本验收及各JSON为证，不宣称独立Reviewer或未执行硬件验收。
+All products in E:/项目/Veyra/{build,tests,logs,tmp,releases,verify,archives}/{TASK} respective directories. Actual commands, results, logs and sources are evidenced by this plan/acceptance and the JSON files; do not claim an independent Reviewer or unexecuted hardware acceptance.
 '''
 (ROOT/'docs/RELEASE_2.0.6_ACCEPTANCE_2026-10-07.md').write_text(report,encoding='utf8')
-p=ROOT/'docs/WORKLOG.md';s=p.read_text(encoding='utf8');header='# Veyra 工作记录';assert s.startswith(header)
-s=s.replace(header,header+f'\n\n## 2026-10-07 2.0.6 正式发布施工\n\n用户明确授权构建、合并main、GitHub正式发布及换5群二维码。隔离codex/release-2.0.6-20261007起点bf6e651，main/nrvideo起点af5bfc3；VFG/Blackmagic/AMD NR→FSR修复保持原产品字节，CMake仅版本改2.0.6。全新构建{build["seconds"]:.3f}秒exit0，图20/ABI62/链264/采集213/颜色{colorcount}/VFG913+设置331及四导出检查通过；GTA普通优先级中等4X{perf[0]["fps"]}FPS/高2X{perf[1]["fps"]}FPS。详细命令、数据、失败复核和未测硬件见[本轮验收](RELEASE_2.0.6_ACCEPTANCE_2026-10-07.md)、[发布计划](RELEASE_2.0.6_PLAN_2026-10-07.md)。新群码原字节/有效期10月14日前，原赞助/Discord/Ko-fi保留。所有产物E:/项目/Veyra/对应{TASK}目录。33旧工作树/495修改/3678证据由独立guard保护。后续打包/最终ZIP冷启/远端发布以实际回执追加，NVIDIA显存增长未修复。\n',1);p.write_text(s,encoding='utf8')
+p=ROOT/'docs/WORKLOG.md';s=p.read_text(encoding='utf8');header='# 当前工作日志';assert s.startswith(header)
+s=s.replace(header,header+f'\n\n## 2026-10-07 2.0.6 official release construction\n\nUser explicitly authorized build, main merge, GitHub official release and switching to 5-group QR codes. Isolated codex/release-2.0.6-20261007 base bf6e651, main/nrvideo base af5bfc3; VFG/Blackmagic/AMD NR->FSR fixes kept original product bytes, CMake only changed version to 2.0.6. Fresh build {build["seconds"]:.3f}s exit0, graph20/ABI62/chain264/capture213/color{colorcount}/VFG913+settings331 and four export checks passed; GTA normal-priority medium4X{perf[0]["fps"]}FPS/high2X{perf[1]["fps"]}FPS. Details, data, failure re-checks and untested hardware: [this round acceptance](RELEASE_2.0.6_ACCEPTANCE_2026-10-07.md), [release plan](RELEASE_2.0.6_PLAN_2026-10-07.md). New group QR original bytes/valid until Oct 14, original sponsor/Discord/Ko-fi kept. All products in E:/项目/Veyra/{TASK} respective directories. 33 old worktrees/495 modifications/3678 evidence files protected by independent guard. Later packaging/final ZIP cold-start/remote publish: appended with the actual receipt; NVIDIA VRAM growth unresolved.\n',1);p.write_text(s,encoding='utf8')
 subprocess.run(guard,check=True);subprocess.run(['git','-C',str(ROOT),'diff','--check'],check=True)
 assert git(MAIN,'rev-parse','HEAD')=='af5bfc3a66afce3047868229a3070a91c0fc9c22' and not git(MAIN,'status','--porcelain')
 assert git(ROOT,'ls-remote','--heads','nrvideo','refs/heads/main').split()[0]==git(MAIN,'rev-parse','HEAD')

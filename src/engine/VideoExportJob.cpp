@@ -30,12 +30,12 @@ namespace veyra::engine {
 namespace { std::string utf8(const std::wstring& s){const int n=WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),nullptr,0,nullptr,nullptr);std::string r(n,0);WideCharToMultiByte(CP_UTF8,0,s.data(),int(s.size()),r.data(),n,nullptr,nullptr);return r;} }
 bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOptions options,bool hevc,std::atomic<bool>& cancel,const std::function<void(double,const std::wstring&)>& progress,unsigned maxFrames,const std::function<bool()>& frameBoundary,const std::function<void(const ExportCounts&)>& counts,ExportResume* resume,const ExportSegments& priorSegments,unsigned resumeAttempt){
     if(resume)*resume={};
-    if(!std::isfinite(options.exportStartSeconds)||!std::isfinite(options.exportEndSeconds)||options.exportStartSeconds<0||options.exportEndSeconds<0||(options.exportEndSeconds>0&&options.exportEndSeconds<=options.exportStartSeconds)){progress(0,L"导出剪辑范围无效");return false;}
-    if(std::filesystem::exists(output)){progress(0,L"目标文件已存在，请使用其他名称");return false;}
-    if(cancel){progress(0,L"导出已取消");return false;}
+    if(!std::isfinite(options.exportStartSeconds)||!std::isfinite(options.exportEndSeconds)||options.exportStartSeconds<0||options.exportEndSeconds<0||(options.exportEndSeconds>0&&options.exportEndSeconds<=options.exportStartSeconds)){progress(0,L"Invalid export trim range");return false;}
+    if(std::filesystem::exists(output)){progress(0,L"The target file already exists; use another name");return false;}
+    if(cancel){progress(0,L"Export cancelled");return false;}
     std::wstring fgNote;
     if(options.fg&&presentSinkFrameGeneration(options.settings.frameGenerationBackend)){
-        progress(0,L"XeSS 尚未提供可编码的补帧纹理，请为导出选择 FSR、DLSS 或 VFG 补帧");
+        progress(0,L"XeSS does not expose generated textures for encoding. Select FSR, DLSS or VFG for export.");
         return false;
     }
     gfx::D3D12DeviceContext ctx;gfx::CommandSlotRing ring;source::MediaFileSource source;pipeline::EnhanceGraph graph(ctx,ring);
@@ -48,7 +48,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
     std::wstring failureReason;
     auto failAv=[&](const wchar_t* stage,int code){
         char error[AV_ERROR_MAX_STRING_SIZE]{};av_strerror(code,error,sizeof(error));
-        failureReason=std::format(L"{}失败（错误 {}）",stage,code);
+        failureReason=std::format(L"{} failed (error {})",stage,code);
         veyra::log::error("export",std::format("stage={} code={} detail={}",utf8(stage),code,error));
         return false;
     };
@@ -65,16 +65,16 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         const bool nvidiaAdapter=ctx.adapter().isNvidia;
         if(!nvidiaAdapter)veyra::log::info("export",std::format("adapter={} vendor={}; selected AMD NR/FSR runtimes are checked independently of NVIDIA features; encoder uses the system Media Foundation hardware MFT",utf8(ctx.adapter().description),ctx.adapter().vendorIdHex));
         source::SourceOpenDesc od;od.path=input;od.preferHardwareDecode=false;if(!source.open(od)){failureReason=source.errorMessage();break;}
-        auto info=source.info();if(!pipeline::Extent{info.width,info.height}.valid()){progress(0,L"输入尺寸超出GPU单纹理能力");break;}
+        auto info=source.info();if(!pipeline::Extent{info.width,info.height}.valid()){progress(0,L"The input is larger than one GPU texture allows");break;}
         // The first decoded frame is authoritative when container headers omit
         // transfer/range metadata. Retain it instead of scanning and reopening.
         const double requestedStart=options.exportStartSeconds;
         const double requestedEnd=options.exportEndSeconds;
-        if(requestedStart>0&& !source.seek(pipeline::Rational{static_cast<int64_t>(std::llround(requestedStart*1000000.0)),1000000})){failureReason=L"导出无法定位到剪辑入点";break;}
+        if(requestedStart>0&& !source.seek(pipeline::Rational{static_cast<int64_t>(std::llround(requestedStart*1000000.0)),1000000})){failureReason=L"Export could not seek to the clip's in point";break;}
         pipeline::FramePacket firstPacket;const AVFrame* firstFrame=nullptr;bool firstReady=false;
         while(!firstReady&&!cancel){
             const auto firstStatus=source.read(firstPacket,&firstFrame);
-            if(firstStatus!=source::SourceReadStatus::Frame||!firstFrame){failureReason=firstStatus==source::SourceReadStatus::Eos?L"剪辑入点已超过源视频时长":L"导出预读首帧失败";break;}
+            if(firstStatus!=source::SourceReadStatus::Frame||!firstFrame){failureReason=firstStatus==source::SourceReadStatus::Eos?L"The clip's in point is past the end of the source video":L"Export could not read the first frame ahead";break;}
             const double firstPts=firstPacket.pts.toDouble();
             firstReady=requestedStart<=0||firstPacket.pts.isUnknown()||!std::isfinite(firstPts)||firstPts>=requestedStart;
             if(!firstReady)firstFrame=nullptr;
@@ -102,7 +102,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         const bool nvidiaFeatures=nvidiaAdapter;
         const bool amdAdapter=ctx.adapter().vendorId==0x1002;
         const bool amdNrExport=amdAdapter&&currentNrRuntime(options.settings.nrRuntime)==NrRuntime::LmxxfAmd;
-        if(options.nr&&!nvidiaFeatures&&!amdNrExport){failureReason=L"当前设备不能执行所选 NR，请选择此显卡可用的 NR 运行库";break;}
+        if(options.nr&&!nvidiaFeatures&&!amdNrExport){failureReason=L"This device cannot run the selected NR. Select an NR runtime supported by this GPU.";break;}
         // One description for the whole job: the stage rules (which SR runs,
         // whether NR/FG are available) come from the same place the preview uses.
         StageRequest stages;stages.nr=options.nr;stages.sr=options.sr;stages.fg=options.fg;stages.fgMultiplier=options.fgMultiplier;
@@ -116,7 +116,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         // Video SR restores video even though ResolutionPlan has no enlargement.
         const bool srAvailable=gd.enableSr;
         if(options.nr&&amdNrExport){
-            fgNote=L"AMD NR 使用内部最高 1080p 处理，保留原尺寸合成与导出";
+            fgNote=L"AMD NR uses internal processing up to 1080p and composites and exports at the original output size.";
             veyra::log::info("export-nr",std::format("runtime=lmxxf source={}x{} output={}x{} internal={}x{} layers={}",info.width,info.height,gd.workWidth,gd.workHeight,gd.nrWidth,gd.nrHeight,gd.nrLayersExtent.size()));
         }else if(options.nr&&gd.enableNr){
             // NR follows the preview size preset; its residual is composed at output size.
@@ -129,8 +129,8 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
                 step.parameterIndex,step.resourceIndex,step.input.width,step.input.height,
                 step.processing.width,step.processing.height,step.output.width,step.output.height));
         }
-        if(options.sr&&!srAvailable)fgNote+=fgNote.empty()?L"当前显卡不能使用所选超分，本次导出关闭超分":L"；当前显卡不能使用所选超分，本次导出关闭超分";
-        if(!nvidiaFeatures&&srAvailable)fgNote+=fgNote.empty()?L"本次导出使用 AMD FSR 超分":L"；本次导出使用 AMD FSR 超分";
+        if(options.sr&&!srAvailable)fgNote+=fgNote.empty()?L"This GPU cannot use the selected super resolution; it is off for this export":L"; this GPU cannot use the selected super resolution, it is off for this export";
+        if(!nvidiaFeatures&&srAvailable)fgNote+=fgNote.empty()?L"This export uses AMD FSR super resolution":L"; this export uses AMD FSR super resolution";
         gd.runtimeAbsPath=runtime::localRuntimeDirectory().wstring();
         // Keep the requested multiplier. Changing it after initialization fails
         // would produce a successful-looking file with different settings.
@@ -141,24 +141,24 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
             if(graph.failedBackend()==FailedBackend::VideoHdr||(gd.convertVideoHdr()&&!gd.enableNr&&!gd.enableSr&&!gd.enableFg&&graph.failedBackend()==FailedBackend::NgxCore)){
                 graph.shutdown();
                 gd.videoHdr.enabled=false;gd.hdrOutput=gd.hdrInput;
-                fgNote+=L"；RTX Video HDR 初始化失败，本次保留 SDR（错误码见日志）";
+                fgNote+=L"; RTX Video HDR failed to initialize, this export stays SDR (error code in the log)";
                 if(graph.initialize(gd)&&graph.createViews()){graphReady=true;return;}
             }
             fgFailure=graph.failedBackend()==FailedBackend::Fg;
             graph.shutdown();
         };
         if(options.fg&&!exportFrameGenerationSupported(options.settings.frameGenerationBackend,nvidiaFeatures)){
-            failureReason=L"当前导出设备不能执行所选补帧后端，未替换后端或降低倍率";break;
+            failureReason=L"The export device cannot run the selected frame-generation backend. The backend and multiplier were kept.";break;
         }
         if(options.fg){
             startGraph(true,options.fgMultiplier);
             if(!graphReady&&fgFailure){
-                failureReason=std::format(L"{} {}X 补帧初始化失败，未替换后端或降低倍率；请查看任务诊断日志",std::wstring(frameGenerationBackendName(options.settings.frameGenerationBackend).begin(),frameGenerationBackendName(options.settings.frameGenerationBackend).end()),options.fgMultiplier);
+                failureReason=std::format(L"{} {}X frame generation could not initialize. The backend and multiplier were retained; see the task diagnostic log.",std::wstring(frameGenerationBackendName(options.settings.frameGenerationBackend).begin(),frameGenerationBackendName(options.settings.frameGenerationBackend).end()),options.fgMultiplier);
             }
         } else startGraph(false,1);
-        if(!graphReady){if(failureReason.empty())failureReason=L"增强管线初始化失败，请查看诊断";break;}
+        if(!graphReady){if(failureReason.empty())failureReason=L"Enhancement pipeline failed to initialize; see diagnostics";break;}
         if(cancel)break;
-        if(gd.hdrOutput&&!hevc){hevc=true;fgNote+=fgNote.empty()?L"HDR 视频自动使用 HEVC Main10 编码":L"；HDR 视频自动使用 HEVC Main10 编码";}
+        if(gd.hdrOutput&&!hevc){hevc=true;fgNote+=fgNote.empty()?L"HDR video automatically uses HEVC Main10":L"; HDR video automatically uses HEVC Main10";}
         if(!fgNote.empty())progress(0,fgNote);
         const AVRational rate=av_mul_q({rateNum,rateDen},{int(options.fg?options.fgMultiplier:1),1});
         constexpr AVRational mediaTimeBase{1,1000000};
@@ -176,10 +176,10 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
                 auto* cll=reinterpret_cast<AVContentLightMetadata*>(side->data);
                 cll->MaxCLL=unsigned(info.color.hdrMaxCllNits);
                 cll->MaxFALL=unsigned(info.color.hdrMaxFallNits);
-            }else failureReason=L"无法写入内容亮度元数据（MaxCLL/MaxFALL）";
+            }else failureReason=L"Could not write the content light metadata (MaxCLL/MaxFALL)";
         }
         if(!streams.prepare(input,mux,options.exportMedia,options.audioStreamIndex,requestedStart,requestedEnd,cancel,failureReason))break;
-        if(!streams.info().skipped.empty()){const std::wstring note=L"部分轨道当前封装装不下，未保留（详见队列说明）";fgNote+=fgNote.empty()?note:L"；"+note;progress(0,fgNote);}
+        if(!streams.info().skipped.empty()){const std::wstring note=L"Some tracks do not fit the current container and were not kept (see the queue notes)";fgNote+=fgNote.empty()?note:L"; "+note;progress(0,fgNote);}
         auto writeAudioUntil=[&](double seconds,bool final=false){return streams.writeUntil(seconds,videoOriginSeconds,final,failureReason);};
         // Encoders retain ordinal timestamps; only the bounded in-flight queue
         // maps them to media time. Hold one compressed packet for its duration.
@@ -193,12 +193,12 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
             audioEndSeconds=(pkt->pts+pkt->duration)/1000000.0;
             av_packet_rescale_ts(pkt,mediaTimeBase,videoStream->time_base);
             const int rc=av_interleaved_write_frame(mux,pkt);av_packet_unref(pkt);
-            if(rc<0)return failAv(L"写入视频帧",rc);
+            if(rc<0)return failAv(L"Write video frame",rc);
             ++written;return writeAudioUntil(audioEndSeconds);
         };
         auto writer=[&](const uint8_t* bytes,size_t size,int64_t pts,bool key){
             if(!headerWritten)return false;
-            if(timestamps.empty()||timestamps.front().first!=pts){failureReason=L"编码器返回了未知帧序号";return false;}
+            if(timestamps.empty()||timestamps.front().first!=pts){failureReason=L"The encoder returned an unknown frame number";return false;}
             const auto timeUs=timestamps.front().second;timestamps.pop_front();
             if(!flushVideo(timeUs))return false;
             auto* pkt=pendingVideo.get();if(av_new_packet(pkt,int(size))<0)return false;
@@ -211,8 +211,8 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         std::wstring encoderDetail;
         encoder=sink::openVideoEncoder(ctx,ring,graph,encoderConfig,writer,encoderDetail);
         if(!encoder){
-            progress(0,encoderDetail.empty()?L"没有可用的视频编码器":encoderDetail);
-            if(failureReason.empty())failureReason=encoderDetail.empty()?L"没有可用的视频编码器":encoderDetail;
+            progress(0,encoderDetail.empty()?L"No video encoder available":encoderDetail);
+            if(failureReason.empty())failureReason=encoderDetail.empty()?L"No video encoder available":encoderDetail;
             veyra::log::error("export","no usable video encoder for this adapter/codec");
             break;
         }
@@ -220,9 +220,9 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         veyra::log::info("export",std::format("encoder={} codec={} rateControl={} bitrateMbps={} rate={}/{}",std::string(sink::encoderBackendName(encoder->backend())),hevc?"HEVC":"H264",std::string(sink::exportRateControlName(encoderConfig.rateControl)),encoderConfig.bitrateMbps,rate.num,rate.den));
         auto headers=encoder->headers();cp->extradata=static_cast<uint8_t*>(av_mallocz(headers.size()+AV_INPUT_BUFFER_PADDING_SIZE));if(!cp->extradata)break;memcpy(cp->extradata,headers.data(),headers.size());cp->extradata_size=int(headers.size());
         int muxResult=avio_open(&mux->pb,utf8(partial).c_str(),AVIO_FLAG_WRITE);
-        if(muxResult<0){failAv(L"创建输出文件",muxResult);break;}
+        if(muxResult<0){failAv(L"Create output file",muxResult);break;}
         muxResult=avformat_write_header(mux,nullptr);
-        if(muxResult<0){failAv(L"写入封装文件头",muxResult);break;}headerWritten=true;
+        if(muxResult<0){failAv(L"Write container header",muxResult);break;}headerWritten=true;
         uint64_t sourceCount=0,generatedCount=0,holdCount=0;int64_t outputIndex=0;bool error=false;std::shared_ptr<pipeline::FrameLease> lastReal;
         double previousPts=0;int64_t lastOutputUs=-1;ContinuousTimeline timeline;
         uint64_t slowFrames=0;
@@ -273,12 +273,12 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
                     nextHealthCheck=now+std::chrono::milliseconds(250);
                     if(!ctx.checkDeviceAlive(removedReason)){
                         ctx.reportDeviceFailure("export-frame",ring.lastSignaledValue());deviceLost=true;error=true;
-                        failureReason=std::format(L"显卡驱动在第 {} 帧卡死并被系统重置（0x{:X}）。40 系显卡开社区版 NR 时偶发；可关闭 NR、把 NR 内部分辨率调低或换光流后重试",sourceIndex+1,removedReason);break;
+                        failureReason=std::format(L"The GPU driver hung at frame {} and was reset by the system (0x{:X}). This happens occasionally on RTX 40 GPUs with the community NR; turn NR off, lower the NR internal resolution or change the optical flow, then retry",sourceIndex+1,removedReason);break;
                     }
                 }
                 if(now-submitted>std::chrono::seconds(30)){
                     ctx.reportDeviceFailure("export-frame-timeout",ring.lastSignaledValue());error=true;
-                    failureReason=std::format(L"GPU 30 秒内未完成第 {} 帧的增强（显卡未报告重置）；可降低 NR / 超分分辨率后重试",sourceIndex+1);
+                    failureReason=std::format(L"The GPU did not finish enhancing frame {} within 30 s (no reset reported); lower the NR / super resolution and try again",sourceIndex+1);
                     veyra::log::error("export","frame GPU completion timed out after 30s");break;
                 }
                 if(fenceEvents&&commonFence&&!injectedStall&&!eventRegistered){
@@ -358,7 +358,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
                 maxInFlight=std::max(maxInFlight,unsigned(pendingFrames.size()));
             }
             previousPts=pts;
-            ++sourceCount;if(counts)counts({sourceCount,generatedCount,holdCount,uint64_t(written)});const double clipDuration=requestedEnd>0?requestedEnd-requestedStart:std::max(0.001,info.duration.toDouble()-videoOriginSeconds);progress(clipDuration>0?std::clamp(pts/clipDuration,0.0,.99):0,std::format(L"正在导出：{}张源帧 / {}张编码帧（{}）",sourceCount,outputIndex,encoderName));
+            ++sourceCount;if(counts)counts({sourceCount,generatedCount,holdCount,uint64_t(written)});const double clipDuration=requestedEnd>0?requestedEnd-requestedStart:std::max(0.001,info.duration.toDouble()-videoOriginSeconds);progress(clipDuration>0?std::clamp(pts/clipDuration,0.0,.99):0,std::format(L"Exporting: {} source frames / {} encoded frames ({})",sourceCount,outputIndex,encoderName));
             if(maxFrames&&sourceCount>=maxFrames)break;
         }
         while(!pendingFrames.empty()&&!error&&!cancel)if(!finishOldest())break;
@@ -366,7 +366,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         if(error&&!cancel&&!deviceLost&&!ctx.checkDeviceAlive(removedReason)){
             ctx.reportDeviceFailure("export-frame",ring.lastSignaledValue());
             deviceLost=true;
-            failureReason=std::format(L"显卡驱动在第 {} 帧卡死并被系统重置（0x{:X}）。40 系显卡开社区版 NR 时偶发；可关闭 NR、把 NR 内部分辨率调低或换光流后重试",sourceCount+1,removedReason);
+            failureReason=std::format(L"The GPU driver hung at frame {} and was reset by the system (0x{:X}). This happens occasionally on RTX 40 GPUs with the community NR; turn NR off, lower the NR internal resolution or change the optical flow, then retry",sourceCount+1,removedReason);
         }
         if(deviceLost&&!cancel&&resume&&(written>0||pendingVideo->size)){
             // Close what the encoder already returned into a valid file; the lost device is
@@ -377,7 +377,7 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
             if(flushVideo(endUs)&&writeAudioUntil(audioEndSeconds,true)&&av_write_trailer(mux)>=0){
                 resume->resumable=true;resume->originSeconds=videoOriginSeconds;
                 resume->resumeAtSeconds=videoOriginSeconds+audioEndSeconds-frameSeconds*0.5;
-                failureReason=std::format(L"显卡在第 {} 帧被系统重置；前 {:.1f} 秒已保存，接着导出剩余部分",sourceCount+1,audioEndSeconds);
+                failureReason=std::format(L"The GPU was reset at frame {}; the first {:.1f} s are saved, exporting the rest",sourceCount+1,audioEndSeconds);
                 veyra::log::warn("export-resume",std::format("device lost at source={} written={} part ends {:.3f}s; resume at source {:.3f}s, part origin {:.3f}s",
                     sourceCount,written,audioEndSeconds,resume->resumeAtSeconds,videoOriginSeconds));
             } else veyra::log::error("export-resume","the part written before the device loss could not be closed; not resumable");
@@ -386,20 +386,20 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
         if(options.fg&&lastReal)for(uint32_t j=1;j<multiplier;++j){if(!encodeAt(lastReal->slot,false,previousPts+sourceInterval*j/multiplier)){error=true;break;}++holdCount;}
         if(error)break;
         veyra::log::info("export-counts",std::format("slowFrames={} source={} generated={} hold={} output={} multiplier={} repairedTimestamps={} backend={} vfgQuality={} encoder={} bitrateMbps={} note={} (holds are not generated frames)",slowFrames,sourceCount,generatedCount,holdCount,outputIndex,multiplier,repairedTimestamps,frameGenerationBackendName(options.settings.frameGenerationBackend),options.settings.vfgQuality,std::string(sink::encoderBackendName(encoder->backend())),options.settings.exportBitrateMbps,utf8(fgNote)));
-        progress(.99,L"正在收尾：等待编码器输出剩余帧");
-        if(!encoder->finish()){if(failureReason.empty())failureReason=L"编码器收尾失败，请查看编码器诊断";break;}
+        progress(.99,L"Finishing: waiting for the encoder's remaining frames");
+        if(!encoder->finish()){if(failureReason.empty())failureReason=L"Encoder failed to finish; see the encoder diagnostics";break;}
         veyra::log::info("export-pipeline",std::format("source={} pipelineMs={:.3f} completionWaitMs={:.3f} mode={} fenceEvents={} maxInFlight={}",
             sourceCount,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-pipelineStart).count(),completionWaitMs,asyncNvenc?"async":"serial",fenceEvents,maxInFlight));
         const int64_t estimatedEnd=lastOutputUs+std::max<int64_t>(1,int64_t(std::llround(sourceInterval*1000000/multiplier)));
         const int64_t finalEnd=requestedEnd>0?std::min(estimatedEnd,int64_t(std::llround((requestedEnd-videoOriginSeconds)*1000000))):estimatedEnd;
         if(!flushVideo(finalEnd))break;
         if(!writeAudioUntil(audioEndSeconds,true))break;
-        progress(.995,L"正在收尾：写入封装索引");
+        progress(.995,L"Finishing: writing the container index");
         muxResult=av_write_trailer(mux);
-        if(muxResult<0){failAv(L"写入封装索引",muxResult);break;}
+        if(muxResult<0){failAv(L"Write container index",muxResult);break;}
         ok=written>0;if(counts)counts({sourceCount,generatedCount,holdCount,uint64_t(written)});
-    }while(false); }catch(const std::exception& e){veyra::log::error("export",std::format("exception: {}",e.what()));failureReason=L"导出异常，请查看诊断";ok=false;}
-    encoder.reset();if(mux){if(mux->pb){const int rc=avio_closep(&mux->pb);if(rc<0){failAv(L"刷新并关闭输出文件",rc);ok=false;}}avformat_free_context(mux);}
+    }while(false); }catch(const std::exception& e){veyra::log::error("export",std::format("exception: {}",e.what()));failureReason=L"Export error; see diagnostics";ok=false;}
+    encoder.reset();if(mux){if(mux->pb){const int rc=avio_closep(&mux->pb);if(rc<0){failAv(L"Flush and close the output file",rc);ok=false;}}avformat_free_context(mux);}
     ring.drainQueue();graph.shutdown();source.close();ring.shutdown();
     if(GetEnvironmentVariableW(L"VEYRA_TEST_EXPORT_DEBUG",nullptr,0)>0&&ctx.device()){
         Microsoft::WRL::ComPtr<ID3D12InfoQueue> debug;const HRESULT hr=ctx.device()->QueryInterface(IID_PPV_ARGS(&debug));unsigned errors=0;
@@ -417,22 +417,22 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
     std::wstring finished=partial;
     ExportSegments parts;
     if(ok&&!priorSegments.empty()){
-        progress(.999,L"正在拼接显卡重置前后的各段");
+        progress(.999,L"Joining the parts written before and after the GPU reset");
         parts=priorSegments;parts.emplace_back(partial,videoOriginSeconds);
         const auto joined=partial+L".joined";
         std::wstring joinError;
         ok=!cancel&&joinExportSegments(parts,joined,options.exportMedia.container==ExportContainer::Matroska,joinError);
         if(ok){
             finished=joined;
-            fgNote+=std::format(L"{}显卡重置 {} 次，已分 {} 段导出并无损拼接",fgNote.empty()?L"":L"；",priorSegments.size(),parts.size());
+            fgNote+=std::format(L"{}GPU reset {} time(s); exported in {} parts and joined without re-encoding",fgNote.empty()?L"":L"; ",priorSegments.size(),parts.size());
         } else {
             std::error_code ec;std::filesystem::remove(joined,ec);
             std::wstring kept;for(const auto& part:parts)kept+=L"\n"+part.first;
-            failureReason=(joinError.empty()?std::wstring(L"分段拼接失败"):joinError)+L"；各段文件已保留："+kept;
+            failureReason=(joinError.empty()?std::wstring(L"Joining the parts failed"):joinError)+L"; the part files are kept: "+kept;
         }
     }
     if(ok){
-        progress(.999,L"正在保存正式文件");
+        progress(.999,L"Saving the final file");
         // Bounded deterministic acceptance hook around the real final rename.
         // Normal runs do not wait here; no output or success result is faked.
         wchar_t delayText[16]{};
@@ -441,38 +441,38 @@ bool exportVideo(const std::wstring& input,const std::wstring& output,PlayerOpti
             while(!cancel&&GetTickCount64()<deadline)Sleep(5);
         }
         ok=!cancel&&MoveFileExW(finished.c_str(),output.c_str(),MOVEFILE_WRITE_THROUGH)!=FALSE;
-        if(!ok&&!cancel){const DWORD error=GetLastError();failureReason=std::format(L"视频已编码，但保存文件名失败（Windows错误 {}）；下面保留的临时文件就是完整视频",error);veyra::log::error("export-rename",std::format("MoveFileExW failed error={} finished={}",error,utf8(finished)));}
+        if(!ok&&!cancel){const DWORD error=GetLastError();failureReason=std::format(L"Video encoded. Windows error {} blocked renaming. The temporary file contains the complete video.",error);veyra::log::error("export-rename",std::format("MoveFileExW failed error={} finished={}",error,utf8(finished)));}
         if(ok){
             for(const auto& part:parts){std::error_code ec;std::filesystem::remove(part.first,ec);}
             veyra::log::info("export","encoder drained, mux closed, output saved; no post-export decoding");
         }
     }
     if(ok){
-        std::wstring done=encoderName.empty()?L"视频导出完成":std::format(L"视频导出完成（{}）",encoderName);
-        if(repairedTimestamps>0)done+=std::format(L"（已修复 {} 帧缺失或倒退的时间戳）",repairedTimestamps);
-        progress(1,fgNote.empty()?done:fgNote+L"；"+done);
+        std::wstring done=encoderName.empty()?L"Video export finished":std::format(L"Video export finished ({})",encoderName);
+        if(repairedTimestamps>0)done+=std::format(L" (repaired {} frames with missing or backward timestamps)",repairedTimestamps);
+        progress(1,fgNote.empty()?done:fgNote+L"; "+done);
     }
     else {
-        std::wstring message=cancel?L"导出已取消":failureReason.empty()?L"视频导出失败，请查看诊断":failureReason;
+        std::wstring message=cancel?L"Export cancelled":failureReason.empty()?L"Video export failed; see diagnostics":failureReason;
         std::error_code ec;
         std::wstring cleanup;
         if(cancel&&finished!=partial)std::filesystem::remove(finished,ec);
-        if(cancel&&!removeExportTemporaryFile(partial,cleanup))message+=L"；"+cleanup;
-        else if(std::filesystem::exists(finished,ec))message+=L"；临时文件已保留："+finished;
+        if(cancel&&!removeExportTemporaryFile(partial,cleanup))message+=L"; "+cleanup;
+        else if(std::filesystem::exists(finished,ec))message+=L"; temporary file kept: "+finished;
         progress(0,message);
     }
     return ok;
 }
 
 bool joinExportSegments(const ExportSegments& parts,const std::wstring& output,bool matroska,std::wstring& error){
-    if(parts.size()<2){error=L"没有需要拼接的分段";return false;}
+    if(parts.size()<2){error=L"No parts to join";return false;}
     std::vector<AVFormatContext*> inputs(parts.size(),nullptr);
     AVFormatContext* out=nullptr;AVPacket* packet=av_packet_alloc();
     bool ok=false;
     auto failAv=[&](const char* stage,int code){
         char text[AV_ERROR_MAX_STRING_SIZE]{};av_strerror(code,text,sizeof(text));
         veyra::log::error("export-join",std::format("{} failed code={} detail={}",stage,code,text));
-        error=std::format(L"分段拼接失败（{} 错误 {}）",std::wstring(stage,stage+std::strlen(stage)),code);
+        error=std::format(L"Joining the parts failed ({} error {})",std::wstring(stage,stage+std::strlen(stage)),code);
         return false;
     };
     do {
@@ -498,14 +498,14 @@ bool joinExportSegments(const ExportSegments& parts,const std::wstring& output,b
             }
         }
         if(!same){
-            error=L"显卡重置前后两段的编码参数不一致，无法无损拼接";
+            error=L"The parts before and after the GPU reset have different encoder parameters and cannot be joined without re-encoding";
             veyra::log::error("export-join","parts differ in streams or video parameter sets; not joined");
             break;
         }
-        if(avformat_alloc_output_context2(&out,nullptr,matroska?"matroska":"mp4",utf8(output).c_str())<0||!out){error=L"无法创建拼接输出";break;}
+        if(avformat_alloc_output_context2(&out,nullptr,matroska?"matroska":"mp4",utf8(output).c_str())<0||!out){error=L"Cannot create the joined output";break;}
         for(unsigned s=0;s<first->nb_streams;++s){
             AVStream* stream=avformat_new_stream(out,nullptr);
-            if(!stream||avcodec_parameters_copy(stream->codecpar,first->streams[s]->codecpar)<0){error=L"无法复制轨道参数";break;}
+            if(!stream||avcodec_parameters_copy(stream->codecpar,first->streams[s]->codecpar)<0){error=L"Cannot copy the track parameters";break;}
             stream->codecpar->codec_tag=0;
             stream->time_base=first->streams[s]->time_base;
             stream->avg_frame_rate=first->streams[s]->avg_frame_rate;

@@ -21,7 +21,7 @@ namespace pipeline = veyra::pipeline;
 struct SourceOpenDesc {
     std::wstring path;
     bool preferHardwareDecode = true; // hardware first, software fallback explicit
-    // User setting "强制硬解": a file whose hardware decoder cannot open fails
+    // User setting "force hardware decode": a file whose hardware decoder cannot open fails
     // with a clear error instead of falling back to software decode.
     bool requireHardwareDecode = false;
     void* d3d12Device = nullptr;      // ID3D12Device* when hardware decode is wanted

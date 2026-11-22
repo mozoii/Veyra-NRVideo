@@ -8,25 +8,25 @@ DialogLayer {
     objectName: "xbox-dialog"
     key: "xbox"
     glyph: "gamepad"
-    title: qsTr("Xbox 串流")
-    sub: qsTr("串流你自己的 Xbox 主机 · 非官方实验功能 · 增强与调色沿用软件自己的处理链")
+    title: qsTr("Xbox streaming")
+    sub: qsTr("Stream your own Xbox console · unofficial, experimental · enhancement and color use this app's own pipeline")
     dialogWidth: 680
     readonly property var xb: veyra.xbox
     readonly property var st: xb ? xb.state : ({})
     readonly property var list: xb ? xb.consoles : []
     actions: st.streaming ? [
-        { label: qsTr("关闭") },
-        { label: qsTr("断开"), primary: true }
+        { label: qsTr("Close") },
+        { label: qsTr("Disconnect"), primary: true }
     ] : !st.signedIn ? [
-        { label: st.busy ? qsTr("取消操作") : qsTr("关闭") }
+        { label: st.busy ? qsTr("Cancel") : qsTr("Close") }
     ] : [
-        { label: st.busy ? qsTr("取消操作") : qsTr("关闭") },
-        { label: qsTr("开始串流"), primary: true, icon: "play" }
+        { label: st.busy ? qsTr("Cancel") : qsTr("Close") },
+        { label: qsTr("Start streaming"), primary: true, icon: "play" }
     ]
     onActionTriggered: label => {
-        if (label === qsTr("断开")) { veyra.xboxDisconnect(); dialogHost.close(); return }
-        if (label === qsTr("取消操作")) { xb.cancel(); return }
-        if (label === qsTr("关闭")) { dialogHost.close(); return }
+        if (label === qsTr("Disconnect")) { veyra.xboxDisconnect(); dialogHost.close(); return }
+        if (label === qsTr("Cancel")) { xb.cancel(); return }
+        if (label === qsTr("Close")) { dialogHost.close(); return }
         if (st.signedIn && !st.busy && (st.selected || "").length > 0) xb.connectStream()
     }
     Connections {
@@ -39,18 +39,18 @@ DialogLayer {
     }
 
     DialogNote {
-        text: qsTr("非官方：使用与 Greenlight 等开源客户端相同的方式连接微软的串流服务，不隶属于微软，微软随时可能改动导致失效。仅限你自己的账号和主机。")
+        text: qsTr("Unofficial: connects to Microsoft's streaming service the same way open-source clients such as Greenlight do. Not affiliated with Microsoft; it may stop working whenever Microsoft changes something. Only for your own account and console.")
     }
-    DialogSection { text: qsTr("账号") }
+    DialogSection { text: qsTr("Account") }
     DialogGroup {
         VRow {
-            label: xbDialog.st.signedIn ? qsTr("已登录") : qsTr("未登录")
-            hint: xbDialog.st.signedIn ? qsTr("登录信息加密保存在本机；退出会删除它") : qsTr("用你的 Xbox（微软）账号在微软的页面登录，软件看不到密码")
+            label: xbDialog.st.signedIn ? qsTr("Signed in") : qsTr("Not signed in")
+            hint: xbDialog.st.signedIn ? qsTr("Sign-in data is stored encrypted on this PC; signing out deletes it") : qsTr("Sign in on Microsoft's page with your Xbox (Microsoft) account; the app never sees the password")
             RowLayout {
                 spacing: 6
                 VSpinner { visible: xbDialog.st.busy === true; Layout.alignment: Qt.AlignVCenter }
-                VButton { objectName: "xbox-signin"; visible: !xbDialog.st.signedIn; text: qsTr("登录"); primary: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.signIn() }
-                VButton { visible: !!xbDialog.st.signedIn; text: qsTr("退出登录"); ghost: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.signOut() }
+                VButton { objectName: "xbox-signin"; visible: !xbDialog.st.signedIn; text: qsTr("Sign in"); primary: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.signIn() }
+                VButton { visible: !!xbDialog.st.signedIn; text: qsTr("Sign out"); ghost: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.signOut() }
             }
         }
     }
@@ -72,7 +72,7 @@ DialogLayer {
             spacing: 8
             Text {
                 Layout.fillWidth: true
-                text: qsTr("在手机或浏览器打开 ") + (xbDialog.st.verificationUri || "https://www.microsoft.com/link") + qsTr("，输入下面的登录码：")
+                text: qsTr("On your phone or browser, open ") + (xbDialog.st.verificationUri || "https://www.microsoft.com/link") + qsTr(", enter the sign-in code below:")
                 color: Theme.t2
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsSmall
@@ -87,11 +87,11 @@ DialogLayer {
                 font.pixelSize: 30
                 font.letterSpacing: 4
             }
-            VButton { Layout.alignment: Qt.AlignHCenter; text: qsTr("在浏览器打开登录页"); ghost: true; onClicked: xbDialog.xb.openSignInPage() }
+            VButton { Layout.alignment: Qt.AlignHCenter; text: qsTr("Open the sign-in page in the browser"); ghost: true; onClicked: xbDialog.xb.openSignInPage() }
         }
     }
 
-    DialogSection { visible: !!xbDialog.st.signedIn; text: qsTr("主机") }
+    DialogSection { visible: !!xbDialog.st.signedIn; text: qsTr("Host") }
     Repeater {
         model: xbDialog.st.signedIn ? xbDialog.list : []
         delegate: Rectangle {
@@ -116,7 +116,7 @@ DialogLayer {
                 anchors.leftMargin: 14
                 anchors.rightMargin: 12
                 spacing: 12
-                VDot { off: consoleRow.modelData.power === qsTr("关机"); warn: consoleRow.modelData.power === qsTr("正在更新"); Layout.alignment: Qt.AlignVCenter }
+                VDot { off: consoleRow.modelData.power === qsTr("Power off"); warn: consoleRow.modelData.power === qsTr("Updating"); Layout.alignment: Qt.AlignVCenter }
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 1
@@ -129,20 +129,35 @@ DialogLayer {
     DialogGroup {
         visible: !!xbDialog.st.signedIn
         VRow {
-            label: qsTr("主机列表")
-            hint: qsTr("主机要用同一个账号登录，并在 设置 → 设备和连接 → 远程功能 里启用远程功能")
-            VButton { text: qsTr("刷新"); ghost: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.refresh() }
+            label: qsTr("Hosts")
+            hint: qsTr("The console must be signed in with the same account, with remote features enabled under Settings → Devices & connections → Remote features")
+            VButton { text: qsTr("Refresh"); ghost: true; enabled: !xbDialog.st.busy; onClicked: xbDialog.xb.refresh() }
         }
         VRow {
-            label: qsTr("手柄")
-            hint: qsTr("把电脑手柄当作主机上的手柄")
+            label: qsTr("Controller")
+            hint: qsTr("Use this PC's controller as a controller on the console")
             VSwitch { objectName: "xbox-gamepad"; checked: xbDialog.st.gamepad !== false; onToggled: checked => xbDialog.xb.set("gamepad", checked) }
         }
         VRow {
-            label: qsTr("软件视频解码")
-            hint: qsTr("兼容选项：画面出现持续花屏时尝试开启，断开后重新连接生效。可能增加 CPU 占用和延迟；超分和补帧仍使用 GPU。")
+            label: qsTr("Resolution")
+            hint: qsTr("Requested quality tier; Auto lets the service pick the highest tier the device and network support")
+            VSelect {
+                objectName: "xbox-resolution"
+                implicitWidth: 170
+                options: xbDialog.st.resolutionLabels || []
+                value: {
+                    const cur = xbDialog.st.resolutionMode || "auto"
+                    const opt = (xbDialog.st.resolutionLabels || []).find(o => o.id === cur)
+                    return opt ? opt.label : "Auto"
+                }
+                onPicked: id => xbDialog.xb.set("resolutionMode", id)
+            }
+        }
+        VRow {
+            label: qsTr("Software video decoding")
+            hint: qsTr("Compatibility option: try this if picture corruption persists, then disconnect and reconnect. May increase CPU usage and latency; super resolution and frame generation still use the GPU.")
             VSwitch { objectName: "xbox-software-decode"; checked: xbDialog.st.softwareDecode === true; onToggled: checked => xbDialog.xb.set("softwareDecode", checked) }
         }
     }
-    DialogNote { objectName: "xbox-status"; visible: (xbDialog.st.status || "").length > 0; text: (xbDialog.st.busy ? qsTr("处理中 · ") : "") + (xbDialog.st.status || "") }
+    DialogNote { objectName: "xbox-status"; visible: (xbDialog.st.status || "").length > 0; text: (xbDialog.st.busy ? qsTr("Processing · ") : "") + (xbDialog.st.status || "") }
 }

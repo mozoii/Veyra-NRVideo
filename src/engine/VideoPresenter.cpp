@@ -202,7 +202,7 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
     bool resized=false;
     const auto deferUntil=uint64_t(uintptr_t(GetPropW(window_,L"Veyra.ResizeDeferUntil")));
     if(viewWidth_!=unsigned(rc.right)||viewHeight_!=unsigned(rc.bottom)){
-        // 进出全屏 or a resized window during VRR presentation: VRR may start
+        // Entering or exiting fullscreen or a resized window during VRR presentation: VRR may start
         // or stop for it, so ask once 3 s after the size settles.
         if(viewWidth_&&vrrSync_)vrrConfirmAt_=now+std::chrono::seconds(3);
         viewWidth_=rc.right;viewHeight_=rc.bottom;xessWasEnabled_=false;
@@ -382,9 +382,9 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
     // tuning, then encode back; disabled tuning keeps the original exact blit.
     // Display tuning also applies after RTX Video HDR converted an SDR source.
     const float curveFlag=(hdrCurve.enabled&&graph.hdrOutput())?16.0f:0.0f;
-    // 抖动位：HDR 输出、且这一帧来自 P7 重建时开启。
-    // 重建出的是 12 位，而交换链是 R10G10B10A2（10 位），硬件在 resolve 时截断，
-    // 平滑渐变会因此出现色带。加一个亚于 1 个台阶的偏移把台阶变成人眼会平均掉的噪声。
+    // Jitter bits: enabled for HDR output when this frame comes from a P7 rebuild.
+    // The rebuild produces 12-bit output while the swapchain is R10G10B10A2 (10-bit), and the hardware truncates during resolve,
+    // so smooth gradients pick up banding. An offset smaller than one step turns the steps into noise the eye averages out.
     // The dither bit: on for HDR output when this frame came from the P7 reconstruction.
     // The reconstruction produces 12 bits and the swapchain takes 10, and the hardware
     // truncates on resolve, which leaves banding in smooth gradients. A sub-LSB offset
@@ -785,9 +785,9 @@ PresentationSettings VideoPresenter::configurePresentation(gfx::D3D12DeviceConte
         // Provider owns generated Present calls. Capping our real-frame input
         // would change the source cadence, not cap its final output.
         effective.outputRate=OutputRateMode::Off;
-        capNotice=L"此补帧提供方暂不支持独立输出限帧，已保留设置";
+        capNotice=L"this frame generation provider cannot cap its own output yet; setting kept";
     }
-    // 可变刷新: when the applied monitor mode can request VRR, Automatic presents like
+    // Variable refresh rate: when the applied monitor mode can request VRR, Automatic presents like
     // explicit Vsync - the G-SYNC/FreeSync + V-SYNC combination. Inside the
     // VRR range the panel starts a refresh when the frame arrives, so the
     // VSync wait is about zero and nothing tears; above the range the
@@ -801,16 +801,16 @@ PresentationSettings VideoPresenter::configurePresentation(gfx::D3D12DeviceConte
     if(vrrSync_){requested.display=DisplaySync::Vsync;effective.display=DisplaySync::Vsync;}
     const bool vsync=presentationVsync(requested),tearing=presentationTearing(requested);
     providerOwnedPresentation_=xessActive();
-    // The interface translates this line piece by piece at " · " and "；"
+    // The interface translates this line piece by piece at " · " and "; "
     // (UiLanguage), so every piece is its own catalog entry without separators.
     const auto join=[](std::initializer_list<std::wstring> pieces){
         std::wstring line;
         for(const auto& piece:pieces)if(!piece.empty())line+=(line.empty()?L"":L" · ")+piece;
         return line;
     };
-    const std::wstring syncMode=vrrSync_?L"显示同步：自动 + 可变刷新":requested.display==DisplaySync::Automatic?L"显示同步：自动":vsync?L"显示同步：垂直同步":L"显示同步：允许撕裂";
-    const std::wstring syncDetail=vrrSync_?(gfx::vrrLevel(vrr_)>=4?L"屏幕跟着画面刷新，不撕裂":L"已请求，等待驱动确认"):requested.display==DisplaySync::Automatic?L"不撕裂，也不等待垂直同步（延迟最低）":L"";
-    if(!reflexDisabled){effective.enabled=false;effective.nvidiaLowLatency=NvidiaLowLatency::Off;sink_.configurePacing(false,vsync,tearing);status=join({L"英伟达低延迟撤销失败，请关闭视频后重试",syncMode,syncDetail});return effective;}
+    const std::wstring syncMode=vrrSync_?L"Display sync: auto + variable refresh":requested.display==DisplaySync::Automatic?L"Display sync: auto":vsync?L"Display sync: VSync":L"Display sync: allow tearing";
+    const std::wstring syncDetail=vrrSync_?(gfx::vrrLevel(vrr_)>=4?L"the display refreshes with each frame, no tearing":L"requested, awaiting driver confirmation"):requested.display==DisplaySync::Automatic?L"no tearing and no VSync wait (lowest latency)":L"";
+    if(!reflexDisabled){effective.enabled=false;effective.nvidiaLowLatency=NvidiaLowLatency::Off;sink_.configurePacing(false,vsync,tearing);status=join({L"Could not disable NVIDIA Low Latency; close the video and retry",syncMode,syncDetail});return effective;}
     if(xessActive()){
         // The provider owns Present for its generated frames, so neither the
         // latency waiter nor an output cap can reach them. Only the DXGI VSync
@@ -819,7 +819,7 @@ PresentationSettings VideoPresenter::configurePresentation(gfx::D3D12DeviceConte
         effective.nvidiaLowLatency=NvidiaLowLatency::Off;
         providerOwnedPresentation_=true;
         sink_.configurePacing(false,vsync,tearing);
-        status=join({L"XeSS 提供方自行调度：英伟达低延迟与输出上限不生效，选择已保留",syncMode,syncDetail});
+        status=join({L"XeSS owns scheduling: NVIDIA Low Latency and output cap are inactive; selections retained",syncMode,syncDetail});
         return effective;
     }
     providerOwnedPresentation_=false;
@@ -835,19 +835,19 @@ PresentationSettings VideoPresenter::configurePresentation(gfx::D3D12DeviceConte
     // there would throttle presents to the refresh, the wait they avoid.
     const bool paced=vsync&&sink_.configurePacing(true,vsync,tearing);
     const bool restored=paced||sink_.configurePacing(false,vsync,tearing);
-    const std::wstring queue=paced?(vrrSync_?L"可变刷新：超过屏幕最高刷新时只排 1 帧":L"垂直同步：屏幕队列 1 帧，读帧前等待刷新"):vsync?L"垂直同步：屏幕队列控制不可用":restored?L"":L"显示队列恢复失败";
+    const std::wstring queue=paced?(vrrSync_?L"Variable refresh: only 1 frame queued above the display maximum":L"VSync: 1-frame display queue, waits for refresh before reading a frame"):vsync?L"VSync: display queue control unavailable":restored?L"":L"Display queue could not be restored";
     std::wstring cap;
-    if(followDisplay)cap=std::format(L"输出上限：跟随显示器 {:.0f} Hz",requested.customFps);
-    else if(requested.outputRate==OutputRateMode::Custom)cap=std::format(L"输出上限：{:.3f} FPS",requested.customFps);
-    else cap=L"输出上限：关闭";
-    if(!requested.enabled){status=join({nvidia?L"英伟达低延迟：关":L"",queue,syncMode,syncDetail,effective.outputRate==OutputRateMode::Custom?cap:L"",capNotice});return effective;}
+    if(followDisplay)cap=std::format(L"Output cap: follow the display {:.0f} Hz",requested.customFps);
+    else if(requested.outputRate==OutputRateMode::Custom)cap=std::format(L"Output cap: {:.3f} FPS",requested.customFps);
+    else cap=L"Output cap: off";
+    if(!requested.enabled){status=join({nvidia?L"NVIDIA Low Latency: Off":L"",queue,syncMode,syncDetail,effective.outputRate==OutputRateMode::Custom?cap:L"",capNotice});return effective;}
     // Source cadence owns Sleep. Generated/copy work on the presentation queue
     // carries out-of-band markers, never another source-frame Sleep.
-    std::wstring latency=L"低延迟队列：已开启";
+    std::wstring latency=L"Low queue latency: on";
     if(requested.nvidiaLowLatency!=NvidiaLowLatency::Off){
         if(reflex_.enable(ctx.device(),fg,presentationQueue_.Get()))
-            latency=L"英伟达低延迟：开（已启用）";
-        else{effective.nvidiaLowLatency=NvidiaLowLatency::Off;latency=L"英伟达低延迟不可用，当前使用低排队（详见日志）";}
+            latency=L"NVIDIA Low Latency: On (active)";
+        else{effective.nvidiaLowLatency=NvidiaLowLatency::Off;latency=L"NVIDIA Low Latency unavailable; using low queue depth (see the log)";}
     }
     status=join({latency,cap,queue,syncMode,syncDetail});
     return effective;

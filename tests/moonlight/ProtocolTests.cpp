@@ -375,7 +375,7 @@ void discoveryTests() {
 }
 
 void inputTests() {
-    using veyra::remoteplay::ControllerState;
+    using veyra::input::ControllerState;
     {
         ControllerState s;
         s.inputActive = true;

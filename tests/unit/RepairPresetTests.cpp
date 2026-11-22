@@ -254,7 +254,7 @@ ok=ok&&b.entries().size()==1&&b.defaultSettings()==s;
  {
   auto dense=multi;
   auto fill=[](ColorSettings& color){
-   color.enabled=true;color.setLutName(std::wstring(220,L'色')+L".cube");
+   color.enabled=true;color.setLutName(std::wstring(220,L'c')+L".cube");
    for(auto& curve:color.curves){curve.count=kColorCurvePoints;
     for(int j=0;j<kColorCurvePoints;++j)curve.points[j]={float(j)/7.0f,float(j*j)/49.0f};}
   };

@@ -102,19 +102,19 @@ int QmlPlayerBridge::srQualityFor(const QString& algorithm,int tier) const {
 // Streaming has only the medium and ultra tiers.
 QVariantList QmlPlayerBridge::srTierChoices(int quality) const {
     const bool streaming=quality>=0&&engine::rtxVideoSr(unsigned(quality))&&engine::videoSrFamily(unsigned(quality))==engine::VideoSrFamily::Streaming;
-    const QString labels[]={tr("低"),tr("中"),tr("高"),tr("超高")};
+    const QString labels[]={tr("Low"),tr("Medium"),tr("High"),tr("Ultra")};
     QVariantList out;
     for(int tier=1;tier<=4;++tier)if(!streaming||tier==2||tier==4)out<<QVariantMap{{"id",QString::number(tier)},{"label",labels[tier-1]}};
     return out;
 }
-// "超高", or "高码率 超高" with the family. Empty for DLSS SR and FSR.
+// "Ultra", or "High bitrate Ultra" with the family. Empty for DLSS SR and FSR.
 QString QmlPlayerBridge::srQualityLabel(int quality,bool withFamily) const {
     if(quality<0||!engine::rtxVideoSr(unsigned(quality)))return {};
-    const QString tiers[]={tr("低"),tr("中"),tr("高"),tr("超高")};
+    const QString tiers[]={tr("Low"),tr("Medium"),tr("High"),tr("Ultra")};
     const QString tier=tiers[engine::videoSrTier(unsigned(quality))-1];
     if(!withFamily)return tier;
     const auto family=engine::videoSrFamily(unsigned(quality));
-    return (family==engine::VideoSrFamily::HighBitrate?tr("高码率"):family==engine::VideoSrFamily::Streaming?tr("流媒体"):tr("标准"))+QLatin1Char(' ')+tier;
+    return (family==engine::VideoSrFamily::HighBitrate?tr("High bitrate"):family==engine::VideoSrFamily::Streaming?tr("Streaming"):tr("Standard"))+QLatin1Char(' ')+tier;
 }
 int QmlPlayerBridge::srOutput() const { return int(settings().srOutput); }
 // The double SR reduction works with every SR backend; the supersample shrink
@@ -132,7 +132,7 @@ void QmlPlayerBridge::setSrOutput(int value) {
     if (value < 0 || !pipeline::validSrOutput(want)) return;
     auto s = settings();
     if (s.srOutput == want) return;
-    if (!engine::rtxVideoSr(s.videoSrQuality)) { emit notice(tr("超分后缩回目前仅 RTX 视频超分支持"), true); return; }
+    if (!engine::rtxVideoSr(s.videoSrQuality)) { emit notice(tr("Shrink after SR is currently supported by RTX Video SR only"), true); return; }
     s.srOutput = want;
     if (impl_->commit(s)) emit settingsChanged();
 }
@@ -169,7 +169,7 @@ void QmlPlayerBridge::setSrEnabled(bool enabled) {
         if (impl_->chain.nodes[i].type == engine::EffectType::SuperResolution) {
             setEffectEnabled(int(i), enabled); return;
         }
-    if (enabled) emit notice(tr("请先添加超分节点"), true);
+    if (enabled) emit notice(tr("Add a super resolution node first"), true);
 }
 bool QmlPlayerBridge::videoHdr() const {
     const auto* node = impl_->chain.firstOf(engine::EffectType::VideoHdr);
@@ -199,7 +199,7 @@ void QmlPlayerBridge::setHdrDisplayPeakNits(int nits){
 QVariantMap QmlPlayerBridge::hdrDisplayInfo()const{
     // Read from QML bindings (the peak row's hint text), so no driver work here:
     // the values come from the shared display state, queried in the background on
-    // events and 刷新显示器状态 (this used to build a DXGI factory every 5 s on the
+    // events and refresh monitor state (this used to build a DXGI factory every 5 s on the
     // UI thread).
     HWND window=impl_->videoWindow;
     if(!IsWindow(window)){
@@ -405,7 +405,7 @@ void QmlPlayerBridge::forgetHdrTitles(){
   impl_->prefs[QStringLiteral("hdrTitles")]=QVariantList{};
   if(!impl_->savePrefs())veyra::log::warn("ui-prefs","hdr title profiles not cleared");
   emit preferencesChanged();
-  emit notice(tr("已清除影片记忆"),false);
+  emit notice(tr("Film memory cleared"),false);
 }
 
 void QmlPlayerBridge::flushHdrMemory(){
@@ -424,7 +424,7 @@ void QmlPlayerBridge::syncHdrTitleProfile(){
   if(title.isEmpty()||title==i.hdrTitleApplied)return;
   flushHdrMemory();i.hdrTitleApplied=title;
   if(hdrTitleMemory()&&loadHdrTitleProfile(title)){
-    emit notice(tr("已套用这部影片上次的曲线设置"),false);return;
+    emit notice(tr("Restored this film's previous curve"),false);return;
   }
   if(hdrAutoRecommend()&&settings().hdrCurve.enabled){QScopedValueRollback<bool> restoring(i.hdrRestoring,true);applyRecommendedHdrTuning();}
 }
@@ -522,7 +522,7 @@ void QmlPlayerBridge::forgetHdrDisplayProfiles(){
   i.prefs[QStringLiteral("hdrProfiles")]=QVariantMap{};
   if(!i.savePrefs())veyra::log::warn("ui-prefs","hdr display profiles not cleared");
   emit preferencesChanged();
-  emit notice(tr("已清除显示设备记忆"),false);
+  emit notice(tr("Display memory cleared"),false);
 }
 
 void QmlPlayerBridge::syncHdrDisplayProfile(){
@@ -535,7 +535,7 @@ void QmlPlayerBridge::syncHdrDisplayProfile(){
   emit settingsChanged();
   if(loadHdrProfile(id)){
     emit preferencesChanged();
-    emit notice(tr("已套用该显示设备的 HDR 曲线配置"),false);
+    emit notice(tr("Restored this display's HDR curve"),false);
   }
 }
 
@@ -648,7 +648,7 @@ bool QmlPlayerBridge::applyRecommendedHdrTuning(){
     if(environment.isEmpty())environment=QStringLiteral("compensate");
     const QString content=QString::fromLatin1(engine::hdrAxesContentForPreset(rec.presetId));
     if(!applyHdrAxesPreset(content,environment))return false;
-    emit notice(tr("已按片源自动选档：%1").arg(content),false);
+    emit notice(tr("Selected from source metadata: %1").arg(content),false);
     return true;
   }
   const auto* preset=engine::findHdrTuningPreset(rec.presetId);
@@ -673,7 +673,7 @@ bool QmlPlayerBridge::applyRecommendedHdrTuning(){
   veyra::log::info("hdr-recommend",std::format("applied preset={} reason={} cll={} fall={} mastering={} displayPeak={} mode={}",
       rec.presetId,rec.reasonKey,rec.cllNits,rec.fallNits,snap.sourceMasteringPeakNits,
       effectiveHdrDisplayPeakNits(),hdrPresetMode().toStdString()));
-  emit notice(tr("已按片源自动选档：%1").arg(QString::fromLatin1(rec.presetId)),false);
+  emit notice(tr("Selected from source metadata: %1").arg(QString::fromLatin1(rec.presetId)),false);
   return true;
 }
 
@@ -720,7 +720,7 @@ void QmlPlayerBridge::setVideoHdr(bool enabled) {
         if (impl_->chain.nodes[i].type == engine::EffectType::VideoHdr) {
             setEffectEnabled(int(i), enabled); return;
         }
-    if (enabled) emit notice(tr("请先添加 RTX Video HDR 节点"), true);
+    if (enabled) emit notice(tr("Add an RTX Video HDR node first"), true);
 }
 // RTX Video HDR tuning lives on the chain's HDR node, like NR parameters on
 // NR nodes: the same values AppShell's settings sliders edited.
@@ -730,13 +730,13 @@ QString antiAliasSummary(const engine::AntiAliasSettings& a) {
     using engine::AntiAliasMethod;
     if (a.method == AntiAliasMethod::Dlaa) return QStringLiteral("DLAA");
     if (a.method == AntiAliasMethod::Mlaa)
-        return QStringLiteral("MLAA · ") + QmlPlayerBridge::tr("阈值 %1").arg(double(a.mlaaThreshold), 0, 'f', 2);
-    const QStringList fxaa{QmlPlayerBridge::tr("中"), QmlPlayerBridge::tr("高"), QmlPlayerBridge::tr("极高")};
-    const QStringList smaa{QmlPlayerBridge::tr("低"), QmlPlayerBridge::tr("中"), QmlPlayerBridge::tr("高"), QmlPlayerBridge::tr("极高")};
+        return QStringLiteral("MLAA · ") + QmlPlayerBridge::tr("threshold %1").arg(double(a.mlaaThreshold), 0, 'f', 2);
+    const QStringList fxaa{QmlPlayerBridge::tr("Medium"), QmlPlayerBridge::tr("High"), QmlPlayerBridge::tr("Ultra")};
+    const QStringList smaa{QmlPlayerBridge::tr("Low"), QmlPlayerBridge::tr("Medium"), QmlPlayerBridge::tr("High"), QmlPlayerBridge::tr("Ultra")};
     QString text = a.method == AntiAliasMethod::Fxaa ? QStringLiteral("FXAA · ") + fxaa.value(int(a.quality))
                                                      : QStringLiteral("SMAA · ") + smaa.value(int(a.quality));
     if (a.usesTemporal())
-        text += a.temporal == engine::AntiAliasTemporal::T2x ? QmlPlayerBridge::tr(" · 时域 T2x（实验）") : QmlPlayerBridge::tr(" · 时域 4x（实验）");
+        text += a.temporal == engine::AntiAliasTemporal::T2x ? QmlPlayerBridge::tr(" · temporal T2x (experimental)") : QmlPlayerBridge::tr(" · temporal 4x (experimental)");
     return text;
 }
 QVariantMap antiAliasMap(const engine::ChainNode* node, int index) {
@@ -790,7 +790,7 @@ bool QmlPlayerBridge::dlaaAllowed() {
     const auto dlss = effectCapabilities().value(QStringLiteral("sr0")).toMap();
     if (dlss.value(QStringLiteral("available")).toBool()) return true;
     const QString reason = dlss.value(QStringLiteral("reason")).toString();
-    emit notice(reason.isEmpty() ? tr("DLAA 需要支持 DLSS 的 NVIDIA RTX 显卡") : tr("DLAA 不可用：%1").arg(reason), true);
+    emit notice(reason.isEmpty() ? tr("DLAA needs an NVIDIA RTX GPU with DLSS support") : tr("DLAA unavailable: %1").arg(reason), true);
     return false;
 }
 bool QmlPlayerBridge::antiAliasEnabled() const {
@@ -815,7 +815,7 @@ bool QmlPlayerBridge::setAntiAliasParameter(const QString& key, double value) {
     auto& c = impl_->chain;
     for (uint32_t i = 0; i < c.nodeCount; ++i)
         if (c.nodes[i].type == engine::EffectType::AntiAliasing) return setAntiAliasParameterAt(int(i), key, value);
-    if (c.mode != engine::ChainMode::List) { emit notice(tr("请先添加抗锯齿节点"), true); return false; }
+    if (c.mode != engine::ChainMode::List) { emit notice(tr("Add an anti-aliasing node first"), true); return false; }
     // The list card's instance exists once it is used, stored after the grades
     // where toChain() puts it; the list order (compileChainExecutionPlan) runs it
     // behind the NR group when NR is on and in front of SR otherwise.
@@ -824,7 +824,7 @@ bool QmlPlayerBridge::setAntiAliasParameter(const QString& key, double value) {
     if (!applyAntiAliasKey(node.aa, enabled, key, value)) return false;
     node.enabled = node.aa.enabled = enabled;
     if (!node.aa.validate().empty()) return false;
-    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("效果链已满"), true); return false; }
+    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("The effect chain is full"), true); return false; }
     uint32_t insertAt = 0;
     while (insertAt < c.nodeCount && c.nodes[insertAt].type == engine::EffectType::Color) ++insertAt;
     const auto before = std::make_unique<engine::EffectChain>(c);
@@ -863,11 +863,11 @@ bool QmlPlayerBridge::setAntiAliasParameterAt(int index, const QString& key, dou
 namespace {
 // Beauty nodes: one node's values for the editors, the edits they send and the presets.
 QString beautySummary(const engine::BeautySettings& b, bool enabled) {
-    if (!enabled) return QmlPlayerBridge::tr("已关闭");
+    if (!enabled) return QmlPlayerBridge::tr("Off");
     QStringList parts;
-    if (b.restore) parts << QmlPlayerBridge::tr("原画保护 %1%").arg(std::lround(b.restoreStrength * 100.0f));
-    if (b.smooth) parts << QmlPlayerBridge::tr("磨皮 %1%").arg(std::lround(b.smoothAmount * 100.0f));
-    return parts.isEmpty() ? QmlPlayerBridge::tr("未启用子功能") : parts.join(QStringLiteral(" · "));
+    if (b.restore) parts << QmlPlayerBridge::tr("Original restore %1%").arg(std::lround(b.restoreStrength * 100.0f));
+    if (b.smooth) parts << QmlPlayerBridge::tr("Smoothing %1%").arg(std::lround(b.smoothAmount * 100.0f));
+    return parts.isEmpty() ? QmlPlayerBridge::tr("No function switched on") : parts.join(QStringLiteral(" · "));
 }
 QVariantMap beautyMap(const engine::ChainNode* node, int index, int layer) {
     const engine::BeautySettings b = node ? node->beauty : engine::BeautySettings{};
@@ -934,7 +934,7 @@ QString QmlPlayerBridge::beautyStatus() const {
     const auto& s = impl_->snapshot;
     if (!s.beautyActive) return {};
     if (!s.beautyNotice.empty()) return uiText(s.beautyNotice);
-    return s.beautyFaces ? tr("检测到 %1 张人脸").arg(s.beautyFaces) : tr("未检测到人脸");
+    return s.beautyFaces ? tr("%1 face(s) detected").arg(s.beautyFaces) : tr("No face detected");
 }
 QVariantMap QmlPlayerBridge::beautyParamsAt(int index) const {
     const auto& c = impl_->chain;
@@ -964,11 +964,11 @@ bool QmlPlayerBridge::setBeautyParameterAt(int index, const QString& key, double
 int QmlPlayerBridge::duplicateBeautyLayer(int index) {
     auto& c = impl_->chain;
     if (index < 0 || uint32_t(index) >= c.nodeCount || c.nodes[index].type != engine::EffectType::Beauty) return -1;
-    if (c.mode != engine::ChainMode::List) { emit notice(tr("节点模式请用节点的复制"), true); return -1; }
+    if (c.mode != engine::ChainMode::List) { emit notice(tr("In node mode, copy the node instead"), true); return -1; }
     if (c.countOf(engine::EffectType::Beauty) >= engine::kMaxBeautyInstances) {
-        emit notice(tr("%1 最多 %2 个").arg(tr("美颜")).arg(engine::kMaxBeautyInstances), true); return -1;
+        emit notice(tr("At most %2 × %1").arg(tr("Beauty")).arg(engine::kMaxBeautyInstances), true); return -1;
     }
-    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("效果链已满"), true); return -1; }
+    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("The effect chain is full"), true); return -1; }
     const auto before = std::make_unique<engine::EffectChain>(c);
     const int selected = impl_->selectedNr, colourSelected = impl_->selectedColour;
     const uint32_t at = uint32_t(index) + 1;
@@ -1112,7 +1112,7 @@ bool QmlPlayerBridge::setVideoHdrParameter(const QString& key, double value) {
         if (!accepted) { const auto error = impl_->validation.message; node = before; impl_->revalidate(); emit notice(uiText(error), true); }
         emit settingsChanged(); emitParameterChanged(&QmlPlayerBridge::videoHdrParamsChanged, wasValid); return accepted;
     }
-    emit notice(tr("请先添加 RTX Video HDR 节点"), true);
+    emit notice(tr("Add an RTX Video HDR node first"), true);
     return false;
 }
 bool QmlPlayerBridge::fgEnabled() const {
@@ -1127,7 +1127,7 @@ void QmlPlayerBridge::setFgEnabled(bool enabled) {
             if (enabled && impl_->chain.fgMultiplier < 2) impl_->chain.fgMultiplier = 2;
             setEffectEnabled(int(i), enabled); emit settingsChanged(); return;
         }
-    if (enabled) emit notice(tr("请先添加补帧节点"), true);
+    if (enabled) emit notice(tr("Add a frame generation node first"), true);
 }
 int QmlPlayerBridge::fgMultiplier() const {
     const auto* node = impl_->chain.firstOf(engine::EffectType::FrameGeneration);
@@ -1138,11 +1138,11 @@ void QmlPlayerBridge::setFgMultiplier(int multiplier) {
         std::span<const uint32_t>(engine::kVfgMultiplierChoices):settings().frameGenerationBackend==engine::FrameGenerationBackend::Anr?std::span<const uint32_t>(engine::kAnrMultiplierChoices):std::span<const uint32_t>(engine::kFgMultiplierChoices);
     const bool legal = std::find(choices.begin(),choices.end(),uint32_t(std::max(multiplier,0)))!=choices.end();
     if (!legal || multiplier > fgMaxMultiplier()) {
-        emit notice(tr("补帧倍率超出当前后端范围"), true); return;
+        emit notice(tr("The frame generation multiplier is outside the current backend's range"), true); return;
     }
     auto& chain = impl_->chain;
     auto* node = chain.firstOf(engine::EffectType::FrameGeneration);
-    if (!node) { if (multiplier > 1) emit notice(tr("请先添加补帧节点"), true); return; }
+    if (!node) { if (multiplier > 1) emit notice(tr("Add a frame generation node first"), true); return; }
     const bool enabled = multiplier > 1;
     if (node->enabled == enabled && (!enabled || chain.fgMultiplier == uint32_t(multiplier))) return;
     const auto beforeMultiplier = chain.fgMultiplier; const auto beforeEnabled = node->enabled;

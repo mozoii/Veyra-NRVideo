@@ -2,8 +2,8 @@
 //
 // From pages.css .editor .sub: a slim rounded strip whose summary row shows the
 // group name, an item count on the right, and a chevron that flips when open.
-// The design uses one for each advanced group (模型参数 6 项, 增强变化量 5 项,
-// 实验 2 项).
+// The design uses one for each advanced group (model parameters 6 items, enhancement deltas 5 items,
+// experiments 2 items).
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -52,7 +52,7 @@ Rectangle {
                 }
                 Text {
                     visible: sub.count > 0
-                    text: sub.count + qsTr(" 项")
+                    text: sub.count + qsTr(" items")
                     color: Theme.t3
                     font.family: Theme.fontUi
                     font.pixelSize: 11

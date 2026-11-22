@@ -1,4 +1,4 @@
-// The 日落 (dusk) palette's startup intro, 2026-11-15. 3.26 s, cut to the opening of the
+// The dusk palette's startup intro, 2026-11-15. 3.26 s, cut to the opening of the
 // startup music (StartupMusic.h: media/startup-music.mp3, measured onsets 0.16, 0.64, 0.79,
 // 0.88, 1.12 s - the strongest - and 3.26 s):
 //   0.16-1.12 s the user's wordmark comes out of the dark as three paper layers at different

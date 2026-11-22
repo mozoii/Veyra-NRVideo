@@ -1,7 +1,7 @@
-// 设置, rebuilt from the design (pages-b.js PAGES.set + pages.css .set).
+// Settings, rebuilt from the design (pages-b.js PAGES.set + pages.css .set).
 //
-// Design: a 220px nav column (外观 / 启动与窗口 / 播放 / 音频 / 性能 / 兼容 /
-// PS5 串流 / 快捷键 / 组件与许可 / 关于 / 赞助作者; split 2026-10-05 because one page held
+// Design: a 220px nav column (Appearance / Startup and window / Playback / Audio / Performance / Compatibility /
+// Shortcuts / Components and licences / About / Sponsors; split 2026-10-05 because one page held
 // almost every setting) and a large body. The design deliberately has NO
 // capture-card section here: capture settings live in the capture dialog.
 //
@@ -22,12 +22,11 @@ VPage {
     onSectionChanged: {
         capturingKey = ""
         if (settingsBodyScroll) settingsBodyScroll.contentY = settingsBodyScroll.originY
-        if (section === "ps5") veyra.ps5Load()
         // M32: the section's groups redraw one after another (pages-b.js
         // render(true): 480 ms, i*40 ms, y 12).
         Qt.callLater(() => stagger(sectionColumns[section] || null))
     }
-    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, ps5: secPs5, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
+    readonly property var sectionColumns: ({ look: secLook, window: secWindow, play: secPlay, audio: secAudio, perf: secPerf, compat: secCompat, keys: secKeys, comp: secComp, about: secAbout, sponsor: secSponsor })
     readonly property var portableUpdate: veyra.updates.portable
     Component { id: staggerComp; VRise.Stagger {} }
     function stagger(col) {
@@ -42,18 +41,17 @@ VPage {
     }
 
     readonly property var sections: [
-        { id: "look",   label: qsTr("外观"), icon: "palette" },
-        { id: "window", label: qsTr("启动与窗口"), icon: "appwin" },
-        { id: "play",   label: qsTr("播放", "section"), icon: "play" },
-        { id: "audio",  label: qsTr("音频"), icon: "vol" },
-        { id: "perf",   label: qsTr("性能"), icon: "gauge" },
-        { id: "compat", label: qsTr("兼容"), icon: "monitor" },
-        { id: "ps5",   label: qsTr("PS5 串流"), icon: "gamepad" },
-        { id: "keys",  label: qsTr("快捷键"), icon: "zap" },
-        { id: "comp",  label: qsTr("组件与许可"), icon: "box" },
-        { id: "about", label: qsTr("关于"), icon: "info" },
+        { id: "look",   label: qsTr("Appearance"), icon: "palette" },
+        { id: "window", label: qsTr("Startup & window"), icon: "appwin" },
+        { id: "play",   label: qsTr("Playback", "section"), icon: "play" },
+        { id: "audio",  label: qsTr("Audio"), icon: "vol" },
+        { id: "perf",   label: qsTr("Performance"), icon: "gauge" },
+        { id: "compat", label: qsTr("Compatible"), icon: "monitor" },
+        { id: "keys",  label: qsTr("Shortcuts"), icon: "zap" },
+        { id: "comp",  label: qsTr("Components and licenses"), icon: "box" },
+        { id: "about", label: qsTr("About"), icon: "info" },
         // The one entry with a coloured icon, so it can be found.
-        { id: "sponsor", label: qsTr("赞助作者"), icon: "heart", tint: "#FF6B81" }
+        { id: "sponsor", label: qsTr("Support the author"), icon: "heart", tint: "#FF6B81" }
     ]
 
     // --- nav ---------------------------------------------------------------
@@ -88,7 +86,7 @@ VPage {
             parent: navScroll.contentItem
             width: navScroll.width - (navScroll.contentHeight > navScroll.height ? 8 : 0)
             spacing: 2
-            VH2 { text: qsTr("设置"); Layout.margins: 8 }
+            VH2 { text: qsTr("Settings"); Layout.margins: 8 }
             Item { implicitHeight: 6 }
             Repeater {
                 model: root.sections
@@ -167,15 +165,15 @@ VPage {
                 width: Math.min(parent.width - 52, 720)
                 spacing: 12
 
-                // --- 外观 ---
+                // --- Appearance ---
                 ColumnLayout {
                     id: secLook
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "look"
-                    VH1 { text: qsTr("外观") }
+                    VH1 { text: qsTr("Appearance") }
                     Text {
-                        text: qsTr("界面随时可调，不影响播放和增强设置。")
+                        text: qsTr("The interface can be adjusted at any time without affecting playback or enhancement settings.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -183,13 +181,13 @@ VPage {
                         wrapMode: Text.WordWrap
                     }
                     VGroup {
-                        // 日落 (the default) or the original black-grey 经典 palette.
+                        // Dusk (the default) or the original black-grey Classic palette.
                         VRow {
-                            label: qsTr("界面配色")
-                            hint: qsTr("日落：深靛紫底、日落渐变强调色；经典：原来的黑灰配色")
+                            label: qsTr("Color scheme")
+                            hint: qsTr("Dusk: deep indigo-violet with a sunset gradient accent; Classic: the original black and grey")
                             VSeg {
                                 objectName: "set-palette"
-                                options: [{ id: "dusk", label: qsTr("日落") }, { id: "classic", label: qsTr("经典") }]
+                                options: [{ id: "dusk", label: qsTr("Dusk") }, { id: "classic", label: qsTr("Classic") }]
                                 current: veyra.preferences.palette === "classic" ? "classic" : "dusk"
                                 onPicked: id => veyra.setPreference("palette", id)
                             }
@@ -197,8 +195,8 @@ VPage {
                         // The dusk palette's intro (DuskIntro.qml); classic has none.
                         VRow {
                             visible: Theme.dusk
-                            label: qsTr("启动动画")
-                            hint: qsTr("日落配色下打开软件时播放，单击或按任意键可跳过")
+                            label: qsTr("Startup animation")
+                            hint: qsTr("Plays when Veyra starts in the Dusk color scheme; click or press any key to skip")
                             VSwitch {
                                 objectName: "set-intro"
                                 checked: veyra.preferences.introAnimation !== false
@@ -208,10 +206,10 @@ VPage {
                         // This saved switch controls future launches. The corner button
                         // stops only the current launch and leaves this preference intact.
                         VRow {
-                            label: qsTr("启动音乐")
+                            label: qsTr("Startup music")
                             hint: typeof vyMusic !== "undefined" && vyMusic.available
-                                  ? qsTr("每次启动播放一次，动画结束后继续；此开关会保存，角落按钮仅停止本次")
-                                  : qsTr("未找到音乐文件：程序目录下的 media/startup-music.mp3")
+                                  ? qsTr("Plays once per launch, continuing after the intro. This setting is saved; the corner button stops only this launch.")
+                                  : qsTr("Music file not found: media/startup-music.mp3 in the program folder")
                             VSwitch {
                                 objectName: "set-intro-music"
                                 checked: veyra.preferences.introMusic !== false
@@ -222,25 +220,25 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("页面切换栏")
-                            hint: qsTr("平时隐藏；鼠标碰到窗口顶部时弹下来")
+                            label: qsTr("Page switcher")
+                            hint: qsTr("Hidden normally; drops down when the pointer touches the top of the window")
                             VSeg {
                                 objectName: "set-dock"
-                                options: [{ id: "auto", label: qsTr("自动隐藏") }, { id: "always", label: qsTr("始终显示") }]
+                                options: [{ id: "auto", label: qsTr("Auto-hide") }, { id: "always", label: qsTr("Always show") }]
                                 current: veyra.preferences.dockPinned === true ? "always" : "auto"
                                 onPicked: id => veyra.setPreference("dockPinned", id === "always")
                             }
                         }
                         VRow {
-                            label: qsTr("强调色")
-                            hint: qsTr("开关、进度、选中状态")
+                            label: qsTr("Accent color")
+                            hint: qsTr("Switches, progress, selected state")
                             // .swatch: two colour dots, the chosen one ringed and 1.12x.
                             Row {
                                 objectName: "set-accent"
                                 spacing: 10
                                 Repeater {
-                                    model: [{ id: "orange", c: "#FF8A3D", tip: qsTr("橙色"), duskTip: qsTr("日落渐变") },
-                                            { id: "white", c: "#F3F3F5", tip: qsTr("白色光晕"), duskTip: qsTr("白色光晕") }]
+                                    model: [{ id: "orange", c: "#FF8A3D", tip: qsTr("Orange"), duskTip: qsTr("Sunset gradient") },
+                                            { id: "white", c: "#F3F3F5", tip: qsTr("White glow"), duskTip: qsTr("White glow") }]
                                     delegate: Rectangle {
                                         id: swatch
                                         required property var modelData
@@ -270,16 +268,16 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("减少动画")
-                            hint: qsTr("关闭弹性与转场")
+                            label: qsTr("Reduce motion")
+                            hint: qsTr("Turn off springs and transitions")
                             VSwitch {
                                 checked: veyra.reducedMotion
                                 onToggled: checked => veyra.reducedMotion = checked
                             }
                         }
                         VRow {
-                            label: qsTr("滑块键盘微调")
-                            hint: qsTr("点一下滑块后用 ← → 调整，每次的幅度；Esc 或单击画面交还方向键给快进快退")
+                            label: qsTr("Slider keyboard step")
+                            hint: qsTr("Click a slider and use ← → to adjust by this step; Esc or clicking the picture gives the arrow keys back to seeking")
                             VSeg {
                                 objectName: "set-slider-step"
                                 options: [{ id: "1", label: "1" }, { id: "0.1", label: "0.1" }, { id: "0.01", label: "0.01" }]
@@ -288,34 +286,34 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("背景渐变强度")
-                            hint: Theme.dusk ? qsTr("日落天空的渐变强度，带抖动防色带") : qsTr("深黑底上的极轻渐变与抖动（防色带）")
+                            label: qsTr("Background gradient strength")
+                            hint: Theme.dusk ? qsTr("Strength of the sunset sky gradient, dithered against banding") : qsTr("A very light gradient and dither over the deep black (prevents banding)")
                             VSeg {
                                 objectName: "set-backdrop"
-                                options: [{ id: "0", label: qsTr("无") }, { id: "1", label: qsTr("轻") }, { id: "2", label: qsTr("中") }]
+                                options: [{ id: "0", label: qsTr("None") }, { id: "1", label: qsTr("Light") }, { id: "2", label: qsTr("Medium") }]
                                 current: String(veyra.preferences.backdrop !== undefined ? veyra.preferences.backdrop : 1)
                                 onPicked: id => veyra.setPreference("backdrop", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("界面缩放")
-                            hint: (veyra.preferences.uiScale || 0) !== veyra.uiScaleActive ? qsTr("重启后生效") : qsTr("自动 = 跟随 Windows 显示缩放")
+                            label: qsTr("Interface scale")
+                            hint: (veyra.preferences.uiScale || 0) !== veyra.uiScaleActive ? qsTr("Takes effect after restart") : qsTr("Auto = follow the Windows display scale")
                             VSeg {
                                 objectName: "set-scale"
-                                options: [{ id: "0", label: qsTr("自动") }, { id: "100", label: "100%" }, { id: "125", label: "125%" }, { id: "150", label: "150%" }]
+                                options: [{ id: "0", label: qsTr("Auto") }, { id: "100", label: "100%" }, { id: "125", label: "125%" }, { id: "150", label: "150%" }]
                                 current: String(veyra.preferences.uiScale || 0)
                                 onPicked: id => veyra.setPreference("uiScale", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("界面语言")
-                            hint: qsTr("立即生效；日志保持中文，方便反馈问题")
+                            label: qsTr("Interface language")
+                            hint: qsTr("Takes effect immediately; logs stay in English so problem reports stay readable")
                             VSelect {
                                 objectName: "set-language"
                                 implicitWidth: 170
                                 // Each language is named in itself, so it can be found from any of them.
                                 options: [
-                                    { id: "auto", label: qsTr("跟随系统") },
+                                    { id: "auto", label: qsTr("Follow system") },
                                     { id: "zh-CN", label: qsTr("简体中文") },
                                     { id: "zh-TW", label: qsTr("繁體中文") },
                                     { id: "en", label: "English" },
@@ -334,15 +332,15 @@ VPage {
                     }
                 }
 
-                // --- 启动与窗口 ---
+                // --- Startup and window ---
                 ColumnLayout {
                     id: secWindow
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "window"
-                    VH1 { text: qsTr("启动与窗口") }
+                    VH1 { text: qsTr("Startup & window") }
                     Text {
-                        text: qsTr("程序启动时的页面、窗口和恢复行为。")
+                        text: qsTr("Page, window and resume behaviour at startup.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -351,30 +349,30 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("打开时的默认页面")
-                            hint: qsTr("首页 = 选择片源的页面（点顶部 Logo 也能回到这里）")
+                            label: qsTr("Page shown at startup")
+                            hint: qsTr("Home = the page for choosing a source (clicking the logo at the top also returns here)")
                             VSeg {
                                 objectName: "set-default-page"
                                 options: [
-                                    { id: "home", label: qsTr("首页") },
-                                    { id: "min", label: qsTr("极简模式") },
-                                    { id: "pro", label: qsTr("专业模式") },
-                                    { id: "last", label: qsTr("上次") }
+                                    { id: "home", label: qsTr("Home") },
+                                    { id: "min", label: qsTr("Minimal mode") },
+                                    { id: "pro", label: qsTr("Pro mode") },
+                                    { id: "last", label: qsTr("Last") }
                                 ]
                                 current: veyra.defaultPage
                                 onPicked: id => veyra.defaultPage = id
                             }
                         }
                         VRow {
-                            label: qsTr("启动窗口大小")
-                            hint: qsTr("下次启动生效；超过屏幕时按屏幕缩小并居中")
+                            label: qsTr("Window size at startup")
+                            hint: qsTr("Takes effect at next launch; shrunk and centered if larger than the screen")
                             VSelect {
                                 objectName: "set-window-size"
                                 readonly property var sizes: [
                                     { id: "1280x800", label: "1280 × 800" },
                                     { id: "1600x1000", label: "1600 × 1000" },
                                     { id: "1920x1200", label: "1920 × 1200" },
-                                    { id: "last", label: qsTr("记住上次大小") }
+                                    { id: "last", label: qsTr("Remember last size") }
                                 ]
                                 options: sizes
                                 value: (sizes.find(o => o.id === (veyra.preferences.windowSize || "1280x800")) || sizes[0]).label
@@ -382,8 +380,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("启动后自动继续上次内容")
-                            hint: qsTr("视频恢复上次进度；采集卡沿用上次设备与设置")
+                            label: qsTr("Automatically resume on startup")
+                            hint: qsTr("Resume the video position or reopen the last capture device and settings")
                             VSwitch {
                                 objectName: "set-auto-resume"
                                 checked: !!veyra.preferences.autoResume
@@ -391,8 +389,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("记住播放位置")
-                            hint: qsTr("重新打开同一个文件时从上次位置继续")
+                            label: qsTr("Remember playback position")
+                            hint: qsTr("Continue from the last position when the same file is reopened")
                             VSwitch {
                                 objectName: "set-resume"
                                 checked: veyra.preferences.rememberPosition !== false
@@ -402,15 +400,15 @@ VPage {
                     }
                 }
 
-                // --- 播放 ---
+                // --- Playback ---
                 ColumnLayout {
                     id: secPlay
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "play"
-                    VH1 { text: qsTr("播放", "section") }
+                    VH1 { text: qsTr("Playback", "section") }
                     Text {
-                        text: qsTr("文件播放、字幕与截图的默认行为。")
+                        text: qsTr("Defaults for file playback, subtitles and screenshots.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -419,56 +417,56 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("解码")
+                            label: qsTr("Decode")
                             hint: (veyra.preferences.decode || "auto") === "hardware"
-                                  ? qsTr("强制硬解 = 只用硬件解码，打不开时报错不回退；下次打开文件生效")
-                                  : qsTr("自动 = 优先硬解，失败回退软解；下次打开文件生效")
+                                  ? qsTr("Hardware decoding only = use hardware decoding, report an error instead of falling back; applies to the next file opened")
+                                  : qsTr("Auto = hardware decoding first, software if it fails; applies to the next file opened")
                             VSeg {
                                 objectName: "set-decode"
-                                options: [{ id: "auto", label: qsTr("自动") }, { id: "hardware", label: qsTr("强制硬解") }, { id: "software", label: qsTr("软解") }]
+                                options: [{ id: "auto", label: qsTr("Auto") }, { id: "hardware", label: qsTr("Hardware decoding only") }, { id: "software", label: qsTr("Software") }]
                                 current: veyra.preferences.decode || "auto"
                                 onPicked: id => veyra.setPreference("decode", id)
                             }
                         }
                         VRow {
-                            label: qsTr("HDR 输出格式")
-                            hint: qsTr("HDR10 默认；补帧固定 HDR10，需要 Windows HDR 开启")
-                            VSeg { options: [{id:"0",label:"HDR10"},{id:"1",label:qsTr("scRGB 浮点")}]; current: String(veyra.hdrOutputMode); onPicked: id => veyra.hdrOutputMode = Number(id) }
+                            label: qsTr("HDR output format")
+                            hint: qsTr("HDR10 by default; frame generation always uses HDR10 and needs Windows HDR on")
+                            VSeg { options: [{id:"0",label:"HDR10"},{id:"1",label:qsTr("scRGB float")}]; current: String(veyra.hdrOutputMode); onPicked: id => veyra.hdrOutputMode = Number(id) }
                         }
                         VRow {
-                            label: qsTr("自动去隔行")
-                            hint: veyra.deinterlaceAvailable ? qsTr("只处理标记为隔行的视频，优先使用 GPU；软解使用兼容算法。下次打开视频生效。") : qsTr("当前软件包未包含去隔行组件")
+                            label: qsTr("Automatic deinterlacing")
+                            hint: veyra.deinterlaceAvailable ? qsTr("Processes only video marked as interlaced, using the GPU when decoding on hardware. Software decoding uses a compatible filter. Applies when you next open a video.") : qsTr("This package does not include the deinterlacing module")
                             VSwitch { enabled: veyra.deinterlaceAvailable; checked: veyra.preferences.deinterlace !== false; onToggled: checked => veyra.setPreference("deinterlace",checked) }
                         }
                         // Network / server playback (#48). Read when a source opens.
                         VRow {
-                            label: qsTr("网络缓冲")
-                            hint: qsTr("网络地址、直播与服务器视频先攒一段再播放；服务器速度低于视频码率时暂停缓冲并说明原因，不会报错黑屏。下次打开网络视频生效")
+                            label: qsTr("Network buffer")
+                            hint: qsTr("Network addresses, live streams and server videos collect a short buffer before playing. When the server is slower than the video's bitrate, playback pauses to buffer and says why instead of failing to a black screen. Takes effect the next time a network video is opened")
                             VSeg {
                                 objectName: "set-network-buffer"
-                                options: [{ id: "auto", label: qsTr("自动") }, { id: "off", label: qsTr("关闭", "off") },
-                                          { id: "small", label: qsTr("小") }, { id: "medium", label: qsTr("中") }, { id: "large", label: qsTr("大") }]
+                                options: [{ id: "auto", label: qsTr("Auto") }, { id: "off", label: qsTr("Off", "off") },
+                                          { id: "small", label: qsTr("Small") }, { id: "medium", label: qsTr("Medium") }, { id: "large", label: qsTr("Large") }]
                                 current: veyra.preferences.networkBuffer || "auto"
                                 onPicked: id => veyra.setPreference("networkBuffer", id)
                             }
                         }
                         VRow {
-                            label: qsTr("起播预缓冲")
-                            hint: qsTr("开始播放前先攒够的秒数；“跟随缓冲档”按上面的缓冲档位决定。下次打开网络视频生效")
+                            label: qsTr("Startup buffer")
+                            hint: qsTr("Seconds to collect before playback starts; “Follow buffer level” uses the level chosen above. Takes effect the next time a network video is opened")
                             VSelect {
                                 objectName: "set-network-prebuffer"
                                 implicitWidth: 170
-                                options: [{ id: "-1", label: qsTr("跟随缓冲档") }, { id: "0", label: qsTr("不等待") },
-                                          { id: "3", label: qsTr("%1 秒").arg(3) }, { id: "5", label: qsTr("%1 秒").arg(5) },
-                                          { id: "10", label: qsTr("%1 秒").arg(10) }, { id: "20", label: qsTr("%1 秒").arg(20) },
-                                          { id: "30", label: qsTr("%1 秒").arg(30) }]
+                                options: [{ id: "-1", label: qsTr("Follow buffer level") }, { id: "0", label: qsTr("Don't wait") },
+                                          { id: "3", label: qsTr("%1 s").arg(3) }, { id: "5", label: qsTr("%1 s").arg(5) },
+                                          { id: "10", label: qsTr("%1 s").arg(10) }, { id: "20", label: qsTr("%1 s").arg(20) },
+                                          { id: "30", label: qsTr("%1 s").arg(30) }]
                                 value: (options.find(o => o.id === (veyra.preferences.networkPrebuffer === undefined ? "-1" : String(veyra.preferences.networkPrebuffer))) || options[0]).label
                                 onPicked: id => veyra.setPreference("networkPrebuffer", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("断线自动重连")
-                            hint: qsTr("网络中断后自动重连：点播从断点继续，直播重新连接；关闭后断线即停止。下次打开网络视频生效")
+                            label: qsTr("Auto-reconnect")
+                            hint: qsTr("Reconnect automatically after a network drop: on-demand video resumes where it stopped and live streams reconnect; when off, a drop stops playback. Takes effect the next time a network video is opened")
                             VSwitch {
                                 objectName: "set-network-reconnect"
                                 checked: veyra.preferences.networkAutoReconnect !== false
@@ -476,22 +474,22 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("损坏画面处理")
+                            label: qsTr("Damaged picture handling")
                             hint: (veyra.preferences.networkCorrupt || "conceal") === "keyframe"
-                                  ? qsTr("等待关键帧 = 丢弃损坏的画面，停在上一帧直到下一个完好的关键帧；只对网络视频与 MPEG-TS 生效")
-                                  : qsTr("保持画面 = 显示解码器修补后的画面，动作不中断；只对网络视频与 MPEG-TS 生效")
+                                  ? qsTr("Wait for keyframe = drop damaged pictures and hold the last one until the next clean keyframe; only applies to network video and MPEG-TS")
+                                  : qsTr("Keep picture = show the picture the decoder patched up, so motion carries on; only applies to network video and MPEG-TS")
                             VSeg {
                                 objectName: "set-network-corrupt"
-                                options: [{ id: "conceal", label: qsTr("保持画面") }, { id: "keyframe", label: qsTr("等待关键帧") }]
+                                options: [{ id: "conceal", label: qsTr("Keep picture") }, { id: "keyframe", label: qsTr("Wait for keyframe") }]
                                 current: veyra.preferences.networkCorrupt || "conceal"
                                 onPicked: id => veyra.setPreference("networkCorrupt", id)
                             }
                         }
                         VRow {
-                            label: qsTr("HDR 亮度曲线") + " / " + qsTr("HDR 元数据")
+                            label: qsTr("HDR brightness curve") + " / " + qsTr("HDR metadata")
                             VButton {
                                 objectName: "set-hdr-advanced-toggle"
-                                text: root.hdrAdvancedExpanded ? qsTr("收起") : qsTr("展开")
+                                text: root.hdrAdvancedExpanded ? qsTr("Collapse") : qsTr("Expand")
                                 trailingIcon: root.hdrAdvancedExpanded ? "up" : "down"
                                 onClicked: root.hdrAdvancedExpanded = !root.hdrAdvancedExpanded
                             }
@@ -501,20 +499,20 @@ VPage {
                             Layout.fillWidth: true
                             spacing: 0
                             visible: root.hdrAdvancedExpanded
-                            // HDR 亮度曲线: static, so the highlights are protected.
+                            // HDR brightness curve: static, so the highlights are protected.
                             // One-click presets (same ids as the list page).
                             Flow {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: implicitHeight
                                 spacing: 6
                                 Repeater {
-                                    model: [{id:"standard",label:qsTr("标准")},
-                                            {id:"darkLift",label:qsTr("暗场提亮")},
-                                            {id:"highlightGuard",label:qsTr("高光保护")},
-                                            {id:"darkAndBright",label:qsTr("暗亮双修")},
-                                            {id:"brightRoom",label:qsTr("明亮环境")},
-                                            {id:"darkRoom",label:qsTr("暗室观影")},
-                                            {id:"punch",label:qsTr("强化冲击")}]
+                                    model: [{id:"standard",label:qsTr("Standard")},
+                                            {id:"darkLift",label:qsTr("Lift dark scenes")},
+                                            {id:"highlightGuard",label:qsTr("Highlight protection")},
+                                            {id:"darkAndBright",label:qsTr("Shadows and highlights")},
+                                            {id:"brightRoom",label:qsTr("Bright room")},
+                                            {id:"darkRoom",label:qsTr("Dark room")},
+                                            {id:"punch",label:qsTr("Punch")}]
                                     delegate: VButton {
                                         required property var modelData
                                         text: modelData.label
@@ -525,9 +523,9 @@ VPage {
                                 }
                             }
                             VRow {
-                                label: qsTr("HDR 亮度曲线")
-                                hint: qsTr("静态曲线：抬暗部、定中灰、压高光")
-                                value: veyra.hdrCurve ? qsTr("已开启") : qsTr("已关闭")
+                                label: qsTr("HDR brightness curve")
+                                hint: qsTr("Static curve: shadows, midtones and highlights")
+                                value: veyra.hdrCurve ? qsTr("On") : qsTr("Off")
                                 VSwitch {
                                     objectName: "hdrcurve-enabled"
                                     checked: veyra.hdrCurve
@@ -535,8 +533,8 @@ VPage {
                                 }
                             }
                             VRow {
-                                label: qsTr("强度")
-                                hint: qsTr("0% 关闭曲线；峰值保护与元数据独立")
+                                label: qsTr("Strength")
+                                hint: qsTr("0% disables the curve; peak protection and metadata are independent")
                                 value: veyra.hdrCurveStrength + "%"
                                 VSlider {
                                     objectName: "hdrcurve-strength"
@@ -549,15 +547,15 @@ VPage {
                                 }
                             }
                             VRow {
-                                label: qsTr("显示设备峰值 (nit)")
+                                label: qsTr("Display peak (nit)")
                                 hint: veyra.hdrDisplayInfo.valid
-                                    ? qsTr("系统报告：峰值 %1、全屏 %2、黑位 %3 nit")
+                                    ? qsTr("System report: peak %1, full frame %2, black %3 nit")
                                         .arg(veyra.hdrDisplayInfo.peakNits)
                                         .arg(veyra.hdrDisplayInfo.fullFrameNits)
                                         .arg(Number(veyra.hdrDisplayInfo.minNits).toFixed(3))
-                                    : qsTr("0 = 自动使用系统报告值")
+                                    : qsTr("0 = use the value reported by the system")
                                 value: veyra.hdrDisplayPeakNits > 0
-                                    ? (veyra.hdrDisplayPeakNits + " nit") : qsTr("自动")
+                                    ? (veyra.hdrDisplayPeakNits + " nit") : qsTr("Auto")
                                 VSlider {
                                     objectName: "hdrcurve-displaypeak"
                                     implicitWidth: 120
@@ -569,12 +567,12 @@ VPage {
                                 }
                             }
                             Repeater {
-                                model: [{key:"shadowLiftEv100",label:qsTr("暗部抬升 (0.01 EV)"),from:-200,to:200,def:0},
-                                        {key:"shadowRangeNits",label:qsTr("抬升范围 (nit)"),from:1,to:100,def:10,hint:qsTr("只在这个亮度以下的暗部生效")},
-                                        {key:"midGrayNits",label:qsTr("中灰 (nit)"),from:100,to:500,def:203,hint:qsTr("203 = 中性；调高整体变亮，峰值不变")},
-                                        {key:"highlightStartNits",label:qsTr("高光起点 (nit)"),from:0,to:2000,def:0,hint:qsTr("0 = 不做高光滚降")},
-                                        {key:"rollOffPercent",label:qsTr("滚降强度 (%)"),from:10,to:200,def:100},
-                                        {key:"peakCapNits",label:qsTr("峰值上限 (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = 不限制")}]
+                                model: [{key:"shadowLiftEv100",label:qsTr("Shadow lift (0.01 EV)"),from:-200,to:200,def:0},
+                                        {key:"shadowRangeNits",label:qsTr("Lift range (nit)"),from:1,to:100,def:10,hint:qsTr("Only shadows below this level are lifted")},
+                                        {key:"midGrayNits",label:qsTr("Mid-gray (nit)"),from:100,to:500,def:203,hint:qsTr("203 = neutral; higher brightens the picture with the peak unchanged")},
+                                        {key:"highlightStartNits",label:qsTr("Highlight start (nit)"),from:0,to:2000,def:0,hint:qsTr("0 = no highlight roll-off")},
+                                        {key:"rollOffPercent",label:qsTr("Roll-off strength (%)"),from:10,to:200,def:100},
+                                        {key:"peakCapNits",label:qsTr("Peak cap (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = no limit")}]
                                 delegate: VRow {
                                     required property var modelData
                                     label: modelData.label
@@ -591,11 +589,11 @@ VPage {
                                     }
                                 }
                             }
-                            // HDR 元数据: what the display's own tone mapping works from.
+                            // HDR metadata: what the display's own tone mapping works from.
                             VRow {
-                                label: qsTr("HDR 元数据")
-                                hint: qsTr("HDR10 提示；系统或显示器可能忽略")
-                                value: veyra.hdrMetadataEnabled ? qsTr("已启用（HDR10）") : qsTr("已关闭")
+                                label: qsTr("HDR metadata")
+                                hint: qsTr("HDR10 hint; Windows or the display may ignore it")
+                                value: veyra.hdrMetadataEnabled ? qsTr("Enabled (HDR10)") : qsTr("Off")
                                 VSwitch {
                                     objectName: "hdrmeta-enabled"
                                     checked: veyra.hdrMetadataEnabled
@@ -603,9 +601,9 @@ VPage {
                                 }
                             }
                             Repeater {
-                                model: [{key:"masteringPeakNits",label:qsTr("母版峰值 (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = 跟随片源；实际效果取决于显示设备")},
-                                        {key:"maxCllNits",label:qsTr("MaxCLL (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = 跟随片源")},
-                                        {key:"maxFallNits",label:qsTr("MaxFALL (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = 跟随片源")}]
+                                model: [{key:"masteringPeakNits",label:qsTr("Mastering peak (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = follow the source; results depend on the display")},
+                                        {key:"maxCllNits",label:qsTr("MaxCLL (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = follow the source")},
+                                        {key:"maxFallNits",label:qsTr("MaxFALL (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = follow the source")}]
                                 delegate: VRow {
                                     required property var modelData
                                     label: modelData.label
@@ -625,68 +623,68 @@ VPage {
 
                         }
                         VRow {
-                            label: qsTr("字幕默认字号")
-                            hint: qsTr("双行不自动缩小；更多样式在字幕设置里")
+                            label: qsTr("Default subtitle size")
+                            hint: qsTr("Two lines are not shrunk automatically; more styles in subtitle settings")
                             VSeg {
                                 objectName: "set-subsize"
                                 readonly property int size: veyra.preferences.subtitleSize || 22
-                                options: [{ id: "18", label: qsTr("小") }, { id: "22", label: qsTr("中") }, { id: "28", label: qsTr("大") }]
+                                options: [{ id: "18", label: qsTr("Small") }, { id: "22", label: qsTr("Medium") }, { id: "28", label: qsTr("Large") }]
                                 current: size <= 19 ? "18" : size >= 26 ? "28" : "22"
                                 onPicked: id => veyra.setPreference("subtitleSize", Number(id))
                             }
                         }
                         VRow {
                             visible: (veyra.liveTranslation || null) !== null
-                            label: qsTr("实时翻译")
+                            label: qsTr("Live translation")
                             VButton {
                                 objectName: "set-live-translation"
-                                text: qsTr("实时翻译设置…")
+                                text: qsTr("Live translation settings…")
                                 onClicked: root.requestPage("translation")
                             }
                         }
                         VRow {
-                            label: qsTr("截图保存位置")
-                            hint: veyra.screenshotDirectory + qsTr("（SDR 存 PNG，HDR 存 JPEG XR）")
+                            label: qsTr("Screenshot folder")
+                            hint: veyra.screenshotDirectory + qsTr(" (SDR saves PNG, HDR saves JPEG XR)")
                             RowLayout {
                                 spacing: 6
-                                VButton { text: qsTr("打开"); ghost: true; onClicked: veyra.openScreenshotDirectory() }
-                                VButton { objectName: "set-shotdir"; text: qsTr("更改…"); onClicked: veyra.chooseScreenshotDirectory() }
+                                VButton { text: qsTr("Open"); ghost: true; onClicked: veyra.openScreenshotDirectory() }
+                                VButton { objectName: "set-shotdir"; text: qsTr("Change…"); onClicked: veyra.chooseScreenshotDirectory() }
                             }
                         }
                     VGroup {
                         objectName: "set-recording"
                         VRow {
-                            label: qsTr("录制保存位置")
-                            hint: veyra.recordingDirectory + qsTr("（MP4，录下处理后的画面和正在播放的声音）")
+                            label: qsTr("Recording folder")
+                            hint: veyra.recordingDirectory + qsTr("(MP4, records the processed picture and player audio)")
                             RowLayout {
                                 spacing: 6
-                                VButton { text: qsTr("打开"); ghost: true; onClicked: veyra.openRecordingDirectory() }
-                                VButton { objectName: "set-recdir"; text: qsTr("更改…"); onClicked: veyra.chooseRecordingDirectory() }
+                                VButton { text: qsTr("Open"); ghost: true; onClicked: veyra.openRecordingDirectory() }
+                                VButton { objectName: "set-recdir"; text: qsTr("Change…"); onClicked: veyra.chooseRecordingDirectory() }
                             }
                         }
                         VRow {
-                            label: qsTr("录制码率")
-                            hint: qsTr("自动按画面尺寸和帧率选择；数字为 Mbps，越高越清晰、文件也越大")
+                            label: qsTr("Recording bitrate")
+                            hint: qsTr("Automatic selects by frame size and rate; Mbps: higher values improve quality and increase file size")
                             VSeg {
                                 objectName: "set-recbitrate"
-                                options: [{ id: "0", label: qsTr("自动") }, { id: "8", label: "8" }, { id: "16", label: "16" }, { id: "20", label: "20" }, { id: "40", label: "40" }, { id: "80", label: "80" }]
+                                options: [{ id: "0", label: qsTr("Auto") }, { id: "8", label: "8" }, { id: "16", label: "16" }, { id: "20", label: "20" }, { id: "40", label: "40" }, { id: "80", label: "80" }]
                                 current: String(veyra.recordingBitrateMbps)
                                 onPicked: id => veyra.setPreference("recordBitrateMbps", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("录制帧率")
-                            hint: qsTr("跟随显示可录到补帧后的画面；限速则按该帧率抽帧")
+                            label: qsTr("Recording frame rate")
+                            hint: qsTr("Follow the display to include generated frames; a limit samples at that rate")
                             VSeg {
                                 objectName: "set-recfps"
-                                options: [{ id: "0", label: qsTr("跟随") }, { id: "30", label: "30" }, { id: "60", label: "60" }, { id: "120", label: "120" }]
+                                options: [{ id: "0", label: qsTr("Follow") }, { id: "30", label: "30" }, { id: "60", label: "60" }, { id: "120", label: "120" }]
                                 current: String(veyra.recordingFpsLimit)
                                 onPicked: id => veyra.setPreference("recordFps", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("录制分段")
-                            hint: qsTr("达到任一限制后，在下一关键帧分段。0 表示关闭，设置在下次录制时生效。")
+                            label: qsTr("Recording split")
+                            hint: qsTr("Split at the next keyframe after either limit is reached. Enter 0 to disable a limit. Settings apply to the next recording.")
                             RowLayout {
                                 DialogHost.VTextField {
                                     objectName: "record-split-seconds"
@@ -695,7 +693,7 @@ VPage {
                                     validator: IntValidator { bottom: 0; top: 86400 }
                                     onEdited: veyra.setPreference("recordSplitSeconds", Number(text))
                                 }
-                                Text { text: qsTr("秒"); color: Theme.t3; font.pixelSize: Theme.fsSmall }
+                                Text { text: qsTr("s"); color: Theme.t3; font.pixelSize: Theme.fsSmall }
                                 DialogHost.VTextField {
                                     objectName: "record-split-mib"
                                     implicitWidth: 88
@@ -707,8 +705,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("录制编码")
-                            hint: qsTr("HDR 画面固定使用 HEVC 10bit；宽或高超过 4096 时自动使用 HEVC")
+                            label: qsTr("Recording codec")
+                            hint: qsTr("HDR uses HEVC 10-bit; dimensions above 4096 automatically use HEVC")
                             VSeg {
                                 objectName: "set-rechevc"
                                 options: [{ id: "0", label: "H.264" }, { id: "1", label: "HEVC" }]
@@ -717,18 +715,18 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("二次编码")
-                            hint: qsTr("编码器先快速分析一遍画面再分配码率，同样码率下快速运动和复杂画面更清晰；仅 NVIDIA（NVENC），四分之一分辨率首遍更轻，完整分辨率最好但更重 · 默认关闭")
+                            label: qsTr("Two-pass encoding")
+                            hint: qsTr("The encoder looks at each frame once before spending its bits, so fast motion and busy scenes look sharper at the same bitrate; NVIDIA (NVENC) only. A quarter-resolution first pass is lighter, full resolution is best but heavier · off by default")
                             VSeg {
                                 objectName: "set-recmultipass"
-                                options: [{ id: "0", label: qsTr("关闭") }, { id: "1", label: qsTr("四分之一") }, { id: "2", label: qsTr("完整") }]
+                                options: [{ id: "0", label: qsTr("Close") }, { id: "1", label: qsTr("Quarter") }, { id: "2", label: qsTr("Full") }]
                                 current: String(veyra.preferences.recordMultipass !== undefined ? veyra.preferences.recordMultipass : 0)
                                 onPicked: id => veyra.setPreference("recordMultipass", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("心理视觉调优")
-                            hint: qsTr("自适应量化：把码率挪到眼睛更敏感的地方（平坦天空、暗部、静止细节），减少色块；仅 NVIDIA（NVENC），显卡支持时再加时间自适应量化 · 默认关闭")
+                            label: qsTr("Psycho-visual tuning")
+                            hint: qsTr("Adaptive quantization moves bits to where the eye notices (flat skies, shadows, still detail) and reduces blocking; NVIDIA (NVENC) only, with temporal adaptive quantization added where the card supports it · off by default")
                             VSwitch {
                                 objectName: "set-recpsychoaq"
                                 checked: veyra.preferences.recordPsychoAq === true
@@ -736,8 +734,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("录制声音")
-                            hint: qsTr("录入所选音频输入，不受音量、静音和本机音频监听开关影响；采集卡需选择音频输入")
+                            label: qsTr("Record audio")
+                            hint: qsTr("Records the selected audio input regardless of volume, mute or local monitoring. Select an audio input for capture cards.")
                             VSwitch {
                                 objectName: "set-recaudio"
                                 checked: veyra.recordingAudio
@@ -746,8 +744,8 @@ VPage {
                         }
                         // Microphone (#101): mixed into the sound, or a track of its own.
                         VRow {
-                            label: qsTr("录制麦克风")
-                            hint: qsTr("同时录入麦克风；默认混进录制声音，也可以放在单独的音轨")
+                            label: qsTr("Record microphone")
+                            hint: qsTr("Also record a microphone; mixed into the recorded sound by default, or on a track of its own")
                             VSwitch {
                                 objectName: "set-recmic"
                                 checked: veyra.recordingMicrophone
@@ -757,21 +755,21 @@ VPage {
                         VRow {
                             visible: veyra.recordingMicrophone
                             onVisibleChanged: if (visible) veyra.refreshMicrophones()
-                            label: qsTr("麦克风设备")
-                            hint: qsTr("需要在 Windows 设置 → 隐私和安全性 → 麦克风 中允许桌面应用访问")
+                            label: qsTr("Microphone device")
+                            hint: qsTr("Allow desktop apps in Windows Settings → Privacy & security → Microphone")
                             VSelect {
                                 objectName: "set-recmic-device"
                                 implicitWidth: 230
-                                options: [{ id: "", label: qsTr("系统默认麦克风") }].concat(veyra.microphoneDevices)
+                                options: [{ id: "", label: qsTr("System default microphone") }].concat(veyra.microphoneDevices)
                                 value: (options.find(o => o.id === veyra.recordingMicrophoneId)
-                                        || { label: qsTr("已选设备（未连接）") }).label
+                                        || { label: qsTr("Chosen device (not connected)") }).label
                                 onPicked: id => veyra.setPreference("recordMicDevice", id)
                             }
                         }
                         VRow {
                             visible: veyra.recordingMicrophone
-                            label: qsTr("麦克风单独音轨")
-                            hint: qsTr("开启后麦克风在第 2 条音轨，剪辑时可单独调整；普通播放器通常只播放第 1 条")
+                            label: qsTr("Microphone on its own track")
+                            hint: qsTr("Puts the microphone on audio track 2 to adjust it separately when editing; most players only play track 1")
                             VSwitch {
                                 objectName: "set-recmic-track"
                                 checked: veyra.recordingMicrophoneTrack
@@ -782,27 +780,27 @@ VPage {
                     VGroup {
                         objectName: "set-virtual-camera-group"
                         VRow {
-                            label: qsTr("直播软件兼容组件")
+                            label: qsTr("Streaming app compatibility")
                             hint: {
                                 const c = veyra.virtualCameraState || {}
-                                if(c.installing) return qsTr("正在安装或卸载，请完成 Windows 管理员确认")
+                                if(c.installing) return qsTr("Installing or removing. Complete the Windows administrator prompt.")
                                 if(c.setupError) return c.setupError
-                                if(c.systemOutdated) return qsTr("系统级组件是旧版本，管理员运行的 OBS 等直播软件会看不到画面；请点击“更新组件”")
-                                return c.systemInstalled ? qsTr("已安装系统级组件，支持管理员运行的直播软件")
-                                                         : qsTr("当前仅注册到本用户；管理员运行的 OBS 等直播软件需要安装系统级组件")
+                                if(c.systemOutdated) return qsTr("The system components are an older version: OBS and other streaming apps run as administrator will show no picture. Click “Update components”.")
+                                return c.systemInstalled ? qsTr("System components installed, including support for streaming apps run as administrator.")
+                                                         : qsTr("Registered for the current user. OBS and other streaming apps run as administrator need system components.")
                             }
                             VButton {
                                 objectName: "set-virtual-camera-install"
                                 primary: !!(veyra.virtualCameraState || {}).systemOutdated
-                                text: (veyra.virtualCameraState || {}).systemOutdated ? qsTr("更新组件")
-                                    : (veyra.virtualCameraState || {}).systemInstalled ? qsTr("修复组件") : qsTr("安装组件")
+                                text: (veyra.virtualCameraState || {}).systemOutdated ? qsTr("Update components")
+                                    : (veyra.virtualCameraState || {}).systemInstalled ? qsTr("Repair components") : qsTr("Install components")
                                 enabled: !(veyra.virtualCameraState || {}).installing
                                 onClicked: veyra.installVirtualCamera()
                             }
                         }
                         VRow {
-                            label: qsTr("虚拟摄像机")
-                            hint: qsTr("在直播软件的视频采集设备中选择 Veyra Virtual Camera；输出处理后的完整画面，不需要全屏")
+                            label: qsTr("Virtual camera")
+                            hint: qsTr("Select Veyra Virtual Camera as a video capture device in your streaming app. Outputs the full processed picture without fullscreen.")
                             VSwitch {
                                 objectName: "set-virtual-camera-toggle"
                                 checked: veyra.virtualCameraEnabled
@@ -810,28 +808,28 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("摄像机输出帧率")
-                            hint: qsTr("自动：跟随直播软件为摄像机选的帧率（如 OBS 设 60 或 120），补帧 3X、4X 时按均匀时间挑帧；固定值为上限。SDR 视频输出，声音请单独采集；XeSS 显示端生成的帧不包含在内")
+                            label: qsTr("Camera frame rate")
+                            hint: qsTr("Auto: follows the frame rate the streaming app chose for the camera (such as 60 or 120 in OBS); with 3X or 4X frame generation, frames are taken at even times. A fixed value is a cap. SDR video; capture audio separately. Frames generated by the XeSS presentation backend are not included.")
                             VSeg {
                                 objectName: "set-virtual-camera-fps"
-                                options: [{id: "0", label: qsTr("自动")}, {id: "30", label: "30"}, {id: "60", label: "60"}, {id: "120", label: "120"}]
+                                options: [{id: "0", label: qsTr("Auto")}, {id: "30", label: "30"}, {id: "60", label: "60"}, {id: "120", label: "120"}]
                                 current: String(veyra.virtualCameraFps)
                                 onPicked: id => veyra.setPreference("virtualCameraFps", Number(id))
                             }
                         }
                         VRow {
-                            label: qsTr("摄像机状态")
+                            label: qsTr("Camera status")
                             hint: {
                                 const c = veyra.virtualCameraState || {}
                                 if (c.error) return c.error
-                                if (!c.active) return qsTr("已关闭；每次启动软件后需手动启用")
-                                if (!(c.width > 0)) return qsTr("已启用，等待处理后的画面")
-                                const size = qsTr("%1 × %2 · 已输出 %3 帧 · 跳过 %4 帧").arg(c.width).arg(c.height).arg(c.frames).arg(c.dropped)
-                                           + (c.consumerFps > 0 ? qsTr(" · 直播软件请求 %1 帧/秒").arg(c.consumerFps) : "")
+                                if (!c.active) return qsTr("Off. Enable manually after each app launch.")
+                                if (!(c.width > 0)) return qsTr("Enabled, waiting for the processed picture.")
+                                const size = qsTr("%1 × %2 · %3 frames published · %4 skipped").arg(c.width).arg(c.height).arg(c.frames).arg(c.dropped)
+                                           + (c.consumerFps > 0 ? qsTr(" · streaming app asks for %1 fps").arg(c.consumerFps) : "")
                                 return c.processingWidth !== c.width || c.processingHeight !== c.height
-                                     ? size + qsTr("（处理尺寸 %1 × %2）").arg(c.processingWidth).arg(c.processingHeight) : size
+                                     ? size + qsTr(" (processing size %1 × %2)").arg(c.processingWidth).arg(c.processingHeight) : size
                             }
-                            VButton { objectName: "set-virtual-camera-uninstall"; text: qsTr("卸载摄像机"); ghost: true; enabled: !(veyra.virtualCameraState || {}).installing; onClicked: veyra.uninstallVirtualCamera() }
+                            VButton { objectName: "set-virtual-camera-uninstall"; text: qsTr("Remove camera"); ghost: true; enabled: !(veyra.virtualCameraState || {}).installing; onClicked: veyra.uninstallVirtualCamera() }
                         }
                         // The consumer takes evenly spaced pictures: from a rate that is not a whole
                         // multiple of its own (90 against 60: 3X on a 30 fps game) they cannot be even.
@@ -841,9 +839,9 @@ VPage {
                             readonly property real ratio: cam.presentedFps > 0 && cam.consumerFps > 0
                                 ? Math.max(cam.presentedFps, cam.consumerFps) / Math.min(cam.presentedFps, cam.consumerFps) : 1
                             visible: !!cam.active && Math.abs(ratio - Math.round(ratio)) > 0.1
-                            label: qsTr("直播画面节奏")
+                            label: qsTr("Stream rhythm")
                             hintColor: Theme.warn
-                            hint: qsTr("画面 %1 帧/秒不是直播软件 %2 帧/秒的整数倍，直播画面会一快一慢交替。请换成整数倍的补帧倍数，例如 30 帧游戏直播 60 帧时用 2X 或 4X")
+                            hint: qsTr("The picture runs at %1 fps, not a whole multiple of the %2 fps the streaming app takes, so the stream alternates between longer and shorter steps. Choose a frame generation multiple that gives a whole multiple, such as 2X or 4X for a 30 fps game streamed at 60.")
                                   .arg(cam.presentedFps).arg(cam.consumerFps)
                         }
                     }
@@ -851,8 +849,8 @@ VPage {
                     VGroup {
                         objectName: "set-replay-group"
                         VRow {
-                            label: qsTr("即时回放")
-                            hint: qsTr("在内存中保留最近一段画面和声音，按 %1 保存到录制保存位置；会多占用一路硬件编码").arg(veyra.shortcuts.replay || qsTr("快捷键"))
+                            label: qsTr("Instant replay")
+                            hint: qsTr("Keeps the latest picture and sound in memory; %1 saves them to the recording folder. Uses one more hardware encoder session").arg(veyra.shortcuts.replay || qsTr("Shortcuts"))
                             VSwitch {
                                 objectName: "set-replay"
                                 checked: veyra.replayEnabled
@@ -861,17 +859,17 @@ VPage {
                         }
                         VRow {
                             visible: veyra.replayEnabled
-                            label: qsTr("回放长度")
+                            label: qsTr("Replay length")
                             hint: {
                                 const s = veyra.replayState || {}
-                                if (!s.active || !(s.seconds > 0)) return qsTr("播放时开始缓存；录制码率越高，占用内存越多")
-                                if (s.memoryLimited) return qsTr("内存上限只够保留 %1 秒（约 %2 MB），可降低录制码率").arg(s.seconds).arg(s.megabytes)
-                                return qsTr("已缓存 %1 秒，占用内存约 %2 MB").arg(s.seconds).arg(s.megabytes)
+                                if (!s.active || !(s.seconds > 0)) return qsTr("Buffering starts when something plays; a higher recording bitrate uses more memory")
+                                if (s.memoryLimited) return qsTr("The memory cap only holds %1 s (about %2 MB); a lower recording bitrate keeps more").arg(s.seconds).arg(s.megabytes)
+                                return qsTr("%1 s buffered, about %2 MB of memory").arg(s.seconds).arg(s.megabytes)
                             }
                             VSeg {
                                 objectName: "set-replay-seconds"
-                                options: [{ id: "15", label: qsTr("15 秒") }, { id: "30", label: qsTr("30 秒") }, { id: "60", label: qsTr("1 分钟") },
-                                          { id: "120", label: qsTr("2 分钟") }, { id: "300", label: qsTr("5 分钟") }, { id: "600", label: qsTr("10 分钟") }]
+                                options: [{ id: "15", label: qsTr("15 s") }, { id: "30", label: qsTr("30 s") }, { id: "60", label: qsTr("1 min") },
+                                          { id: "120", label: qsTr("2 min") }, { id: "300", label: qsTr("5 min") }, { id: "600", label: qsTr("10 min") }]
                                 current: String(veyra.replaySeconds)
                                 onPicked: id => veyra.setPreference("replaySeconds", Number(id))
                             }
@@ -881,10 +879,10 @@ VPage {
                     VGroup {
                         objectName: "set-smooth-motion"
                         VRow {
-                            label: qsTr("Smooth Motion 开启方法")
-                            hint: qsTr("NVIDIA 驱动级 AI 插帧，与软件内补帧二选一")
+                            label: qsTr("How to turn on Smooth Motion")
+                            hint: qsTr("NVIDIA driver-level AI frame interpolation; use it or the in-app frame generation, not both")
                             VButton {
-                                text: smoothHelp.visible ? qsTr("收起") : qsTr("查看")
+                                text: smoothHelp.visible ? qsTr("Collapse") : qsTr("View")
                                 ghost: true
                                 onClicked: smoothHelp.visible = !smoothHelp.visible
                             }
@@ -894,9 +892,9 @@ VPage {
                             visible: false
                             Layout.fillWidth: true
                             Layout.leftMargin: 12; Layout.rightMargin: 12; Layout.bottomMargin: 10
-                            text: qsTr("只用驱动补帧时：在专业模式的补帧页关闭补帧，再到 NVIDIA App 打开 Smooth Motion（AI 插帧）。") + "\n"
-                                  + qsTr("只用 DLSS / XeSS 补帧时：到 NVIDIA App 关闭 Smooth Motion。") + "\n"
-                                  + qsTr("软件不检测、不拦截两者叠加，也不修改驱动配置；AMD FSR 补帧暂不提供。")
+                            text: qsTr("Using only driver frame generation: turn frame generation off on the Pro mode frame generation tab, then turn on Smooth Motion (AI frame interpolation) in the NVIDIA App.") + "\n"
+                                  + qsTr("Using only DLSS / XeSS frame generation: turn Smooth Motion off in the NVIDIA App.") + "\n"
+                                  + qsTr("The app does not detect or block the two being stacked, and does not change driver settings; AMD FSR frame generation is not offered yet.")
                             color: Theme.t2
                             font.family: Theme.fontUi
                             font.pixelSize: 12
@@ -906,15 +904,15 @@ VPage {
                     }
                 }
 
-                // --- 音频 ---
+                // --- Audio ---
                 ColumnLayout {
                     id: secAudio
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "audio"
-                    VH1 { text: qsTr("音频") }
+                    VH1 { text: qsTr("Audio") }
                     Text {
-                        text: qsTr("声音同步、音量与输出设备。")
+                        text: qsTr("Audio sync, volume and output device.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -923,18 +921,18 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("声音同步")
-                            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("软件估算补偿 ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("自动估算 · 采集卡 / PS5 实时输入时生效"))
-                                  : veyra.audioSyncMode === 1 ? qsTr("手动偏移 · 实时输入时生效") : qsTr("关闭补偿")
+                            label: qsTr("Audio sync")
+                            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+                                  : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
                             VSeg {
-                                options: [{ id: "0", label: qsTr("自动估算") }, { id: "1", label: qsTr("手动") }, { id: "2", label: qsTr("关闭", "off") }]
+                                options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]
                                 current: String(veyra.audioSyncMode)
                                 onPicked: id => veyra.audioSyncMode = Number(id)
                             }
                         }
                         VRow {
-                            label: qsTr("音频偏移")
-                            hint: qsTr("正值延后音频")
+                            label: qsTr("Audio offset")
+                            hint: qsTr("Positive values delay the audio")
                             value: veyra.audioOffsetMs + " ms"
                             VSlider {
                                 implicitWidth: 150
@@ -944,7 +942,7 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("音量")
+                            label: qsTr("Volume")
                             value: Math.round(veyra.volume * 100) + "%"
                             VSlider {
                                 objectName: "settings-volume"
@@ -957,22 +955,22 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("输出设备与下混")
+                            label: qsTr("Output device and downmix")
                             hint: veyra.audioOutputStatus
-                            VButton { text: qsTr("音频设置…"); onClicked: veyra.openAudioDialog() }
+                            VButton { text: qsTr("Audio settings…"); onClicked: veyra.openAudioDialog() }
                         }
                     }
                 }
 
-                // --- 性能 ---
+                // --- Performance ---
                 ColumnLayout {
                     id: secPerf
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "perf"
-                    VH1 { text: qsTr("性能") }
+                    VH1 { text: qsTr("Performance") }
                     Text {
-                        text: qsTr("显卡调度、预热与资源监控。默认设置适合大多数机器。")
+                        text: qsTr("GPU scheduling, prewarming and resource monitoring. The defaults suit most PCs.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -981,20 +979,20 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("GPU 优先级")
-                            hint: veyra.gpuPriorityStatus + qsTr("；默认“高”，同时运行游戏或其他重负载程序变慢时可改为“普通”")
+                            label: qsTr("GPU priority")
+                            hint: veyra.gpuPriorityStatus + qsTr("; High by default. If a game or other heavy program running alongside slows down, choose Normal")
                             VSeg {
                                 objectName: "set-gpu-priority"
-                                options: [{ id: "normal", label: qsTr("普通") }, { id: "high", label: qsTr("高") }, { id: "realtime", label: qsTr("实时") }]
+                                options: [{ id: "normal", label: qsTr("Normal") }, { id: "high", label: qsTr("High") }, { id: "realtime", label: qsTr("Realtime") }]
                                 current: veyra.preferences.gpuPriority || "high"
                                 onPicked: id => veyra.setPreference("gpuPriority", id)
                             }
                         }
                         VRow {
-                            label: qsTr("启动时预热增强组件")
+                            label: qsTr("Prewarm enhancement components at startup")
                             hint: !veyra.enhancementPrewarmAvailable
-                                  ? qsTr("当前显卡不支持预热")
-                                  : qsTr("默认关闭。开启后首页空闲时预先准备已启用的单层 NR 或超分，首次打开约快 2 秒；准备好后会一直占用约 0.8–1.8 GB 显存，直到打开视频")
+                                  ? qsTr("Prewarming is not available on this GPU")
+                                  : qsTr("Off by default. When on, the enabled single NR layer or upscaler is prepared while the home page is idle, so the first open is about 2 s faster; once ready it keeps about 0.8–1.8 GB of video memory until a video opens")
                             VSwitch {
                                 objectName: "set-prewarm-enhancement"
                                 enabled: veyra.enhancementPrewarmAvailable
@@ -1003,8 +1001,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("GPU 占用监控")
-                            hint: qsTr("专业页「GPU 占用」只统计这一块显卡") + (veyra.gpuMonitorName ? qsTr("；当前：") + veyra.gpuMonitorName : "")
+                            label: qsTr("GPU usage monitor")
+                            hint: qsTr("The Pro page's GPU usage counts only this GPU") + (veyra.gpuMonitorName ? qsTr("; current: ") + veyra.gpuMonitorName : "")
                             VSelect {
                                 objectName: "set-monitor-gpu"
                                 implicitWidth: 230
@@ -1014,7 +1012,7 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("同时用这块显卡运算")
+                            label: qsTr("Also compute on this GPU")
                             hint: veyra.computeGpuHint
                             VSwitch {
                                 objectName: "set-compute-gpu"
@@ -1023,8 +1021,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("全屏显存增长保护")
-                            hint: qsTr("检测异常增长时自动退出全屏；默认关闭")
+                            label: qsTr("Fullscreen VRAM growth protection")
+                            hint: qsTr("Exit fullscreen if abnormal growth is detected; off by default")
                             VSwitch {
                                 objectName: "set-fullscreen-memory-protection"
                                 checked: !!veyra.preferences.fullscreenMemoryProtection
@@ -1034,15 +1032,15 @@ VPage {
                     }
                 }
 
-                // --- 兼容 ---
+                // --- Compatibility ---
                 ColumnLayout {
                     id: secCompat
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "compat"
-                    VH1 { text: qsTr("兼容") }
+                    VH1 { text: qsTr("Compatible") }
                     Text {
-                        text: qsTr("界面绘制、OBS、监控软件兼容需重启；HDR 补帧兼容可在播放中切换。")
+                        text: qsTr("Interface drawing, OBS and monitoring compatibility require a restart; HDR frame generation compatibility can be switched during playback.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -1051,26 +1049,26 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            // 界面绘制 (veyra/ui/InterfaceRenderer.h, read by main.cpp at start).
+                            // Interface drawing (veyra/ui/InterfaceRenderer.h, read by main.cpp at start).
                             // Software by default: no swapchain or D3D12 device of its own for
-                            // overlays to hook, and no video memory. OBS 游戏采集兼容 and
-                            // 监控软件兼容 still draw in software when GPU is chosen.
+                            // overlays to hook, and no video memory. OBS game capture compatibility and
+                            // monitoring software compatibility still draw in software when GPU is chosen.
                             readonly property bool gpuChosen: veyra.preferences.uiRenderer === "gpu"
-                            label: qsTr("界面绘制")
+                            label: qsTr("Interface drawing")
                             hint: gpuChosen
                                   ? (!veyra.softwareUiActive
-                                     ? qsTr("显卡绘制：动画更顺，带阴影与模糊；占用显存和 GPU，可能与小飞机等监控软件冲突")
+                                     ? qsTr("GPU drawing: smoother animation with shadows and blur; uses video memory and GPU time, and may conflict with RTSS and other monitoring overlays")
                                      : veyra.obsGameCaptureActive
-                                       ? qsTr("OBS 游戏采集兼容开启时，界面始终软件绘制")
+                                       ? qsTr("With OBS game capture compatibility on, the interface is always drawn in software")
                                        : veyra.overlayCompatActive
-                                         ? qsTr("本次检测到监控软件，仍用软件绘制（监控软件兼容：自动）")
-                                         : qsTr("重启后生效"))
+                                         ? qsTr("A monitoring overlay was detected at this start, so the interface is still drawn in software (monitoring overlay compatibility: Auto)")
+                                         : qsTr("Takes effect after restart"))
                                   : (veyra.softwareUiActive
-                                     ? qsTr("软件绘制：兼容性最好，不占显存，不和视频抢 GPU；部分阴影与模糊简化")
-                                     : qsTr("重启后生效"))
+                                     ? qsTr("Software drawing: best compatibility, no video memory, no competition with the video for the GPU; some shadows and blur are simplified")
+                                     : qsTr("Takes effect after restart"))
                             VSeg {
                                 objectName: "set-ui-renderer"
-                                options: [{ id: "software", label: qsTr("软件") }, { id: "gpu", label: "GPU" }]
+                                options: [{ id: "software", label: qsTr("Software") }, { id: "gpu", label: "GPU" }]
                                 current: veyra.preferences.uiRenderer === "gpu" ? "gpu" : "software"
                                 onPicked: id => {
                                     // A restart changes the renderer unless a compatibility rule
@@ -1085,8 +1083,8 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("HDR 补帧闪黑兼容")
-                            hint: qsTr("默认关闭。仅 NVIDIA HDR10 补帧时生效；4K 额外约 32 MiB 显存，可能增加 GPU 开销。切换时画面可能短暂停顿。")
+                            label: qsTr("HDR frame generation flash compatibility")
+                            hint: qsTr("Off by default. Applies to NVIDIA HDR10 frame generation; uses about 32 MiB of extra VRAM at 4K and may increase GPU work. Switching may briefly pause the picture.")
                             VSwitch {
                                 objectName: "set-hdr-fg-compatibility"
                                 checked: !!veyra.preferences.hdrFgCompatibility
@@ -1094,10 +1092,10 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("OBS 游戏采集兼容")
+                            label: qsTr("OBS Game Capture compatibility")
                             hint: (!!veyra.preferences.obsGameCapture !== veyra.obsGameCaptureActive)
-                                  ? qsTr("重启后生效")
-                                  : qsTr("仅采集视频；界面软件绘制，部分阴影与模糊简化")
+                                  ? qsTr("Takes effect after restart")
+                                  : qsTr("Captures video only; software UI with simpler shadows and blur")
                             VSwitch {
                                 objectName: "set-obs-game-capture"
                                 checked: !!veyra.preferences.obsGameCapture
@@ -1111,26 +1109,26 @@ VPage {
                         VRow {
                             // RivaTuner (MSI Afterburner's OSD), NVIDIA's in-game overlay and GamePP: see
                             // main.cpp. Auto draws the interface in software when one runs at start, so
-                            // they only hook the video. With 界面绘制 = 软件 (the default) the interface
+                            // they only hook the video. With interface drawing = software (the default) the interface
                             // is drawn in software anyway, and this choice changes nothing.
                             id: overlayCompatRow
                             readonly property bool automatic: (veyra.preferences.overlayCompat || "auto") === "auto"
                             readonly property bool gpuChosen: veyra.preferences.uiRenderer === "gpu"
-                            label: qsTr("监控软件兼容")
+                            label: qsTr("Monitoring overlay compatibility")
                             hint: veyra.obsGameCaptureActive
-                                  ? qsTr("OBS 游戏采集兼容已让界面软件绘制，小飞机 OSD 只显示在视频上")
+                                  ? qsTr("OBS game capture compatibility already draws the interface in software; the RTSS OSD shows on the video only")
                                   : !gpuChosen
-                                  ? qsTr("只在“界面绘制”选 GPU 时起作用；软件绘制时小飞机 OSD 只显示在视频上")
+                                  ? qsTr("Only matters when Interface drawing is set to GPU; with software drawing the RTSS OSD shows on the video only")
                                   : (automatic !== veyra.overlayCompatActive && (veyra.overlayCompatActive || veyra.presentationOverlayRunning()))
-                                    ? qsTr("重启后生效")
+                                    ? qsTr("Takes effect after restart")
                                     : veyra.overlayCompatActive
-                                      ? qsTr("监控兼容绘制已启用：OSD 只显示在视频上；部分阴影与模糊简化")
+                                      ? qsTr("Monitoring compatibility rendering is enabled: the OSD shows on the video only; some shadows and blur are simplified")
                                       : automatic
-                                        ? qsTr("启动时检测到小飞机（RTSS）、NVIDIA 信息浮窗或游戏加加就改用软件绘制界面，它们只显示在视频上")
-                                        : qsTr("界面始终用显卡绘制；小飞机 OSD 不在 Veyra 里显示；开着 NVIDIA 信息浮窗或游戏加加时可能卡死")
+                                        ? qsTr("When RivaTuner (RTSS), NVIDIA's in-game overlay or GamePP is running at start, the interface is drawn in software and they show on the video only")
+                                        : qsTr("The interface always draws on the GPU; the RTSS OSD is not shown in Veyra; with NVIDIA's in-game overlay or GamePP running, Veyra may freeze")
                             VSeg {
                                 objectName: "set-overlay-compat"
-                                options: [{ id: "auto", label: qsTr("自动") }, { id: "off", label: qsTr("关闭") }]
+                                options: [{ id: "auto", label: qsTr("Auto") }, { id: "off", label: qsTr("Close") }]
                                 current: veyra.preferences.overlayCompat || "auto"
                                 onPicked: id => {
                                     if (veyra.setPreference("overlayCompat", id) && !veyra.obsGameCaptureActive
@@ -1144,96 +1142,15 @@ VPage {
                     }
                 }
 
-                // --- PS5 串流 --------------------------------------------
-                ColumnLayout {
-                    id: secPs5
-                    Layout.fillWidth: true
-                    spacing: 12
-                    visible: root.section === "ps5"
-                    VH1 { text: qsTr("PS5 串流") }
-                    Text {
-                        text: qsTr("主机配对凭据加密保存在用户数据目录。")
-                        color: Theme.t2
-                        font.family: Theme.fontUi
-                        font.pixelSize: Theme.fsBody
-                    }
-                    VGroup {
-                        VRow {
-                            label: qsTr("已保存主机")
-                            hint: (veyra.ps5.host || "").length > 0 ? veyra.ps5.host + (veyra.remotePlayState.length > 0 ? " · " + veyra.remotePlayState : "") : qsTr("还没有配对的主机")
-                            VButton { text: qsTr("管理"); onClicked: veyra.openPs5Dialog() }
-                        }
-                        VRow {
-                            label: qsTr("画质")
-                            VSelect {
-                                objectName: "set-ps5-quality"
-                                implicitWidth: 170
-                                readonly property var qualities: [{ id: "0", label: "720p · 30 fps" }, { id: "1", label: "720p · 60 fps" }, { id: "2", label: "1080p · 30 fps" }, { id: "3", label: "1080p · 60 fps" }]
-                                options: qualities
-                                value: qualities[veyra.ps5.quality || 0].label
-                                onPicked: id => veyra.ps5Set("quality", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("编码")
-                            hint: qsTr("HDR 需要 PS5 实际输出 HDR 且 Windows HDR 开启")
-                            VSeg {
-                                objectName: "set-ps5-codec"
-                                options: [{ id: "0", label: "H.264" }, { id: "1", label: "H.265" }, { id: "2", label: "H.265 HDR" }]
-                                current: String(veyra.ps5.codec || 0)
-                                onPicked: id => veyra.ps5Set("codec", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("请求码率")
-                            hint: qsTr("发给 PS5 的带宽请求，主机不保证达到")
-                            VSelect {
-                                objectName: "set-ps5-bitrate"
-                                implicitWidth: 130
-                                readonly property var bitrates: [5, 10, 15, 20, 30, 50, 80, 100].map((m, i) => ({ id: String(i), label: m + " Mbps" }))
-                                options: bitrates
-                                value: bitrates[veyra.ps5.bitrate || 0].label
-                                onPicked: id => veyra.ps5Set("bitrate", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("PSN 账号")
-                            hint: qsTr("在 PSNTools 网页获取 Account ID，再到 PS5 串流窗口填写并配对。")
-                            hintBelow: true
-                            RowLayout {
-                                spacing: 6
-                                VButton { objectName: "set-ps5-account-lookup"; text: qsTr("获取 Account ID"); ghost: true; onClicked: veyra.ps5OpenAccountChecker() }
-                                VButton { objectName: "set-ps5-pairing"; text: qsTr("配对设置"); ghost: true; onClicked: veyra.openPs5Dialog() }
-                            }
-                        }
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: psNote.implicitHeight + 20
-                        radius: 9
-                        color: Qt.rgba(0.961, 0.784, 0.294, 0.06)
-                        Text {
-                            id: psNote
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            text: qsTr("这里和 PS5 串流窗口是同一份设置，下次连接时一起保存到该主机的配对档案。")
-                            color: Theme.t2
-                            font.family: Theme.fontUi
-                            font.pixelSize: Theme.fsSmall
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                // --- 快捷键 ----------------------------------------------
+                // --- Shortcuts --------------------------------------------------
                 ColumnLayout {
                     id: secKeys
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "keys"
-                    VH1 { text: qsTr("快捷键") }
+                    VH1 { text: qsTr("Shortcuts") }
                     Text {
-                        text: qsTr("点击右侧按键，再按下新的组合键即可重新绑定；Esc 取消。")
+                        text: qsTr("Click the key on the right, then press the new key combination to rebind it; Esc cancels.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -1241,16 +1158,16 @@ VPage {
                     VGroup {
                         Repeater {
                             model: [
-                                { id: "playPause", a: qsTr("播放 / 暂停") },
-                                { id: "fullscreen", a: qsTr("全屏"), note: qsTr("F11 / Alt+Enter 也可以") },
-                                { id: "lock", a: qsTr("锁定全屏控制条") },
-                                { id: "hold", a: qsTr("按住查看原画") },
-                                { id: "screenshot", a: qsTr("截图"), note: qsTr("游戏模式下在游戏里也能用") },
-                                { id: "record", a: qsTr("开始 / 停止录制"), note: qsTr("游戏模式下在游戏里也能用") },
-                                { id: "replay", a: qsTr("保存即时回放"), note: qsTr("需先在 设置 → 播放 开启即时回放；游戏模式下在游戏里也能用") },
-                                { id: "toggleMode", a: qsTr("切换极简 / 专业") },
-                                { id: "gamePanel", a: qsTr("游戏模式：调整画面"), note: qsTr("仅在游戏模式中接管按键；支持 Ctrl、Alt、Shift 组合") },
-                                { id: "gameExit", a: qsTr("游戏模式：退出鼠标穿透"), note: qsTr("退出全屏，恢复普通窗口操作") }
+                                { id: "playPause", a: qsTr("Play / pause") },
+                                { id: "fullscreen", a: qsTr("Fullscreen"), note: qsTr("F11 / Alt+Enter work too") },
+                                { id: "lock", a: qsTr("Lock the fullscreen control bar") },
+                                { id: "hold", a: qsTr("Hold to see the original") },
+                                { id: "screenshot", a: qsTr("Screenshot"), note: qsTr("Also works inside the game in game mode") },
+                                { id: "record", a: qsTr("Start / stop recording"), note: qsTr("Also works inside the game in game mode") },
+                                { id: "replay", a: qsTr("Save instant replay"), note: qsTr("Turn on instant replay in Settings → Playback first; also works inside the game in game mode") },
+                                { id: "toggleMode", a: qsTr("Toggle Minimal / Pro") },
+                                { id: "gamePanel", a: qsTr("Game mode: adjust picture"), note: qsTr("Keys are captured only in game mode; Ctrl, Alt and Shift combinations are supported") },
+                                { id: "gameExit", a: qsTr("Game mode: exit mouse passthrough"), note: qsTr("Leave fullscreen and restore normal window controls") }
                             ]
                             delegate: VRow {
                                 id: keyRow
@@ -1269,7 +1186,7 @@ VPage {
                                     Text {
                                         id: keyText
                                         anchors.centerIn: parent
-                                        text: parent.capturing ? qsTr("按下新按键…") : (veyra.shortcuts[keyRow.modelData.id] || qsTr("未设置"))
+                                        text: parent.capturing ? qsTr("Press the new key…") : (veyra.shortcuts[keyRow.modelData.id] || qsTr("Not set"))
                                         color: Theme.t1
                                         font.family: Theme.fontMono
                                         font.pixelSize: Theme.fsSmall
@@ -1280,24 +1197,24 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("恢复默认")
-                            VButton { text: qsTr("全部还原"); ghost: true; onClicked: veyra.resetShortcuts() }
+                            label: qsTr("Reset to default")
+                            VButton { text: qsTr("Reset all"); ghost: true; onClicked: veyra.resetShortcuts() }
                         }
                     }
                     VGroup {
                         Repeater {
                             model: [
-                                { a: qsTr("后退 / 前进 5 秒"), k: "← / →" },
-                                { a: qsTr("播放 / 暂停（播放文件时）"), k: qsTr("单击画面") },
-                                { a: qsTr("音量"), k: "↑ / ↓" },
-                                { a: qsTr("打开文件 / 导出页"), k: "Ctrl+O / Ctrl+E" },
-                                { a: qsTr("字幕开关 / 主轨 / 副轨"), k: "B / T / Y" },
-                                { a: qsTr("字幕延时 50 ms（Shift = 1 s）"), k: "Z / X" },
+                                { a: qsTr("Back / forward 5 seconds"), k: "← / →" },
+                                { a: qsTr("Play / pause (when playing a file)"), k: qsTr("Click the picture") },
+                                { a: qsTr("Volume"), k: "↑ / ↓" },
+                                { a: qsTr("Open file / Export page"), k: "Ctrl+O / Ctrl+E" },
+                                { a: qsTr("Subtitles on/off / main track / secondary track"), k: "B / T / Y" },
+                                { a: qsTr("Subtitle delay 50 ms (Shift = 1 s)"), k: "Z / X" },
                             ]
                             delegate: VRow {
                                 required property var modelData
                                 label: modelData.a
-                                hint: qsTr("固定")
+                                hint: qsTr("Fixed")
                                 VTag { text: modelData.k }
                             }
                         }
@@ -1331,17 +1248,17 @@ VPage {
                     }
                 }
 
-                // --- 组件与许可 ------------------------------------------
+                // --- Components and licences ------------------------------------------
                 ColumnLayout {
                     id: secComp
                     Layout.fillWidth: true
                     spacing: 12
                     visible: root.section === "comp"
                     onVisibleChanged: if (visible) veyra.refreshComponentList()
-                    VH1 { text: qsTr("组件与许可") }
+                    VH1 { text: qsTr("Components and licenses") }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("运行组件均为实验运行时，非 NVIDIA 官方合作或认证。详细哈希见 release-runtime-manifest.json。")
+                        text: qsTr("All runtime components are experimental runtimes, not an official NVIDIA partnership or certification. Detailed hashes in release-runtime-manifest.json.")
                         color: Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -1357,7 +1274,7 @@ VPage {
                                 label: modelData.name
                                 hint: modelData.detail
                                 VTag {
-                                    text: modelData.experimental ? qsTr("实验") : (modelData.loaded ? qsTr("已加载") : qsTr("未加载"))
+                                    text: modelData.experimental ? qsTr("Experimental") : (modelData.loaded ? qsTr("Loaded") : qsTr("Not loaded"))
                                     kind: modelData.experimental ? "exp" : (modelData.loaded ? "ok" : "")
                                 }
                             }
@@ -1365,7 +1282,7 @@ VPage {
                     }
                 }
 
-                // --- 关于 ------------------------------------------------
+                // --- About ----------------------------------------------------
                 ColumnLayout {
                     id: secAbout
                     Layout.fillWidth: true
@@ -1382,7 +1299,7 @@ VPage {
                             spacing: 4
                             VH1 { text: "Veyra" }
                             Text {
-                                text: qsTr("版本 ") + veyra.version
+                                text: qsTr("Version ") + veyra.version
                                 color: Theme.t2
                                 font.family: Theme.fontUi
                                 font.pixelSize: Theme.fsBody
@@ -1391,12 +1308,12 @@ VPage {
                     }
                     VGroup {
                         VRow {
-                            label: qsTr("下载线路")
-                            hint: qsTr("镜像失败时自动改用 GitHub 直连。")
+                            label: qsTr("Download route")
+                            hint: qsTr("Veyra connects directly to GitHub if the mirror fails.")
                             VSelect {
                                 objectName: "set-update-download-route"
                                 options: [
-                                    { id: "github", label: qsTr("GitHub 直连") },
+                                    { id: "github", label: qsTr("GitHub direct") },
                                     { id: "gh-proxy", label: "GH-Proxy · gh-proxy.com" },
                                     { id: "ghfast", label: "GHFast · ghfast.top" }
                                 ]
@@ -1406,34 +1323,34 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("检查更新")
+                            label: qsTr("Check for updates")
                             hint: veyra.updates.latestVersion.length > 0
-                                  ? qsTr("发现新版本 %1").arg(veyra.updates.latestVersion)
-                                  : qsTr("启动时自动检查，有更新时提示")
+                                  ? qsTr("New version %1 available").arg(veyra.updates.latestVersion)
+                                  : qsTr("Checks on startup; notifies when an update is available")
                             Row {
                                 spacing: 6
                                 VButton {
-                                    text: veyra.updates.checking ? qsTr("检查中…") : qsTr("检查")
+                                    text: veyra.updates.checking ? qsTr("Checking…") : qsTr("Check")
                                     enabled: !veyra.updates.checking
                                     onClicked: veyra.updates.check(true)
                                 }
                                 VButton {
                                     visible: veyra.updates.latestVersion.length > 0
-                                    text: qsTr("查看更新")
+                                    text: qsTr("View update")
                                     onClicked: veyra.updates.openRelease()
                                 }
                             }
                         }
                         VRow {
                             visible: root.portableUpdate.available || root.portableUpdate.downloading || root.portableUpdate.scheduled
-                            label: root.portableUpdate.scheduled ? qsTr("更新已就绪，将在退出后安装")
-                                  : root.portableUpdate.downloading ? qsTr("正在下载更新 %1%").arg(root.portableUpdate.progress)
-                                  : qsTr("便携版更新 · %1").arg(root.portableUpdate.sizeText)
+                            label: root.portableUpdate.scheduled ? qsTr("Update ready. It will be installed after exit.")
+                                  : root.portableUpdate.downloading ? qsTr("Downloading update · %1%").arg(root.portableUpdate.progress)
+                                  : qsTr("Portable update · %1").arg(root.portableUpdate.sizeText)
                             hint: root.portableUpdate.available ? root.portableUpdate.releaseNotes : ""
                             hintBelow: true
                             VButton {
                                 objectName: "portable-download"
-                                text: root.portableUpdate.available ? qsTr("下载并在退出后更新") : qsTr("取消更新")
+                                text: root.portableUpdate.available ? qsTr("Download and update on exit") : qsTr("Cancel update")
                                 onClicked: {
                                     if (root.portableUpdate.available) root.portableUpdate.downloadAndSchedule()
                                     else root.portableUpdate.cancel()
@@ -1441,34 +1358,34 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("反馈问题")
-                            hint: qsTr("打开 GitHub Issues，诊断信息已自动复制")
-                            VButton { text: qsTr("打开"); onClicked: veyra.openFeedbackPage() }
+                            label: qsTr("Report a problem")
+                            hint: qsTr("Opens GitHub Issues; diagnostics have been copied for you")
+                            VButton { text: qsTr("Open"); onClicked: veyra.openFeedbackPage() }
                         }
                         VRow {
-                            label: qsTr("赞助作者")
-                            hint: qsTr("Patreon、微信与支付宝")
-                            VButton { objectName: "about-sponsor"; text: qsTr("前往"); onClicked: root.section = "sponsor" }
+                            label: qsTr("Support the author")
+                            hint: qsTr("Patreon, WeChat and Alipay")
+                            VButton { objectName: "about-sponsor"; text: qsTr("Go"); onClicked: root.section = "sponsor" }
                         }
                         VRow {
-                            label: qsTr("交流群")
-                            hint: qsTr("群二维码在项目主页 README 里")
-                            VButton { text: qsTr("查看"); onClicked: veyra.openProjectPage() }
+                            label: qsTr("Community groups")
+                            hint: qsTr("The group QR codes are in the project README")
+                            VButton { text: qsTr("View"); onClicked: veyra.openProjectPage() }
                         }
                         VRow {
-                            label: qsTr("诊断信息")
-                            hint: qsTr("复制后附在反馈里")
-                            VButton { text: qsTr("复制"); onClicked: veyra.copyDiagnostics() }
+                            label: qsTr("Diagnostics")
+                            hint: qsTr("Copy, then attach to your report")
+                            VButton { text: qsTr("Copy"); onClicked: veyra.copyDiagnostics() }
                         }
                         VRow {
-                            label: qsTr("日志")
+                            label: qsTr("Log")
                             hint: veyra.logFile
-                            VButton { text: qsTr("打开目录"); ghost: true; onClicked: veyra.openLogFolder() }
+                            VButton { text: qsTr("Open folder"); ghost: true; onClicked: veyra.openLogFolder() }
                         }
                         VRow {
-                            label: qsTr("用户数据")
+                            label: qsTr("User data")
                             hint: veyra.dataDirectory
-                            VButton { text: qsTr("打开目录"); ghost: true; onClicked: veyra.openDataFolder() }
+                            VButton { text: qsTr("Open folder"); ghost: true; onClicked: veyra.openDataFolder() }
                         }
                     }
                     // The diagnostics the engine actually reports, shown verbatim.
@@ -1497,7 +1414,7 @@ VPage {
                     }
                 }
 
-                // --- 赞助作者 ------------------------------------------------
+                // --- Sponsors ----------------------------------------------------
                 SponsorPanel {
                     id: secSponsor
                     objectName: "set-sponsor"
@@ -1514,10 +1431,10 @@ VPage {
     VConfirm {
         id: obsRestart
         objectName: "obs-restart-confirm"
-        title: qsTr("需要重启软件")
-        text: qsTr("设置已保存，重启后生效。现在重启吗？当前播放或串流将停止。")
-        acceptText: qsTr("是")
-        rejectText: qsTr("否")
+        title: qsTr("Restart required")
+        text: qsTr("Settings saved. Restart to apply them. Restart now? Current playback or streaming will stop.")
+        acceptText: qsTr("Yes")
+        rejectText: qsTr("No")
         onAccepted: veyra.restartApplication()
     }
 

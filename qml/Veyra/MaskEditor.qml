@@ -13,10 +13,10 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         text: editor.drawShape.length>0
-              ? qsTr("在画面上拖出区域，Esc 取消")
+              ? qsTr("Drag a region on the picture. Press Esc to cancel.")
               : editor.allEffects
-                ? qsTr("区域内恢复原始画面，补帧也不参与，按原始帧节奏更新。最多 4 个区域。")
-                : qsTr("区域内排除 NR 处理。最多 4 个区域。")
+                ? qsTr("Restore the source picture inside each region, updating only at the source frame cadence. Up to 4 regions.")
+                : qsTr("Exclude NR processing inside the regions. Up to 4 regions.")
         wrapMode: Text.WordWrap
         color: editor.drawShape.length>0?Theme.accent:Theme.t3
         font.family: Theme.fontUi
@@ -27,19 +27,19 @@ ColumnLayout {
         spacing: 6
         VButton {
             objectName: editor.namePrefix+"-draw-rect"
-            text: qsTr("画矩形")
+            text: qsTr("Draw rectangle")
             primary: editor.drawShape==="rect"
             onClicked: veyra.beginMaskDraw(editor.allEffects,editor.drawShape==="rect"?"":"rect")
         }
         VButton {
             objectName: editor.namePrefix+"-draw-ellipse"
-            text: qsTr("画圆形")
+            text: qsTr("Draw circle")
             primary: editor.drawShape==="ellipse"
             onClicked: veyra.beginMaskDraw(editor.allEffects,editor.drawShape==="ellipse"?"":"ellipse")
         }
         Item { Layout.fillWidth: true }
         VButton {
-            text: qsTr("清空")
+            text: qsTr("Clear")
             ghost: true
             visible: editor.regions.length>0
             onClicked: veyra.clearMaskRegions(editor.allEffects)
@@ -47,8 +47,8 @@ ColumnLayout {
     }
     VRow {
         visible: editor.allEffects
-        label: qsTr("显示区域红框")
-        hint: qsTr("选中区域后可拖动位置；红框不会写入录制或导出")
+        label: qsTr("Show region outlines")
+        hint: qsTr("Select a region to move it. Outlines are excluded from recordings and exports.")
         VSwitch {
             objectName: editor.namePrefix+"-show-regions"
             checked: veyra.exclusionOverlayVisible
@@ -60,7 +60,7 @@ ColumnLayout {
         delegate: VRow {
             required property var modelData
             required property int index
-            label: (modelData.ellipse?qsTr("圆形 "):qsTr("矩形 "))+(index+1)
+            label: (modelData.ellipse?qsTr("Circle "):qsTr("Rectangle "))+(index+1)
             value: Math.round(modelData.left*100)+","+Math.round(modelData.top*100)+" → "
                    +Math.round(modelData.right*100)+","+Math.round(modelData.bottom*100)+" %"
             Row {
@@ -68,7 +68,7 @@ ColumnLayout {
                 VButton {
                     visible: editor.allEffects
                     objectName: editor.namePrefix+"-select-"+index
-                    text: editor.maskState.selected === modelData.index ? qsTr("已选中") : qsTr("选中")
+                    text: editor.maskState.selected === modelData.index ? qsTr("Selected") : qsTr("Select")
                     primary: editor.maskState.selected === modelData.index
                     onClicked: veyra.selectExclusionRegion(modelData.index)
                 }
@@ -81,7 +81,7 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("羽化像素")
+        label: qsTr("Feather (pixels)")
         value: Number(editor.maskState.feather || 0).toFixed(0)+" px"
         VSlider {
             objectName: editor.namePrefix+"-feather"

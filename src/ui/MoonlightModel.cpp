@@ -29,19 +29,19 @@ std::string utf8(const QString& text) { const QByteArray b = text.toUtf8(); retu
 QString describe(const std::exception& e) {
     if (const auto* transport = dynamic_cast<const moonlight::TransportError*>(&e)) {
         switch (transport->kind) {
-        case moonlight::TransportError::Kind::Connect: return QObject::tr("连不上主机：请确认地址正确、主机已开机且 Sunshine 在运行，并且防火墙放行了 TCP 47984 / 47989。");
-        case moonlight::TransportError::Kind::Timeout: return QObject::tr("主机没有及时回应，请检查网络。");
-        case moonlight::TransportError::Kind::Tls: return QObject::tr("与主机的加密连接失败，主机的证书可能已改变，请重新配对。");
-        case moonlight::TransportError::Kind::CertificateMismatch: return QObject::tr("主机的证书与配对时保存的不一致（主机重装过，或这不是配对过的那台）。请删除这台主机后重新配对。");
-        case moonlight::TransportError::Kind::Cancelled: return QObject::tr("已取消。");
-        case moonlight::TransportError::Kind::Protocol: return QObject::tr("主机的回应无法识别（不是 Sunshine / GameStream 主机？）。");
+        case moonlight::TransportError::Kind::Connect: return QObject::tr("Cannot reach the host: make sure the address is right, the host is on, Sunshine is running, and the firewall allows TCP 47984 / 47989.");
+        case moonlight::TransportError::Kind::Timeout: return QObject::tr("The host did not respond in time; check the network.");
+        case moonlight::TransportError::Kind::Tls: return QObject::tr("The encrypted connection to the host failed; the host's certificate may have changed. Pair again.");
+        case moonlight::TransportError::Kind::CertificateMismatch: return QObject::tr("The host's certificate does not match the one saved at pairing (the host was reinstalled, or this is not the paired one). Remove this host and pair again.");
+        case moonlight::TransportError::Kind::Cancelled: return QObject::tr("Cancelled.");
+        case moonlight::TransportError::Kind::Protocol: return QObject::tr("The host's reply was not recognized (not a Sunshine / GameStream host?).");
         }
     }
     if (const auto* status = dynamic_cast<const moonlight::StatusError*>(&e)) {
-        if (status->status == 401) return QObject::tr("主机不认识这台电脑，请重新配对。");
-        return QObject::tr("主机拒绝了请求（%1）。").arg(status->status);
+        if (status->status == 401) return QObject::tr("The host does not recognize this PC; pair again.");
+        return QObject::tr("The host refused the request (%1).").arg(status->status);
     }
-    return QObject::tr("出错了：%1").arg(qs(e.what()));
+    return QObject::tr("Something went wrong: %1").arg(qs(e.what()));
 }
 
 constexpr int kVersion = 1;
@@ -212,7 +212,7 @@ QVariantList MoonlightModel::hosts() const {
 
 void MoonlightModel::startJob(const QString& status, std::function<std::function<void()>(const std::atomic<bool>&)> work) {
     if (busy_) {
-        status_ = tr("正在处理上一个操作，请稍候，或先点取消。");
+        status_ = tr("The previous action is still in progress; wait a moment or click Cancel first.");
         emit changed();
         return;
     }
@@ -240,7 +240,7 @@ void MoonlightModel::startJob(const QString& status, std::function<std::function
 
 void MoonlightModel::cancel() {
     cancel_ = true;
-    if (busy_) { status_ = tr("正在取消…"); emit changed(); }
+    if (busy_) { status_ = tr("Cancelling…"); emit changed(); }
 }
 
 void MoonlightModel::applyInfo(Host& host, const moonlight::ServerInfo& info) {
@@ -380,7 +380,7 @@ void MoonlightModel::refresh() {
     struct Target { QString id, address, cert; int port, httpsPort; bool nvidia; };
     std::vector<Target> targets;
     for (const Host& h : hosts_) targets.push_back({h.id, h.address, h.cert, h.port, h.httpsPort, h.nvidia});
-    startJob(tr("正在检查主机…"), [this, targets](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Checking the host…"), [this, targets](const std::atomic<bool>& cancel) -> std::function<void()> {
         struct Result { QString id; bool online = false; moonlight::ServerInfo info; QString error; };
         auto results = std::make_shared<std::vector<Result>>();
         const moonlight::Identity id = identity();
@@ -411,7 +411,7 @@ void MoonlightModel::refresh() {
             if (changedStore) saveStore();
             status_.clear();
             for (const Result& r : *results)
-                if (const Host* h = find(r.id); h && !r.error.isEmpty()) status_ = QStringLiteral("%1：%2").arg(h->name, r.error);
+                if (const Host* h = find(r.id); h && !r.error.isEmpty()) status_ = QStringLiteral("%1: %2").arg(h->name, r.error);
             const Host* selected = find(selected_);
             if (selected && selected->paired && selected->online) reloadApps();
         };
@@ -426,7 +426,7 @@ void MoonlightModel::addHost(const QString& address) {
     // "host", "host:port", "[v6]" and "[v6]:port"; a bare IPv6 literal has several colons and no port.
     if (text.startsWith('[')) {
         const int close = text.indexOf(']');
-        if (close < 0) { status_ = tr("地址格式不对。"); emit changed(); return; }
+        if (close < 0) { status_ = tr("The address format is wrong."); emit changed(); return; }
         const QString rest = text.mid(close + 1);
         if (rest.startsWith(':')) port = rest.mid(1).toInt();
         text = text.mid(1, close - 1);
@@ -435,11 +435,11 @@ void MoonlightModel::addHost(const QString& address) {
         text = text.section(':', 0, 0);
     }
     if (text.isEmpty() || text.size() > 253 || port < 1 || port > 65535 || text.contains(QRegularExpression("[\\s/\\\\]"))) {
-        status_ = tr("请填写主机的 IP 地址或名称，例如 192.168.1.20。");
+        status_ = tr("Enter the host's IP address or name, for example 192.168.1.20.");
         emit changed();
         return;
     }
-    status_ = tr("正在连接 %1…").arg(text);
+    status_ = tr("Connecting to %1…").arg(text);
     emit changed();
     probe(text, port, true);
 }
@@ -463,7 +463,7 @@ void MoonlightModel::pair(const QString& id) {
     struct Copy { QString id, address, cert; int port, httpsPort; bool nvidia; };
     const Copy h{host->id, host->address, host->cert, host->port, host->httpsPort, host->nvidia};
     const std::string pin = utf8(pin_);
-    startJob(tr("配对中：请在主机的 Sunshine 网页（https://%1:47990 的 PIN 页面）输入上面的 PIN。").arg(h.address),
+    startJob(tr("Pairing: enter the PIN above in the host's Sunshine web page (the PIN page at https://%1:47990).").arg(h.address),
              [this, h, pin](const std::atomic<bool>& cancel) -> std::function<void()> {
         const moonlight::Identity id = identity();
         // Still trusted with the certificate we saved? Then pairing again is not needed
@@ -484,7 +484,7 @@ void MoonlightModel::pair(const QString& id) {
                             host->saved = true;
                             saveStore();
                         }
-                        status_ = tr("这台电脑和主机仍是配对状态，不需要重新配对。");
+                        status_ = tr("This PC and the host are still paired; no need to pair again.");
                         if (apps_.isEmpty()) reloadApps();
                     };
                 }
@@ -511,13 +511,13 @@ void MoonlightModel::pair(const QString& id) {
                     saveStore();
                     reloadApps();
                 }
-                status_ = tr("配对成功。");
-                emit notice(tr("已和主机配对"), false);
+                status_ = tr("Paired.");
+                emit notice(tr("Paired with the host"), false);
                 break;
-            case R::PinWrong: status_ = tr("主机上输入的 PIN 和这里显示的不一致，请重新配对。"); break;
-            case R::AlreadyInProgress: status_ = tr("主机正在和另一台设备配对，请稍后再试。"); break;
-            case R::Cancelled: status_ = tr("已取消配对。"); break;
-            case R::Failed: status_ = tr("配对失败（%1）。请确认主机上的 Sunshine 在运行，并在它的网页里输入了 PIN。").arg(qs(outcome.detail)); break;
+            case R::PinWrong: status_ = tr("The PIN entered on the host does not match the one shown here; pair again."); break;
+            case R::AlreadyInProgress: status_ = tr("The host is pairing with another device; try again shortly."); break;
+            case R::Cancelled: status_ = tr("Pairing cancelled."); break;
+            case R::Failed: status_ = tr("Pairing failed (%1). Make sure Sunshine is running on the host and the PIN was entered in its web page.").arg(qs(outcome.detail)); break;
             }
         };
     });
@@ -529,7 +529,7 @@ void MoonlightModel::forget(const QString& id) {
     const QString hostId = host->id;
     struct Copy { QString address, cert; int port, httpsPort; bool nvidia, paired; };
     const Copy h{host->address, host->cert, host->port, host->httpsPort, host->nvidia, host->paired};
-    startJob(tr("正在删除…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Deleting…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
         // Tell the host to forget us too, when we can; a dead host must not keep the entry alive.
         bool told = false;
         if (h.paired) {
@@ -540,7 +540,7 @@ void MoonlightModel::forget(const QString& id) {
                 told = true;
             } catch (const std::exception&) {}
         }
-        return [this, told, h] { status_ = h.paired && !told ? tr("已从本机删除；主机没有回应，它那边的配对记录需要在 Sunshine 网页里自己清除。") : tr("已删除。"); };
+        return [this, told, h] { status_ = h.paired && !told ? tr("Removed from this PC; the host did not respond, so its pairing record has to be cleared in the Sunshine web page.") : tr("Removed."); };
     });
     // The list changes at once; the job only talks to the host.
     std::erase_if(hosts_, [&](const Host& x) { return x.id == hostId; });
@@ -557,7 +557,7 @@ void MoonlightModel::reloadApps() {
     if (!host || !host->paired || busy_) return;
     struct Copy { QString id, address, cert; int port, httpsPort; bool nvidia; };
     const Copy h{host->id, host->address, host->cert, host->port, host->httpsPort, host->nvidia};
-    startJob(tr("正在读取游戏列表…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Reading the game list…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
         moonlight::ServerClient client(identity(), moonlight::HostAddress{utf8(h.address), uint16_t(h.port)}, utf8(h.cert), uint16_t(h.httpsPort), !h.nvidia);
         client.setCancel(&cancel);
         const moonlight::ServerInfo info = client.serverInfo(true);
@@ -571,7 +571,7 @@ void MoonlightModel::reloadApps() {
             for (const auto& a : apps)
                 apps_ << QVariantMap{{"id", a.id}, {"name", qs(a.name)}, {"running", info.currentGame != 0 && info.currentGame == a.id}, {"hdr", a.hdrSupported}};
             runningApp_ = info.currentGame;
-            status_ = apps.empty() ? tr("主机上没有配置任何游戏或程序（在 Sunshine 网页的 Applications 里添加）。") : QString();
+            status_ = apps.empty() ? tr("No games or programs are set up on the host (add them under Applications in the Sunshine web page).") : QString();
         };
     });
 }
@@ -581,7 +581,7 @@ void MoonlightModel::quitApp() {
     if (!host || !host->paired || busy_) return;
     struct Copy { QString id, address, cert; int port, httpsPort; bool nvidia; };
     const Copy h{host->id, host->address, host->cert, host->port, host->httpsPort, host->nvidia};
-    startJob(tr("正在退出主机上的游戏…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Quitting the game on the host…"), [this, h](const std::atomic<bool>& cancel) -> std::function<void()> {
         moonlight::ServerClient client(identity(), moonlight::HostAddress{utf8(h.address), uint16_t(h.port)}, utf8(h.cert), uint16_t(h.httpsPort), !h.nvidia);
         client.setCancel(&cancel);
         client.quit();
@@ -590,7 +590,7 @@ void MoonlightModel::quitApp() {
             if (Host* host = find(h.id)) applyInfo(*host, info);
             for (QVariant& a : apps_) { QVariantMap m = a.toMap(); m["running"] = false; a = m; }
             runningApp_ = info.currentGame;
-            status_ = tr("已请求主机退出游戏。");
+            status_ = tr("Asked the host to quit the game.");
         };
     });
 }
@@ -652,7 +652,7 @@ bool MoonlightModel::resumeLast() {
 
 bool MoonlightModel::launchSelected(int appId) {
     const Host* host = find(selected_);
-    if (!host || !host->paired) { status_ = tr("请先和这台主机配对。"); emit changed(); return false; }
+    if (!host || !host->paired) { status_ = tr("Pair with this host first."); emit changed(); return false; }
     if (busy_ || !launch_) return false;
     const source::MoonlightStreamOptions options = optionsFor(host);
     const bool captureInput = settingsOf(host).value("captureInput").toBool();
@@ -662,7 +662,7 @@ bool MoonlightModel::launchSelected(int appId) {
     const QString hostName = host->name.isEmpty() ? host->address : host->name;
     struct Copy { QString id, address, cert; int port, httpsPort; bool nvidia; };
     const Copy h{host->id, host->address, host->cert, host->port, host->httpsPort, host->nvidia};
-    startJob(tr("正在联系主机…"), [this, h, appId, options, captureInput, appName, hostName](const std::atomic<bool>& cancel) -> std::function<void()> {
+    startJob(tr("Contacting the host…"), [this, h, appId, options, captureInput, appName, hostName](const std::atomic<bool>& cancel) -> std::function<void()> {
         const moonlight::Identity id = identity();
         moonlight::ServerClient client(id, moonlight::HostAddress{utf8(h.address), uint16_t(h.port)}, utf8(h.cert), uint16_t(h.httpsPort), !h.nvidia);
         client.setCancel(&cancel);
@@ -672,14 +672,14 @@ bool MoonlightModel::launchSelected(int appId) {
             const QString hostId = h.id;
             return [this, hostId] {
                 if (Host* host = find(hostId)) { host->paired = false; saveStore(); }
-                status_ = tr("主机不再认得这台电脑（可能在 Sunshine 里被删除了），请重新配对。");
+                status_ = tr("The host no longer recognizes this PC (it may have been removed in Sunshine); pair again.");
             };
         }
         if (info.currentGame != 0 && info.currentGame != appId)
-            return [this] { status_ = tr("主机正在运行另一个游戏。先选它继续，或点「退出游戏」结束它（未保存的进度会丢失），再开始新的。"); };
+            return [this] { status_ = tr("The host is running another game. Select it to continue, or click Quit game to end it (unsaved progress is lost), then start a new one."); };
         if (moonlight::chooseVideoFormats(options.codec, options.hdr, info.serverCodecModeSupport, options.av1HardwareDecode) == 0)
-            return [this, hdr = options.hdr] { status_ = hdr ? tr("这台主机没有 10 位（HDR）编码能力，或选择的编码不支持 HDR。请关闭 HDR，或换编码。")
-                                                          : tr("主机不支持所选的编码，请改成「自动」。"); };
+            return [this, hdr = options.hdr] { status_ = hdr ? tr("This host cannot encode 10-bit (HDR), or the selected codec does not support HDR. Turn HDR off, or change the codec.")
+                                                          : tr("The host does not support the selected codec; change it to Auto."); };
         auto launch = std::make_shared<Launch>();
         launch->desc.identity = id;
         launch->desc.address = moonlight::HostAddress{utf8(h.address), uint16_t(h.port)};
@@ -695,14 +695,14 @@ bool MoonlightModel::launchSelected(int appId) {
         return [this, launch, hostId, appId] {
             const QString label = launch->label;   // the handler takes the whole launch
             if (!launch_ || !launch_(std::move(*launch))) {
-                status_ = tr("无法开始串流，请查看日志。");
+                status_ = tr("Could not start streaming; see the log.");
                 return;
             }
             lastHost_ = hostId;
             lastApp_ = appId;
             lastLabel_ = label;
             saveStore();
-            status_ = tr("正在建立串流…");
+            status_ = tr("Setting up the stream…");
             emit started();
         };
     });

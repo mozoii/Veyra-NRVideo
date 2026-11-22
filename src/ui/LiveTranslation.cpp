@@ -127,13 +127,13 @@ LiveTranslation::LiveTranslation(const QString& directory, QObject* parent)
     connect(&assets_, &TranslationAssets::changed, this, &LiveTranslation::changed);
     connect(&reader_, &QProcess::readyReadStandardOutput, this, &LiveTranslation::readCaptions);
     connect(&reader_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (enabled_ && error == QProcess::FailedToStart) setStatus(tr("无法启动 Windows 字幕读取器"));
+        if (enabled_ && error == QProcess::FailedToStart) setStatus(tr("Could not start the Windows caption reader"));
     });
     connect(&reader_, &QProcess::finished, this, [this] {
         if (!enabled_ || !readerStarted_) return;
         resetCaption();
         captionsOpen_ = false;
-        setStatus(tr("字幕读取已停止，请重新启用"));
+        setStatus(tr("Caption reading stopped. Enable it again."));
     });
     connect(&server_, &QProcess::started, this, [this] {
         if (!enabled_ || provider_ != Local) { server_.kill(); return; }
@@ -150,20 +150,20 @@ LiveTranslation::LiveTranslation(const QString& directory, QObject* parent)
             if (job) CloseHandle(job);
             serverFailed_ = true;
             server_.kill();
-            setStatus(tr("无法启动本地翻译进程"));
+            setStatus(tr("Could not start the local translator"));
         }
     });
     connect(&server_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (enabled_ && provider_ == Local && error == QProcess::FailedToStart) {
             serverFailed_ = true;
-            setStatus(tr("无法启动本地翻译进程"));
+            setStatus(tr("Could not start the local translator"));
         }
     });
     connect(&server_, &QProcess::finished, this, [this] {
         if (serverJob_) CloseHandle(std::exchange(serverJob_, nullptr));
         if (enabled_ && provider_ == Local && serverPort_) {
             serverFailed_ = true;
-            setStatus(tr("本地翻译进程已停止，请重新启用"));
+            setStatus(tr("Local translator stopped. Enable it again."));
         }
     });
     timer_.setInterval(100);
@@ -204,11 +204,11 @@ void LiveTranslation::setStatus(QString status) {
 void LiveTranslation::setEnabled(bool value) {
     if (enabled_ == value) return;
     if (value && !supported()) {
-        setStatus(tr("实时翻译需要 Windows 11 22H2 或更新版本"));
+        setStatus(tr("Live translation requires Windows 11 22H2 or later"));
         return;
     }
     if (value && provider_ == OpenAi && (completionEndpoint(apiBase_).isEmpty() || apiModel_.isEmpty())) {
-        setStatus(tr("请填写 HTTPS 接口地址和模型名，本机服务可使用 HTTP"));
+        setStatus(tr("Enter an HTTPS API address and model name. Local services can use HTTP."));
         return;
     }
     enabled_ = value;
@@ -219,7 +219,7 @@ void LiveTranslation::setEnabled(bool value) {
     captionsOpen_ = false;
     serverFailed_ = false;
     if (enabled_) {
-        setStatus(tr("请打开 Windows 实时字幕"));
+        setStatus(tr("Open Windows Live Captions to continue"));
         timer_.start();
     } else {
         timer_.stop();
@@ -298,7 +298,7 @@ void LiveTranslation::setApiKey(const QString& value) {
 
 void LiveTranslation::openWindowsCaptions() {
     if (supported() && !QProcess::startDetached(windowsSystemExecutable(L"LiveCaptions.exe"), {}))
-        setStatus(tr("请按 Win + Ctrl + L 打开系统字幕"));
+        setStatus(tr("Press Win + Ctrl + L to open Live Captions"));
 }
 
 void LiveTranslation::downloadModel() {
@@ -328,7 +328,7 @@ void LiveTranslation::readCaptions() {
         if (ready != captionsOpen_) {
             captionsOpen_ = ready;
             if (!ready) resetCaption();
-            setStatus(ready ? tr("正在等待语音…") : tr("请打开 Windows 实时字幕"));
+            setStatus(ready ? tr("Waiting for speech…") : tr("Open Windows Live Captions to continue"));
         }
         acceptCaption(message.value(QStringLiteral("text")).toString().left(300));
     }
@@ -372,21 +372,21 @@ void LiveTranslation::tick() {
     if (!caption_.isEmpty() && now - newTextAt_ > captionLifetimeMs) resetCaption();
     if (!active_) {
         if (serverPort_) stopLocal();
-        setStatus(tr("播放或连接片源后开始翻译"));
+        setStatus(tr("Translation starts when a source plays"));
         return;
     }
     if (!captionsOpen_) {
-        if (reader_.state() != QProcess::NotRunning) setStatus(tr("请打开 Windows 实时字幕"));
+        if (reader_.state() != QProcess::NotRunning) setStatus(tr("Open Windows Live Captions to continue"));
         return;
     }
     if (now - lastCaptionReadAt_ > 4000) {
         resetCaption();
-        setStatus(tr("正在等待 Windows 字幕响应…"));
+        setStatus(tr("Waiting for Windows Live Captions…"));
         return;
     }
     if (provider_ == Local) {
         if (downloading()) return;
-        if (!modelInstalled()) { setStatus(tr("请先下载本地翻译模型")); return; }
+        if (!modelInstalled()) { setStatus(tr("Download the local translation model first")); return; }
         if (serverFailed_) return;
         if (!serverPort_ && server_.state() == QProcess::NotRunning) startLocal();
         if (!serverJob_ || server_.state() != QProcess::Running) return;
@@ -398,7 +398,7 @@ void LiveTranslation::tick() {
         if (now - serverStartedAt_ > 20000) {
             stopLocal();
             serverFailed_ = true;
-            setStatus(tr("本地翻译服务启动超时，请重新启用"));
+            setStatus(tr("Local translator timed out. Enable it again."));
         }
         return;
     }
@@ -408,13 +408,13 @@ void LiveTranslation::tick() {
 void LiveTranslation::startLocal() {
     if (!assets_.verifyRuntime()) {
         serverFailed_ = true;
-        setStatus(tr("本地运行库校验失败，请重新下载"));
+        setStatus(tr("Local runtime failed verification. Download it again."));
         return;
     }
     QTcpServer endpoint;
     if (!endpoint.listen(QHostAddress::LocalHost)) {
         serverFailed_ = true;
-        setStatus(tr("无法启动本地翻译进程"));
+        setStatus(tr("Could not start the local translator"));
         return;
     }
     serverPort_ = endpoint.serverPort();
@@ -430,7 +430,7 @@ void LiveTranslation::startLocal() {
     server_.setProcessEnvironment(env);
     server_.setWorkingDirectory(assets_.runtimePath());
     serverStartedAt_ = clock_.elapsed();
-    setStatus(tr("正在加载本地翻译模型…"));
+    setStatus(tr("Loading the local translation model…"));
     server_.start(QDir(assets_.runtimePath()).filePath(QStringLiteral("llama-server.exe")),
         {QStringLiteral("--model"), assets_.modelPath(), QStringLiteral("--host"), QStringLiteral("127.0.0.1"),
          QStringLiteral("--port"), QString::number(serverPort_), QStringLiteral("--threads"), n,
@@ -453,7 +453,7 @@ void LiveTranslation::requestTranslation() {
     requestedText_ = text;
     if (sourceLanguage_.compare(targetLanguage_, Qt::CaseInsensitive) == 0) {
         translated_ = text;
-        setStatus(tr("实时翻译运行中"));
+        setStatus(tr("Live translation active"));
         emit captionChanged();
         return;
     }
@@ -461,7 +461,7 @@ void LiveTranslation::requestTranslation() {
     QByteArray token, payload;
     if (provider_ == MyMemory) {
         if (sourceLanguage_.isEmpty()) {
-            setStatus(tr("MyMemory 需要选择原文语言"));
+            setStatus(tr("Select a source language for MyMemory"));
             return;
         }
         url = QUrl(QStringLiteral("https://api.mymemory.translated.net/get"));
@@ -512,11 +512,11 @@ void LiveTranslation::receiveTranslation(QNetworkReply* reply, const QString& te
     const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (provider_ == Local && code == 503 && clock_.elapsed() - serverStartedAt_ < 20000) {
         requestedText_.clear();
-        setStatus(tr("正在加载本地翻译模型…"));
+        setStatus(tr("Loading the local translation model…"));
         return;
     }
     if (code < 200 || code >= 300 || reply->error() != QNetworkReply::NoError) {
-        setStatus(code ? tr("翻译接口返回 HTTP %1").arg(code) : tr("翻译请求失败，请检查连接"));
+        setStatus(code ? tr("The translation API returned HTTP %1").arg(code) : tr("Translation request failed. Check the connection."));
         return;
     }
     const auto result = QJsonDocument::fromJson(reply->readAll()).object();
@@ -530,11 +530,11 @@ void LiveTranslation::receiveTranslation(QNetworkReply* reply, const QString& te
             translation = choices.first().toObject().value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
     }
     if (translation.trimmed().isEmpty()) {
-        setStatus(tr("翻译接口未返回译文"));
+        setStatus(tr("The API returned no translation"));
         return;
     }
     translated_ = translation.simplified().left(500);
-    setStatus(tr("实时翻译运行中"));
+    setStatus(tr("Live translation active"));
     emit captionChanged();
 }
 } // namespace veyra::ui

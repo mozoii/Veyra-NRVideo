@@ -8,11 +8,11 @@
 namespace veyra::engine {
 // Beauty node: two independent sub-functions on the picture at the node's position.
 //
-//   Face restore  ("人脸原画保护"): inside the detected faces the node blends the
+//   Face restore  ("face original protection"): inside the detected faces the node blends the
 //                 same frame's original back in (the picture before every effect
 //                 node: colour grades, SR, every NR layer, earlier beauty nodes):
 //                 P = lerp(C, O, strength * faceMask).
-//   Skin smoothing ("美颜"): SkinSoft's skin selection, detail protection and
+//   Skin smoothing ("beauty"): SkinSoft's skin selection, detail protection and
 //                 texture restore around an edge-preserving local mean (GPUPixel's
 //                 variance-adaptive blend, run as a fast guided filter) on P.
 //

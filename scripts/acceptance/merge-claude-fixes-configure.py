@@ -57,7 +57,7 @@ for key in ('PROTOC', 'PKG_CONFIG_EXECUTABLE', 'SDL3_DIR', 'LibDataChannel_DIR',
     options[key] = re.search(r'^' + key + r':[^=]+=(.*)$', cache, re.M).group(1)
 options.update(VEYRA_DECKLINK_SDK_DIR=str(BASE / 'deps/decklink-sdk-obs31-20261009'),
     VEYRA_AMD_NR_TEST_GRAPH_SOURCE=str(ROOT / 'src/pipeline/EnhanceGraph.cpp'), VEYRA_DISPLAY_VERSION=prior['displayVersion'])
-for key in ('REMOTEPLAY', 'MOONLIGHT', 'XBOX'): assert options['VEYRA_ENABLE_' + key] == 'ON'
+for key in ('MOONLIGHT', 'XBOX'): assert options['VEYRA_ENABLE_' + key] == 'ON'
 conf = OUT / 'cmake'
 run([cmake, '-S', str(ROOT), '-B', str(conf), '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release'] +
     ['-D' + key + '=' + value for key, value in options.items()], 'configure-full-product')
@@ -69,7 +69,7 @@ assert '/STACK:8388608' in live
 mainTarget = re.search(r'^build (CMakeFiles[\\/]veyra_qml_ui\.dir[\\/]apps[\\/]veyra-qml[\\/]main.cpp.obj):', graph, re.M).group(1)
 main = subprocess.check_output([ninja, '-t', 'commands', mainTarget], cwd=conf, text=True, encoding='utf8').splitlines()[-1]
 assert 'QtQuick/6.8.3' not in main.replace('\\', '/')  # No withdrawn QuickPrivate/full-redraw hook.
-for feature in ('REMOTEPLAY', 'MOONLIGHT', 'XBOX'): assert '-DVEYRA_ENABLE_' + feature + '=1' in main
+for feature in ('MOONLIGHT', 'XBOX'): assert '-DVEYRA_ENABLE_' + feature + '=1' in main
 assert str(ROOT / 'apps/veyra-qml/main.cpp').replace('\\', '/') in main.replace('\\', '/')
 (LOG / 'main-command.txt').write_text(main, 'utf8')
 (LOG / 'live-commands.txt').write_text(live, 'utf8')

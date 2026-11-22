@@ -20,10 +20,10 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property string errorText: ""
     function applyRate() {
-        if (!input.acceptableInput) { errorText=qsTr("请输入 0.25～4.00 之间的倍速"); return }
+        if (!input.acceptableInput) { errorText=qsTr("Enter a speed between 0.25 and 4.00"); return }
         const rate=Number(input.text)
         veyra.playbackRate=rate
-        if (Math.abs(veyra.playbackRate-rate)>0.000001) { errorText=qsTr("当前播放状态无法修改倍速"); return }
+        if (Math.abs(veyra.playbackRate-rate)>0.000001) { errorText=qsTr("Playback speed cannot be changed in the current state"); return }
         close()
     }
     onOpened: {
@@ -40,12 +40,12 @@ Popup {
     contentItem: ColumnLayout {
         id: body
         spacing: 14
-        Text { text: qsTr("自定义播放速度"); color: Theme.t1; font.family: Theme.fontUi; font.pixelSize: Theme.fsH2; font.weight: Font.DemiBold }
-        Text { text: qsTr("范围 0.25～4.00 倍，保持原有音调"); color: Theme.t2; font.family: Theme.fontUi; font.pixelSize: Theme.fsBody }
+        Text { text: qsTr("Custom playback speed"); color: Theme.t1; font.family: Theme.fontUi; font.pixelSize: Theme.fsH2; font.weight: Font.DemiBold }
+        Text { text: qsTr("Range 0.25–4.00×, preserving pitch"); color: Theme.t2; font.family: Theme.fontUi; font.pixelSize: Theme.fsBody }
         Basic.TextField {
             id: input
             objectName: dialog.objectName+"-input"
-            Accessible.name: qsTr("播放倍速")
+            Accessible.name: qsTr("Playback speed")
             Layout.fillWidth: true
             color: Theme.t1; font.family: Theme.fontMono; font.pixelSize: 18
             selectByMouse: true
@@ -57,8 +57,8 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             Item { Layout.fillWidth: true }
-            VButton { objectName: dialog.objectName+"-cancel"; text: qsTr("取消"); onClicked: dialog.close() }
-            VButton { objectName: dialog.objectName+"-apply"; text: qsTr("应用"); primary: true; onClicked: dialog.applyRate() }
+            VButton { objectName: dialog.objectName+"-cancel"; text: qsTr("Cancel"); onClicked: dialog.close() }
+            VButton { objectName: dialog.objectName+"-apply"; text: qsTr("Apply"); primary: true; onClicked: dialog.applyRate() }
         }
     }
 }

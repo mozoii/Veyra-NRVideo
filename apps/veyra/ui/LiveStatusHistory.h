@@ -105,11 +105,11 @@ struct DashboardHistory {
         else{low=0;if(++good>=8)overloaded=false;}
     }
     const wchar_t* rateStatus(const engine::PlayerSnapshot& s)const{
-        if(resetSamples>=3)return L"输入时间线异常";
-        if(inputLimited)return L"输入帧率不足";
+        if(resetSamples>=3)return L"Input timeline irregular";
+        if(inputLimited)return L"Input frame rate too low";
         if(s.applied.multiplier>1&&!output.comparison&&(s.fgBudgetLimited||s.xessGenerationSuppressed)&&
-           (!output.policyLimited()||overloaded))return L"补帧调度降档";
-        return overloaded?L"输出未达标":L"正常";
+           (!output.policyLimited()||overloaded))return L"Frame generation stepped down";
+        return overloaded?L"Output below target":L"Normal";
     }
 };
 }

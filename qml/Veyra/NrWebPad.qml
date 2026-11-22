@@ -194,7 +194,7 @@ ColumnLayout {
     }
     Text {
         Layout.fillWidth: true
-        text: qsTr("实线：当前值 · 虚线：默认值；向外增加该项，并非越大越好。")
+        text: qsTr("Solid: current · Dashed: default. Outward increases the value; higher is not always better.")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11; wrapMode: Text.Wrap
     }
     RowLayout {
@@ -237,7 +237,7 @@ ColumnLayout {
     }
     VButton {
         objectName: pad.objectName + "-undo"
-        text: qsTr("撤销上一项调整"); ghost: true
+        text: qsTr("Undo last adjustment"); ghost: true
         enabled: pad.editable && pad.undoEdit !== null && pad.undoEdit.identity === pad.identity
         onClicked: { const last = pad.undoEdit; pad.undoEdit = null; pad.edited(last.key, last.before) }
     }

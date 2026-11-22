@@ -2,7 +2,7 @@ import QtQuick
 import QtTest
 import Veyra
 
-// 设置 → 赞助作者: every platform card and the Patreon buttons name their page, Patreon comes
+// Settings → Sponsors: every platform card and the Patreon buttons name their page, Patreon comes
 // before the mainland China codes, and the brand tiles and both codes load (SVGs need
 // the qsvg plugin beside the app).
 Item {
@@ -24,7 +24,7 @@ Item {
             for (let i = 0; i < ids.length; ++i) {
                 const card = findChild(panel, "sponsor-link-" + ids[i])
                 verify(card, ids[i])
-                // On 前往主页 (or the Patreon button's text): the whole card is the button.
+                // On Go to homepage (or the Patreon button's text): the whole card is the button.
                 mouseClick(card, card.width / 2, card.height - 22)
                 compare(opened.count, i + 1, ids[i])
                 compare(opened.signalArguments[i][0], ids[i])
@@ -44,7 +44,7 @@ Item {
                 compare(Math.round(code.paintedWidth), 220, id)
             }
         }
-        // Patreon first, then 中国大陆用户 with the two codes.
+        // Patreon first, then the mainland China codes.
         function test_patreonBeforeMainlandCodes() {
             panel.width = 720
             wait(50)

@@ -65,7 +65,7 @@ int wmain(int argc,wchar_t** argv){
         if(cancel)ok=ok&&requestedCancel&&snapshot.state==ExportState::Cancelled&&!std::filesystem::exists(argv[3]);
         else if(rejected){
             ok=ok&&snapshot.state==ExportState::Failed&&snapshot.encoded==0
-                &&snapshot.message.find(L"导出任务的路径、剪辑、封装或轨道参数无效")!=std::wstring::npos
+                &&snapshot.message.find(L"Invalid export path, trim, container or track settings")!=std::wstring::npos
                 &&!std::filesystem::exists(argv[3]);
         }else if(encoder){
             ok=ok&&snapshot.state==ExportState::Failed&&snapshot.encoded==0&&snapshot.message.find(snapshot.workerLog)!=std::wstring::npos;

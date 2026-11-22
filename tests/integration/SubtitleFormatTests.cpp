@@ -49,7 +49,7 @@ int wmain(int argc,wchar_t** argv){
     }
     bool loading=false,progress=false;
     const auto compressed=loadEmbeddedSubtitleTracks((root/L"compressed.mkv").wstring(),{},[&](const auto& tracks){
-        if(tracks.size()==5){loading|=!tracks[0].usable()&&tracks[0].note==L"正在读取字幕";progress|=tracks[0].usable();}
+        if(tracks.size()==5){loading|=!tracks[0].usable()&&tracks[0].note==L"Reading subtitles";progress|=tracks[0].usable();}
     });
     const auto plain=loadEmbeddedSubtitleTracks((root/L"plain.mkv").wstring());
     check(loading&&progress,"loading state and first cue published during scan");
@@ -65,7 +65,7 @@ int wmain(int argc,wchar_t** argv){
     check(duration.size()==1,"PGS with container duration discovered");
     if(duration.size()==1)times(duration[0]);
     const auto corrupt=loadEmbeddedSubtitleTracks((root/L"corrupt.mkv").wstring());
-    check(corrupt.size()==1&&!corrupt[0].usable()&&!corrupt[0].note.empty()&&corrupt[0].note!=L"正在读取字幕","broken PGS reports a final reason");
+    check(corrupt.size()==1&&!corrupt[0].usable()&&!corrupt[0].note.empty()&&corrupt[0].note!=L"Reading subtitles","broken PGS reports a final reason");
     for(const auto* name:{L"broken.sup",L"missing.idx",L"orphan.sub",L"absent.sup",L"oversized.srt",L"oversized-vobsub.sub"}){
         const auto track=loadSubtitleFile((root/name).wstring());
         check(!track.usable()&&!track.note.empty(),"bad or incomplete external file reports reason");

@@ -26,7 +26,7 @@ Item {
     signal requestMaximize()
     signal requestClose()
     signal requestMove()
-    // The cinema pill's eye: shown on 极简 and in fullscreen, toggles the pill.
+    // The cinema pill's eye: shown on Minimal and in fullscreen, toggles the pill.
     property bool pillToggleVisible: false
     property bool pillHidden: false
     signal requestTogglePill()
@@ -41,10 +41,10 @@ Item {
 
     // --- page definitions (order and tooltips from core.js) ---------------
     readonly property var items: [
-        { id: "min",   icon: "tv", tip: qsTr("极简") },
-        { id: "pro",   icon: "sliders", tip: qsTr("专业模式") },
-        { id: "exp",   icon: "upload", tip: qsTr("导出") },
-        { id: "set",   icon: "settings", tip: qsTr("设置") }
+        { id: "min",   icon: "tv", tip: qsTr("Minimal") },
+        { id: "pro",   icon: "sliders", tip: qsTr("Pro mode") },
+        { id: "exp",   icon: "upload", tip: qsTr("Export") },
+        { id: "set",   icon: "settings", tip: qsTr("Settings") }
     ]
 
     // .dock-zone { height:12px } and .dock-handle { 44x4, top:5 }
@@ -273,7 +273,7 @@ Item {
                     Text {
                         id: pillTipText
                         anchors.centerIn: parent
-                        text: dockRoot.pillHidden ? qsTr("显示播放条") : qsTr("隐藏播放条")
+                        text: dockRoot.pillHidden ? qsTr("Show playback bar") : qsTr("Hide playback bar")
                         color: "#FFFFFF"
                         font.family: Theme.fontUi
                         font.pixelSize: 11
@@ -296,9 +296,9 @@ Item {
             // Window controls: minimize, maximize/restore, close.
             Repeater {
                 model: [
-                    { id: "min", icon: "minus", tip: qsTr("最小化") },
-                    { id: "max", icon: "max", tip: dockRoot.maximized ? qsTr("还原") : qsTr("最大化") },
-                    { id: "close", icon: "x", tip: qsTr("关闭") }
+                    { id: "min", icon: "minus", tip: qsTr("Minimize") },
+                    { id: "max", icon: "max", tip: dockRoot.maximized ? qsTr("Reset") : qsTr("Maximize") },
+                    { id: "close", icon: "x", tip: qsTr("Close") }
                 ]
                 delegate: Item {
                     id: wbtn

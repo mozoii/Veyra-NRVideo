@@ -48,12 +48,12 @@ for vendor in ('AMD','NVIDIA'):
     for name in ('STABILITY_EXPORT_PRIORITY_PLAN_2026-10-06.md','STABILITY_EXPORT_PRIORITY_REPORT_2026-10-06.md'):
         if (ROOT/'docs'/name).exists():shutil.copy2(ROOT/'docs'/name,app/'docs'/name)
     (app/'REPAIR_TEST_2.0.4-fix2.md').write_text(
-        '# Veyra 2.0.4-fix2 本地修复候选\n\n'
-        '请解压到新目录测试。本包沿用已批准的运行库原字节，包含已经合入 main 的 PR19/20 和此前 fix1。尚未公开发布。\n\n'
-        '修复 AMD 通用补帧入口和旧配置恢复：不可用的 DLSS 选择优先迁移到 FSR 2X，保留启用状态和可用的手动 XeSS 选择；FSR 视频导出保留 FSR 后端；AMD 视频导出内部最高 1080p NR、原输出尺寸合成编码；XeSS 导出明确提示改选 FSR/DLSS/VFG。\n\n'
-        '自动显示同步在窗口和全屏等待垂直同步防撕裂，提交 FPS 受显示器刷新率限制；仍可手动选择允许撕裂。GPU 优先级避免重复写入已生效档位。\n\n'
-        '已核实 2.0.3 默认 GPU 优先级为普通。修复实时统计动画与 NR 的 GPU 竞争，保留交互动效和真实统计值；未提高优先级或减少 NR 工作。RTX5070 普通档、原版单层 1080p NR：GTA VI 4K30 旧/新均约 6.559ms（差 +0.009%），M2 4K60 为 6.633/6.590ms（差 -0.638%），这两组未再出现此前约 7% 的差距。数据限本机/素材/设置，不代表所有配置或屏幕延迟。\n\n'
-        '实测、性能比较的控制条件和未验证项见 docs/STABILITY_EXPORT_PRIORITY_REPORT_2026-10-06.md。本机为 RTX5070，AMD 4K 合成检查使用恒等提供器，不冒充 AMD HIP/硬件编码验收。\n',encoding='utf8')
+        '# Veyra 2.0.4-fix2 local fix candidate\n\n'
+        'Extract to a new directory to test. This package reuses the approved runtime original bytes, includes PR19/20 and the earlier fix1 already merged to main. Not yet published.\n\n'
+        'Fixes AMD generic frame-gen entry and old-config recovery: unavailable DLSS selection is first migrated to FSR 2X, keeping the enabled state and available manual XeSS selection; FSR video export keeps the FSR backend; AMD video export internal max 1080p NR, original output-size composite encoding; XeSS export clearly prompts to switch to FSR/DLSS/VFG.\n\n'
+        'Automatic display sync waits for vertical sync in window and fullscreen to prevent tearing, submission FPS is limited by the monitor refresh rate; manual choice of allowing tearing is still available. GPU priority avoids re-writing the effective tier.\n\n'
+        'Verified 2.0.3 default GPU priority is normal. Fixes GPU contention between real-time stats animation and NR, keeping interaction effect and real statistics; does not raise priority or reduce NR work. RTX5070 normal tier, original single-layer 1080p NR: GTA VI 4K30 old/new both about 6.559ms (diff +0.009%), M2 4K60 is 6.633/6.590ms (diff -0.638%), this pair no longer shows the earlier ~7% gap. Data limited to this machine/material/settings, not representative of all configurations or screen latency.\n\n'
+        'Measured, performance-comparison control conditions and unverified items: docs/STABILITY_EXPORT_PRIORITY_REPORT_2026-10-06.md. This machine is RTX5070, AMD 4K composite check uses an identity provider, not claiming AMD HIP/hardware encoding acceptance.\n',encoding='utf8')
     assert sha(app/'veyra_qml_ui.exe')==sha(BUILD/'veyra_qml_ui.exe')
     for rel,h in immutable.items():assert sha(app/rel)==h,rel
     actual={f.relative_to(app).as_posix():f for f in app.rglob('*') if f.is_file()}

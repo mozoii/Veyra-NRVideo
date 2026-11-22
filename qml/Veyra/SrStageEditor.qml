@@ -14,18 +14,18 @@ ColumnLayout {
     readonly property bool manual: veyra.srPrescale >= 150 && veyra.srPrescale <= 190
     readonly property var targets: [{id:"1",label:"2K"},{id:"2",label:"4K"},{id:"4",label:"5K"},{id:"5",label:"6K"},{id:"6",label:"7K"},{id:"3",label:"8K"}]
     VRow {
-        label: qsTr("目标尺寸")
-        hint: qsTr("基础超分的尺寸；设置缩回时为中间尺寸。")
+        label: qsTr("Target size")
+        hint: qsTr("Base SR size; with a shrink set, this is the intermediate size.")
         VSeg { objectName: editor.namePrefix+"-sr-target"; options: editor.targets; current: String(veyra.srTargetIndex); onPicked: id => veyra.srTargetIndex=Number(id) }
     }
     VRow {
-        label: qsTr("超分运动来源")
-        hint: qsTr("零运动会限制时序重建；RTX 视频超分不使用此输入")
-        VSeg { options:[{id:"0",label:qsTr("零运动")},{id:"1",label:qsTr("光流")}]; current:String(veyra.srMotionSource); onPicked:id=>veyra.srMotionSource=Number(id) }
+        label: qsTr("Super resolution motion source")
+        hint: qsTr("Zero motion limits temporal reconstruction; RTX Video Super Resolution does not use this input")
+        VSeg { options:[{id:"0",label:qsTr("Zero motion")},{id:"1",label:qsTr("Optical flow")}]; current:String(veyra.srMotionSource); onPicked:id=>veyra.srMotionSource=Number(id) }
     }
     VRow {
-        label: qsTr("档位")
-        hint: qsTr("越高越清晰、越耗时；流媒体只有中和超高两档。")
+        label: qsTr("Tier")
+        hint: qsTr("Higher tiers are sharper and take longer; Streaming has only Medium and Ultra.")
         enabled: editor.supported; opacity: enabled ? 1 : 0.4
         VSeg {
             objectName: editor.namePrefix+"-sr-quality"
@@ -36,22 +36,22 @@ ColumnLayout {
     }
     // Supersampling: a single RTX Video SR pass at the target, shrunk into this size.
     VRow {
-        label: qsTr("超分后缩回到")
-        hint: !editor.supported ? qsTr("超分后缩回目前使用 RTX 视频超分")
-            : veyra.dualSrEnabled ? qsTr("双重超分开启时不使用；关闭双重超分后恢复。")
-            : qsTr("超采样：先超到目标尺寸再精确缩回，更自然、略软；显存更高，降噪和补帧按缩回后尺寸运行。")
+        label: qsTr("Shrink after SR to")
+        hint: !editor.supported ? qsTr("Shrink after SR currently uses RTX Video SR")
+            : veyra.dualSrEnabled ? qsTr("Not used while double SR is on; it returns when double SR is turned off.")
+            : qsTr("Supersampling: SR to the target, then an exact shrink. More natural, slightly softer; more video memory. NR and frame generation run at the shrunk size.")
         enabled: editor.supported && !veyra.dualSrEnabled
         opacity: enabled ? 1 : 0.4
         VSelect {
             objectName: editor.namePrefix+"-sr-output"
-            options: [{id:"0",label:qsTr("不缩回")},{id:"1",label:qsTr("片源尺寸")},{id:"2",label:"2K"},{id:"3",label:"4K"},{id:"4",label:"5K"},{id:"5",label:"6K"},{id:"6",label:"7K"}]
-            value: options.find(o=>o.id===String(veyra.srOutput))?.label||qsTr("不缩回")
+            options: [{id:"0",label:qsTr("No shrink")},{id:"1",label:qsTr("Source size")},{id:"2",label:"2K"},{id:"3",label:"4K"},{id:"4",label:"5K"},{id:"5",label:"6K"},{id:"6",label:"7K"}]
+            value: options.find(o=>o.id===String(veyra.srOutput))?.label||qsTr("No shrink")
             onPicked: id => veyra.srOutput=Number(id)
         }
     }
     VRow {
-        label: qsTr("双重超分")
-        hint: qsTr("先完成基础超分，再将结果降低分辨率并执行第二次超分；两次执行独立，会增加耗时和显存。")
+        label: qsTr("Double super resolution")
+        hint: qsTr("Finish base SR, reduce its result, then run SR again. The two evaluations increase GPU time and memory.")
         enabled: editor.srAvailable
         opacity: enabled ? 1 : 0.4
         VSwitch { objectName: editor.namePrefix+"-dual-sr-toggle"; checked: veyra.dualSrEnabled; onToggled: checked => veyra.dualSrEnabled=checked }
@@ -63,18 +63,18 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 6
         VRow {
-            label: qsTr("再次降低到")
-            hint: qsTr("降低的是基础超分后的画面，不是原始输入；选项必须小于基础结果和第二次超分目标。")
+            label: qsTr("Reduce the first result to")
+            hint: qsTr("This reduces the base SR result, not the original input. Select a size below both the base result and the second SR target.")
             VSelect {
                 objectName: editor.namePrefix+"-sr-prescale"
-                options: [{id:"1",label:"720p"},{id:"2",label:"900p"},{id:"3",label:"1080p"},{id:"4",label:"1440p"},{id:"manual",label:qsTr("手动")}]
-                value: editor.manual ? qsTr("手动") : (options.find(o=>o.id===String(veyra.srPrescale))?.label||"1080p")
+                options: [{id:"1",label:"720p"},{id:"2",label:"900p"},{id:"3",label:"1080p"},{id:"4",label:"1440p"},{id:"manual",label:qsTr("Manual")}]
+                value: editor.manual ? qsTr("Manual") : (options.find(o=>o.id===String(veyra.srPrescale))?.label||"1080p")
                 onPicked: id => veyra.srPrescale=id==="manual"?175:Number(id)
             }
         }
         VRow {
             visible: editor.manual
-            label: qsTr("二次处理比例")
+            label: qsTr("Second-pass scale")
             value: Math.round(percent.displayedValue)+"%"
             VSlider {
                 id: percent; objectName: editor.namePrefix+"-sr-prescale-percent"
@@ -84,12 +84,12 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("第二次超分到")
+            label: qsTr("Second SR target")
             VSeg { objectName: editor.namePrefix+"-dual-sr-target"; options: editor.targets; current: String(veyra.dualSrTargetIndex); onPicked: id=>veyra.dualSrTargetIndex=Number(id) }
         }
         VRow {
-            label: qsTr("第二次超分算法")
-            hint: qsTr("独立于基础超分，可以选任意一种超分；DLSS SR 两次共用上面的 DLSS 模型。")
+            label: qsTr("Second SR algorithm")
+            hint: qsTr("Independent of the base SR; any SR algorithm works. Both DLSS SR passes use the DLSS model above.")
             VSelect {
                 objectName: editor.namePrefix+"-dual-sr-algorithm"
                 implicitWidth: 210
@@ -101,7 +101,7 @@ ColumnLayout {
         }
         VRow {
             visible: editor.secondRtx
-            label: qsTr("第二次超分档位")
+            label: qsTr("Second SR tier")
             VSeg {
                 objectName: editor.namePrefix+"-dual-sr-quality"
                 options: veyra.srTierChoices(veyra.dualSrQuality)

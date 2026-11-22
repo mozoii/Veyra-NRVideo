@@ -13,14 +13,14 @@ Item {
         property bool hasBackup: false
         readonly property bool canRepair: !busy && needsRepair
         readonly property bool canRestore: !busy && hasBackup
-        property string summary: qsTr("尚未检查")
+        property string summary: qsTr("Not checked")
         property string detail: typeof vrrProfileTestHint !== "undefined" ? vrrProfileTestHint
-            : qsTr("仅为当前软件路径配置窗口和全屏 G-SYNC，可恢复原设置；显示器和驱动的 G-SYNC 总开关仍需开启。")
+            : qsTr("Configure windowed and fullscreen G-SYNC for this application path, with an option to restore the original settings. G-SYNC must also be enabled on the monitor and in the driver.")
         property int checks: 0
         property int repairs: 0
         property int restores: 0
-        function check() { checks++; summary = "已检查" }
-        function repair() { repairs++; needsRepair = false; hasBackup = true; summary = "已允许窗口和全屏" }
+        function check() { checks++; summary = "Checked" }
+        function repair() { repairs++; needsRepair = false; hasBackup = true; summary = "Windowed and fullscreen allowed" }
         function restore() { restores++; needsRepair = true; hasBackup = false }
     }
     ColumnLayout {
@@ -39,7 +39,7 @@ Item {
             fixture.width = 400
             profile.busy = false; profile.needsRepair = true; profile.hasBackup = false
             profile.checks = 0; profile.repairs = 0; profile.restores = 0
-            profile.summary = qsTr("尚未检查")
+            profile.summary = qsTr("Not checked")
             wait(20)
         }
         function test_no_automatic_driver_calls() {

@@ -40,25 +40,25 @@ for name in ('Main.qml','SettingsPage.qml'):
 for name in doc_changes:
     if (APP/name).exists():shutil.copy2(ROOT/name,APP/name)
 shutil.copy2(ROOT/'docs/RTSS_RESTART_LOOP_PLAN_2026-10-04.md',APP/'docs/RTSS_RESTART_LOOP_PLAN_2026-10-04.md')
-(APP/'RTSS-修复说明.md').write_text('''# Veyra 2.0.3 RTSS 本地修复版（NVIDIA）
+(APP/'RTSS-LOCAL-FIX.md').write_text('''# Veyra 2.0.3 RTSS local fix build (NVIDIA)
 
-在本目录运行 veyra_qml_ui.exe 即可，组件已齐全。默认监控软件兼容为自动。
+Just run veyra_qml_ui.exe in this directory; components are complete. Default monitoring-software compatibility is automatic.
 
-修复：孤立 RTSS 加载器或残留共享内存不再被当作 RTSS 屏显服务运行；
-点击兼容重启携带本次启动意图，避免重启后再次弹同一提示。
-提示区分 RTSS 与 MSI Afterburner，软件绘制背景保持不透明。
+Fix: orphaned RTSS loader or leftover shared memory no longer runs as an RTSS overlay service;
+clicking compatibility restart carries this launch intent, avoiding the same prompt reappearing after restart.
+The prompt distinguishes RTSS from MSI Afterburner, software-drawn background stays opaque.
 
-RTX 5070 / 616.56、用户实际安装的 RTSS 7.3.5.28314：
-11 项启动/重启及 3 套 RTSS 配置 × 11 项真实播放/效果/窗口组合通过。
-包括 NR 参数、最高 RTX 4K 超分、DLSS 2X/6X、XeSS 4X、FSR3.1 2X、
-VFG 2X Low/4X Medium/8X High、暂停/seek/全屏/窗口恢复。
-OSD 2/3 倍、位置、颜色、背景、检测级别、OSD 开关与 60 帧限制实际设置并读回。
-这属于短测；VFG 8X High 在 2K30 实时播放会调度降档，不保证 240 fps。
+RTX 5070 / 616.56, the user's actual installed RTSS 7.3.5.28314:
+11 launch/restart plus 3 RTSS configurations x 11 real playback/effect/window combinations pass.
+Including NR parameters, highest RTX 4K super-resolution, DLSS 2X/6X, XeSS 4X, FSR3.1 2X,
+VFG 2X Low/4X Medium/8X High, pause/seek/fullscreen/window restore.
+OSD 2/3x, position, color, background, detection level, OSD switch and 60-frame limit actually set and read back.
+This is a short test; VFG 8X High may be scheduled downgraded in 2K30 real-time playback, no 240 fps guarantee.
 
-RTSS 测试配置已恢复，测试主进程与加载器已退出。
-本包没有带入用户配置、测试脚本、媒体或日志；运行组件字节与正式 NVIDIA 2.0.3 包相同。
-本地修复尚未合入 main 或上传 GitHub，原正式包保持原样。
-对应 Veyra 源码 ZIP 在本目录的上级；未变的依赖源码沿用正式 2.0.3 资产。
+RTSS test configuration restored; the test main process and loader have exited.
+This package does not contain user config, test scripts, media or logs; runtime component bytes are the same as the official NVIDIA 2.0.3 package.
+The local fix is not yet merged into main or uploaded to GitHub; the original official package is unchanged.
+The corresponding Veyra source ZIP is in this directory's parent; unchanged dependency source is reused from the official 2.0.3 assets.
 ''',encoding='utf8')
 changed=[]
 for row in old['files']:

@@ -151,7 +151,7 @@ def audit_ffmpeg(prefix):
     if '--enable-zlib' not in build.get('configuration', ''):
         raise ValueError('FFmpeg lacks compressed Matroska subtitle support; use the tested zlib-enabled prefix')
     if build['patchSha256'].lower() != digest(ROOT / 'scripts/ffmpeg/ps5-h264-slices.patch'):
-        raise ValueError('PS5 FFmpeg patch provenance mismatch')
+        raise ValueError('FFmpeg slice patch provenance mismatch')
     for record in build['files']:
         if Path(record['name']).name != record['name'] or not record['name'].endswith('.dll'):
             raise ValueError('Invalid FFmpeg publisher manifest path')
@@ -274,11 +274,11 @@ def main():
     (stage / 'qt.conf').write_text('[Paths]\nPrefix=.\nPlugins=.\nQmlImports=qml\nTranslations=translations\n', encoding='utf8')
 
     cache = (args.build / 'CMakeCache.txt').read_text(encoding='utf8')
-    for option in ('VEYRA_BUILD_QML_UI', 'VEYRA_ENABLE_REMOTEPLAY', 'VEYRA_ENABLE_MOONLIGHT', 'VEYRA_ENABLE_XBOX'):
+    for option in ('VEYRA_BUILD_QML_UI', 'VEYRA_ENABLE_MOONLIGHT', 'VEYRA_ENABLE_XBOX'):
         if not re.search(r'^' + option + r':BOOL=ON$', cache, re.M):
             raise ValueError('Missing full product build option: ' + option)
     if ffbuild['patchSha256'].lower() != digest(ROOT / 'scripts/ffmpeg/ps5-h264-slices.patch'):
-        raise ValueError('PS5 FFmpeg patch provenance mismatch')
+        raise ValueError('FFmpeg slice patch provenance mismatch')
     for record in ffbuild['files']:
         source = ffmpeg / 'bin' / record['name']
         if digest(source) != record['sha256'].lower():

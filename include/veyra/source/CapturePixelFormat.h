@@ -38,6 +38,6 @@ inline std::wstring capturePixelName(const GUID& id){
     if(captureIsFourcc(id,id.Data1)){
         std::wstring name;for(unsigned i=0;i<4;++i){const unsigned ch=(id.Data1>>(8*i))&255;if(ch<32||ch>126){name.clear();break;}name+=wchar_t(ch);}if(!name.empty())return name;
     }
-    wchar_t guid[40]{};StringFromGUID2(id,guid,40);return std::format(L"未知格式 {}",guid);
+    wchar_t guid[40]{};StringFromGUID2(id,guid,40);return std::format(L"Unknown format {}",guid);
 }
 }

@@ -182,10 +182,10 @@ bool lowLatencyPreference() { return g_preference.load(); }
 std::wstring statusText() {
     if (g_active.load()) {
         const double ms = g_latencyMs.load();
-        return ms > 0 ? std::format(L"低延迟采集中 · 一帧从开始进卡到完整进内存 {:.1f} ms", ms) : std::wstring(L"低延迟采集中");
+        return ms > 0 ? std::format(L"Low-latency capture on · a frame takes {:.1f} ms from entering the card to fully in memory", ms) : std::wstring(L"Low-latency capture on");
     }
     std::lock_guard lock(g_statusMutex);
-    return g_lastError.empty() ? std::wstring() : L"未启用：" + g_lastError;
+    return g_lastError.empty() ? std::wstring() : L"Not enabled: " + g_lastError;
 }
 
 struct LowLatencyVideo::Impl {
@@ -218,10 +218,10 @@ bool LowLatencyVideo::start(const VideoRequest& request, Deliver deliver, std::w
 bool LowLatencyVideo::startImpl(const VideoRequest& request, Deliver deliver, std::wstring& error) {
 #ifdef VEYRA_HAS_MAGEWELL
     auto& a = api();
-    if (!a.ready) { error = L"没有可用的美乐威运行库（" + a.where + L"）"; return false; }
+    if (!a.ready) { error = L"No Magewell runtime available (" + a.where + L")"; return false; }
     if (!request.width || !request.height || !request.stride || !request.frameBytes ||
         request.frameBytes > (std::numeric_limits<DWORD>::max)() || !deliver) {
-        error = L"采集格式无效";
+        error = L"Invalid capture format";
         return false;
     }
     a.refreshDevice();
@@ -248,14 +248,14 @@ bool LowLatencyVideo::startImpl(const VideoRequest& request, Deliver deliver, st
     }
     log::info("magewell", std::format("directshow path={} chosen channel={} (exact={} instance={}x{} pro={})",
         narrow(request.directShowPath), chosen, exact, byInstance, instanceMatches, proCount));
-    if (chosen < 0) { error = L"找不到与所选设备对应的美乐威 Pro Capture 通道"; return false; }
+    if (chosen < 0) { error = L"No Magewell Pro Capture channel matches the selected device"; return false; }
     wchar_t path[MAX_PATH * 2]{};
     if (a.devicePath(chosen, path) != MW_SUCCEEDED) {
-        error = L"打开美乐威采集通道失败";
+        error = L"Could not open the Magewell capture channel";
         return false;
     }
     p_->channel = a.openChannel(path);
-    if (!p_->channel) { error = L"打开美乐威采集通道失败"; return false; }
+    if (!p_->channel) { error = L"Could not open the Magewell capture channel"; return false; }
     p_->request = request;
     p_->deliver = std::move(deliver);
     {
@@ -265,7 +265,7 @@ bool LowLatencyVideo::startImpl(const VideoRequest& request, Deliver deliver, st
     p_->stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!p_->stopEvent) {
         log::error("magewell", std::format("CreateEventW(stop) failed error={}", GetLastError()));
-        error = L"美乐威采集启动失败";
+        error = L"Magewell capture could not start";
         stop();
         return false;
     }
@@ -275,7 +275,7 @@ bool LowLatencyVideo::startImpl(const VideoRequest& request, Deliver deliver, st
         p_->thread = std::thread([impl = p_.get()] { impl->loop(); });
     } catch (const std::system_error& e) {
         log::error("magewell", std::format("capture thread start failed: {}", e.what()));
-        error = L"美乐威采集启动失败";
+        error = L"Magewell capture could not start";
         stop();
         return false;
     }
@@ -285,7 +285,7 @@ bool LowLatencyVideo::startImpl(const VideoRequest& request, Deliver deliver, st
     return true;
 #else
     (void)request; (void)deliver;
-    error = L"此版本未包含美乐威 SDK 支持";
+    error = L"This version does not include Magewell SDK support";
     return false;
 #endif
 }
@@ -333,7 +333,7 @@ void LowLatencyVideo::Impl::loop() {
     uint64_t reportFrames = 0;
     double dmaMs = 0, publishMs = 0;
     do {
-        failure = L"美乐威采集启动失败，已回到普通采集（详见日志 magewell）";
+        failure = L"Magewell capture failed to start; back to normal capture (see magewell in the log)";
         if (!captureEvent || !notifyEvent) { log::error("magewell", "capture event allocation failed"); break; }
         for (auto& slot : slots) {
             slot.buffer = static_cast<uint8_t*>(VirtualAlloc(nullptr, request.frameBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
@@ -358,7 +358,7 @@ void LowLatencyVideo::Impl::loop() {
             if (Clock::now() - lastProgress >= std::chrono::seconds(2)) {
                 ++counters.timeouts;
                 log::warn("magewell", "no completed frame for two seconds; returning to DirectShow");
-                failure = L"美乐威低延迟采集超时，已回到普通采集";
+                failure = L"Magewell low-latency capture timed out. Normal capture resumed.";
                 return ArmResult::Stop;
             }
             HANDLE waitOn[] = {stopEvent, notifyEvent};
@@ -367,7 +367,7 @@ void LowLatencyVideo::Impl::loop() {
             if (woken == WAIT_TIMEOUT) return ArmResult::NoFrame;
             if (woken != WAIT_OBJECT_0 + 1) {
                 log::error("magewell", std::format("frame notification wait failed wait={} error={}", woken, GetLastError()));
-                failure = L"美乐威低延迟采集失败，已回到普通采集";
+                failure = L"Magewell low-latency capture failed. Normal capture resumed.";
                 return ArmResult::Stop;
             }
             ULONGLONG bits = 0;
@@ -449,7 +449,7 @@ void LowLatencyVideo::Impl::loop() {
             // and let CaptureCardSource resume the already negotiated DirectShow path.
             ++counters.timeouts;
             log::warn("magewell", std::format("DMA completion failed context={} frameIndex={}; returning to DirectShow", slot.context, slot.ringIndex));
-            failure = L"美乐威低延迟采集超时，已回到普通采集";
+            failure = L"Magewell low-latency capture timed out. Normal capture resumed.";
             return false;
         };
         const auto publish = [&](unsigned index) {
@@ -480,7 +480,7 @@ void LowLatencyVideo::Impl::loop() {
             }
             if (health.fallback) {
                 log::warn("magewell", "sustained missing device frames; returning to DirectShow at the negotiated format");
-                failure = L"美乐威低延迟模式持续丢帧，已回到普通采集";
+                failure = L"Magewell low-latency capture kept dropping frames. Normal capture resumed.";
                 return false;
             }
             return true;

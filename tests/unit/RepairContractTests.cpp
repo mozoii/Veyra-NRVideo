@@ -87,8 +87,8 @@ int main(){
             const double ratio=mode==4?16.0/9:mode==5?4.0/3:21.0/9;
             check(std::abs(size.first/size.second-ratio)<.00001,"forced display ratio shares preview transform");}
     }
-    check(std::wstring_view(engine::ngxFailureHint(0xFFFFFFFFBAD00002ull)).find(L"驱动")!=std::wstring_view::npos,"signed NGX PlatformError reports actual driver/platform failure");
-    check(std::wstring_view(engine::ngxFailureHint(0xBAD00001)).find(L"不支持")!=std::wstring_view::npos,"NGX FeatureNotSupported has a distinct visible reason");
+    check(std::wstring_view(engine::ngxFailureHint(0xFFFFFFFFBAD00002ull)).find(L"driver")!=std::wstring_view::npos,"signed NGX PlatformError reports actual driver/platform failure");
+    check(std::wstring_view(engine::ngxFailureHint(0xBAD00001)).find(L"does not support")!=std::wstring_view::npos,"NGX FeatureNotSupported has a distinct visible reason");
     for(bool lowQueue:{false,true})for(bool fullscreen:{false,true})for(auto sync:{engine::DisplaySync::Tearing,engine::DisplaySync::Vsync,engine::DisplaySync::Automatic}) {
         engine::PresentationSettings s;s.enabled=lowQueue;s.fullscreen=fullscreen;s.display=sync;
         check(engine::presentationVsync(s)==(sync==engine::DisplaySync::Vsync)&&engine::presentationTearing(s)==(sync==engine::DisplaySync::Tearing),"Automatic neither waits for VSync nor tears (Present(0,0) replaces unshown frames), independently of low queue/fullscreen; only explicit Vsync waits and only explicit Tearing tears");
@@ -139,7 +139,7 @@ int main(){
         check(!engine::disableFailedBackend(recovered,engine::FailedBackend::OpticalFlow),"repeated failure cannot create an unbounded recovery loop");
         source::DolbyVisionInfo dv;dv.present=dv.baseLayer=true;dv.profile=5;dv.compatibility=1;
         check(dv.route()==source::DolbyBaseLayer::Hdr10,"DV P5 base layer is pinned to the routed HDR10 container so the RPU conversion can run");
-        check(dv.description().find(L"还没有可用的 RPU 转换参数")!=std::wstring::npos,
+        check(dv.description().find(L"no usable RPU conversion parameters")!=std::wstring::npos,
               "DV P5 does not report an RPU conversion before its parameters are actually in effect");
         dv.profile5Converted=true;
         check(dv.description().find(L"IPT-PQ-C2")!=std::wstring::npos,
@@ -298,8 +298,8 @@ int main(){
                       "DV curve adapter converts PQ to nits with the ST 2084 curve");
             }
 
-            // Custom (P5): BL+EL 重建的参考实现，参数取自 Dolby FEL 测试片实测值
-            // （luma 逆映射恒等、coef_log2_denom=23、bit depth 10/10/12、NLQ LINEAR_DZ）。
+            // Custom (P5): a reference implementation of the BL+EL rebuild, with parameters taken from the Dolby FEL test film measurements
+            // (luma inverse mapping identity, coef_log2_denom=23, bit depth 10/10/12, NLQ LINEAR_DZ).
             {
                 AVDOVIRpuDataHeader header{};
                 header.coef_log2_denom = 23;
@@ -330,7 +330,7 @@ int main(){
                     mapping.nlq[c].linear_deadzone_threshold = 0;
                 }
 
-                // 1) 本样本的 luma 曲线必须映射成恒等（v = s << 6），否则整条重建偏。
+                // 1) The luma curve of this sample must map to identity (v = s << 6) or the whole rebuild is off.
                 bool identity = true;
                 for (int s : {0, 100, 512, 1023}) {
                     const auto v = engine::doviInverseMap(mapping, header, 0, s, s, s);
@@ -338,7 +338,7 @@ int main(){
                 }
                 check(identity, "DV P7 inverse mapping is identity for the HDR10 base layer");
 
-                // 2) NLQ：零点是 offset，已知样本对得上手算值
+                // 2) NLQ: the zero point is the offset, and the known samples match the hand-computed values
                 check(engine::doviNlq(mapping, 0, 10, 23, 512) == 0,
                       "DV P7 NLQ maps the offset to zero residual");
                 check(engine::doviNlq(mapping, 0, 10, 23, 514) == 24,
@@ -346,12 +346,12 @@ int main(){
                 check(engine::doviNlq(mapping, 0, 10, 23, 600) == 1400,
                       "DV P7 NLQ scales a +88 sample to +1400");
 
-                // 3) 重建：无残差时 h = (v + rounding) >> 4
+                // 3) Rebuild: without a residual, h = (v + rounding) >> 4
                 check(engine::doviComposeLumaSample(mapping, header, 512, 512) == 2048,
                       "DV P7 reconstruction passes the base layer through when EL is zero");
                 check(engine::doviComposeLumaSample(mapping, header, 512, 600) == 2136,
                       "DV P7 reconstruction adds the EL residual (2048 + 88)");
-                // 4) disable_residual_flag 时必须忽略 EL
+                // 4) with disable_residual_flag, the EL must be ignored
                 header.disable_residual_flag = 1;
                 check(engine::doviComposeLumaSample(mapping, header, 512, 600) == 2048,
                       "DV P7 reconstruction ignores EL when residual is disabled");
@@ -361,7 +361,7 @@ int main(){
 
         }
 
-            // Custom (P5): P7 参数打包（与着色器 dv0..dv2 的布局一一对应）
+            // Custom (P5): P7 parameter packing (layout matches the dv0..dv2 shader exactly)
             {
                 AVDOVIDataMapping mapping{};
                 AVDOVIRpuDataHeader header{};
@@ -696,15 +696,15 @@ int main(){
         pairDeadlineBounded&=deadline>=arrival&&deadline<=arrival+nominal60;
     }
     check(pairDeadlineBounded,"pair-anchored capture FG deadline does not accumulate source-clock drift");
-    engine::PresentationScheduler ps5Timeline;bool decodedPairFits=true;
+    engine::PresentationScheduler streamTimeline;bool decodedPairFits=true;
     for(int64_t i=1;i<120;++i){
         const int64_t b=i*166667,decoded=1000000+b+(i%2?150000:20000);
-        ps5Timeline.reset(1,b,decoded,166667);
-        const auto deadline=ps5Timeline.deadline(b-83333);
+        streamTimeline.reset(1,b,decoded,166667);
+        const auto deadline=streamTimeline.deadline(b-83333);
         decodedPairFits&=engine::admitLiveFg(decoded+10000,deadline,1,12,.3);
         decodedPairFits&=!engine::admitLiveFg(decoded+400000,deadline,40,12,.3);
     }
-    check(decodedPairFits,"PS5 decoder jitter does not spend FG budget; delayed enhancement still expires against the original decoded input deadline");
+    check(decodedPairFits,"stream decoder jitter does not spend FG budget; delayed enhancement still expires against the original decoded input deadline");
     check(!engine::admitLiveFg(1200000,1000000,0,std::nullopt,0),"warmup rejects already-expired FG before evaluate");
     check(engine::admitLiveFg(900000,1000000,0,std::nullopt,0),"warmup does not invent a measured completion estimate");
     check(!engine::admitLiveFg(900000,1000000,2,30.0,1),"predicted completion beyond deadline skips optional pair");

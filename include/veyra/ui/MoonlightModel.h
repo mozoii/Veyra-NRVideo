@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
-// The "PC 串流" side of the UI: known hosts (saved, or found on the network), pairing, the app list of
+// The "PC stream" side of the UI: known hosts (saved, or found on the network), pairing, the app list of
 // the selected host, the stream-core settings and starting a stream. All network work runs on worker
 // threads and reports back on the UI thread; nothing here blocks the interface. The effect chain is not
 // part of it (it is the software's own, shared by every source).
@@ -62,7 +62,7 @@ public:
     Q_INVOKABLE bool resumeLast();
     Q_INVOKABLE bool set(const QString& key, const QVariant& value);
 
-    // For "继续上次" and the home card.
+    // For "resume last" and the home card.
     int hostCount() const { return int(hosts_.size()); }
     QString lastLabel() const { return lastLabel_; }
 

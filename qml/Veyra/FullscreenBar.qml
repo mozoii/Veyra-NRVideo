@@ -32,7 +32,7 @@ Window {
     readonly property bool menuOpen: bar.menuOpen
     readonly property bool editing: bar.editing
     readonly property bool interacting: bar.interacting
-    // G3.2 (D1): the same window carries the cinema pill in windowed 极简 mode, where
+    // G3.2 (D1): the same window carries the cinema pill in windowed Minimal mode, where
     // it straddles the picture's bottom edge: its top is pillTop (owner-relative),
     // half over the native video window and half below it. In fullscreen it sits
     // 24px above the screen edge.

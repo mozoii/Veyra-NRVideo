@@ -86,26 +86,26 @@ TranslationAssets::TranslationAssets(const QString& dataDirectory, QObject* pare
     });
     connect(&extract_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (downloading() && error == QProcess::FailedToStart)
-            finish(tr("无法解压翻译运行库"));
+            finish(tr("Could not extract the translation runtime"));
     });
     connect(&extract_, &QProcess::finished, this, [this](int code, QProcess::ExitStatus exit) {
         if (!downloading() || !stage_) return;
-        if (cancelled_) { finish(tr("模型下载已取消")); return; }
+        if (cancelled_) { finish(tr("Model download canceled")); return; }
         const QString unpacked = stage_->filePath(QStringLiteral("runtime"));
         if (exit != QProcess::NormalExit || code != 0 || !verifyFiles(unpacked)) {
-            finish(tr("翻译运行库校验失败"));
+            finish(tr("Translation runtime failed verification"));
             return;
         }
         const QString previous = stage_->filePath(QStringLiteral("previous"));
         const QString target = runtimePath();
         const bool replacing = QFileInfo::exists(target);
         if (replacing && !QDir().rename(target, previous)) {
-            finish(tr("翻译运行库正在使用，请稍后重试"));
+            finish(tr("The runtime is in use. Try again later."));
             return;
         }
         if (!QDir().rename(unpacked, target)) {
             if (replacing) QDir().rename(previous, target);
-            finish(tr("无法保存翻译运行库"));
+            finish(tr("Could not save the translation runtime"));
             return;
         }
         next();
@@ -137,26 +137,26 @@ void TranslationAssets::download() {
     if (downloading() || extract_.state() != QProcess::NotRunning) return;
     QDir dir(root_);
     if (!dir.mkpath(QStringLiteral("."))) {
-        finish(tr("无法创建模型下载目录"));
+        finish(tr("Could not create the model download folder"));
         return;
     }
     auto lock = std::make_unique<QLockFile>(dir.filePath(QStringLiteral("download.lock")));
     lock->setStaleLockTime(0);
     if (!lock->tryLock()) {
-        finish(tr("另一个 Veyra 窗口正在下载模型"));
+        finish(tr("Another Veyra window is downloading the model"));
         return;
     }
     lock_ = std::move(lock);
     cancelled_ = false;
     const auto free = QStorageInfo(root_).bytesAvailable();
     if (free >= 0 && free < model.bytes + 3 * runtime.bytes && !installed()) {
-        finish(tr("磁盘可用空间不足，下载需要约 1.2 GB"));
+        finish(tr("About 1.2 GB of free disk space is needed"));
         return;
     }
     received_ = 0;
     stage_ = std::make_unique<QTemporaryDir>(dir.filePath(QStringLiteral("download-XXXXXX")));
     if (!stage_->isValid()) {
-        finish(tr("无法创建模型下载目录"));
+        finish(tr("Could not create the model download folder"));
         return;
     }
     next();
@@ -168,7 +168,7 @@ void TranslationAssets::next() {
     } else if (QFileInfo(modelPath()).size() != model.bytes) {
         startFile(false);
     } else {
-        finish(tr("本地模型已就绪"));
+        finish(tr("Local model ready"));
     }
 }
 
@@ -180,7 +180,7 @@ void TranslationAssets::startFile(bool isRuntime) {
     const Asset& asset = isRuntime ? runtime : model;
     file_ = std::make_unique<QSaveFile>(isRuntime ? stage_->filePath(QString::fromLatin1(runtime.name)) : modelPath());
     if (!file_->open(QIODevice::WriteOnly)) {
-        finish(tr("无法保存模型下载文件"));
+        finish(tr("Could not save the model download"));
         return;
     }
     QNetworkRequest request(QUrl(QString::fromLatin1(asset.url)));
@@ -192,7 +192,7 @@ void TranslationAssets::startFile(bool isRuntime) {
     reply_->setReadBufferSize(1024 * 1024);
     connect(reply_, &QNetworkReply::readyRead, this, &TranslationAssets::readFile);
     connect(reply_, &QNetworkReply::finished, this, &TranslationAssets::finishFile);
-    status_ = isRuntime ? tr("正在下载本地推理运行库…") : tr("正在下载翻译模型…");
+    status_ = isRuntime ? tr("Downloading the CPU runtime…") : tr("Downloading the translation model…");
     emit changed();
 }
 
@@ -201,11 +201,11 @@ void TranslationAssets::readFile() {
     const auto received = reply_->readAll();
     const Asset& asset = runtimeFile_ ? runtime : model;
     if (received.size() > asset.bytes - bytes_) {
-        finish(tr("下载文件的大小与预期不符"));
+        finish(tr("The download has an unexpected file size"));
         return;
     }
     if (file_->write(received) != received.size()) {
-        finish(tr("无法保存模型下载文件"));
+        finish(tr("Could not save the model download"));
         return;
     }
     hash_.addData(received);
@@ -221,35 +221,35 @@ void TranslationAssets::finishFile() {
     readFile();
     if (!reply_) return;
     if (reply_->error() != QNetworkReply::NoError) {
-        finish(tr("模型下载失败，请检查网络后重试"));
+        finish(tr("Model download failed. Check the connection and try again."));
         return;
     }
     reply_->deleteLater();
     reply_ = nullptr;
     const Asset& asset = runtimeFile_ ? runtime : model;
     if (bytes_ != asset.bytes || hash_.result().toHex() != asset.sha256) {
-        finish(tr("下载文件校验失败，请重新下载"));
+        finish(tr("The download failed verification. Download it again."));
         return;
     }
     if (!file_->commit()) {
-        finish(tr("无法保存模型下载文件"));
+        finish(tr("Could not save the model download"));
         return;
     }
     file_.reset();
     if (runtimeFile_) extractRuntime();
-    else finish(tr("本地模型已就绪"));
+    else finish(tr("Local model ready"));
 }
 
 void TranslationAssets::extractRuntime() {
     const QString target = stage_->filePath(QStringLiteral("runtime"));
     if (!QDir().mkpath(target)) {
-        finish(tr("无法解压翻译运行库"));
+        finish(tr("Could not extract the translation runtime"));
         return;
     }
     QStringList arguments{QStringLiteral("-xf"), stage_->filePath(QString::fromLatin1(runtime.name)),
                           QStringLiteral("-C"), target};
     for (const auto& file : runtimeFiles) arguments << QString::fromLatin1(file.name);
-    status_ = tr("正在验证翻译运行库…");
+    status_ = tr("Verifying the translation runtime…");
     emit changed();
     extract_.start(windowsSystemExecutable(L"tar.exe"), arguments);
 }
@@ -276,7 +276,7 @@ void TranslationAssets::cancel() {
         cancelled_ = true;
         extract_.kill();
     } else {
-        finish(tr("模型下载已取消"));
+        finish(tr("Model download canceled"));
     }
 }
 } // namespace veyra::ui

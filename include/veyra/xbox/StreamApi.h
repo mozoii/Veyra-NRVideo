@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "veyra/xbox/Https.h"
+#include "veyra/xbox/ResolutionMode.h"
 
 namespace veyra::xbox {
 
@@ -37,7 +38,10 @@ public:
 
     std::vector<Console> consoles();
     // Starts a session on a console; returns the session id.
-    std::string play(const std::string& serverId, const std::string& locale = "zh-CN");
+    std::string play(const std::string& serverId, const std::string& locale = "en-US",
+                     ResolutionMode mode = ResolutionMode::Auto);
+    // The X-MS-Device-Info header value for a tier (pure; the tier's display and OS name).
+    static std::string deviceInfo(const ResolutionDesc& profile);
     SessionState state(const std::string& sessionId);
     void connect(const std::string& sessionId, const std::string& transferToken);
     // Sends the local offer, returns the console's answer SDP.

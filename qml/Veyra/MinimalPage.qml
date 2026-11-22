@@ -1,4 +1,4 @@
-// 极简模式, rebuilt from the design (pages-a.js PAGES.min + pages.css .min/.cine-bar).
+// Minimal mode, rebuilt from the design (pages-a.js PAGES.min + pages.css .min/.cine-bar).
 //
 // The design's whole point here: the window snaps to the film's aspect ratio (no
 // letterbox bars), and a large rounded control pill straddles the bottom edge of
@@ -15,7 +15,7 @@ VPage {
     id: root
     signal requestPage(string page)
 
-    // cineIn (pages.css @keyframes cineIn, plan M21 "上下各 12% 裁切展开 | 子窗口区域"):
+    // cineIn (pages.css @keyframes cineIn, plan M21: "each top/bottom 12% crops open with the sub-window region"):
     // the stage opens from inset(12% 0 12% 0 round 8px) to inset(0). The picture is a
     // native window above this scene, so a QML clip would not touch it - main.cpp
     // reads this item and insets the video window's REGION instead (no resize, so no
@@ -64,13 +64,13 @@ VPage {
         Text {
             anchors.centerIn: parent
             visible: stageTap.enabled
-            text: qsTr("点击画面选择片源")
+            text: qsTr("Click the picture to choose a source")
             color: Theme.t3
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsH3
         }
         // Nothing open: a click on the empty picture opens the source menu where it
-        // was clicked (the same menu as the professional page's 片源 button).
+        // was clicked (the same menu as the professional page's source button).
         Item { id: menuAnchor; width: 1; height: 1 }
         TapHandler {
             id: stageTap
@@ -81,7 +81,7 @@ VPage {
                 sourceMenu.openAt(menuAnchor, "at")
             }
         }
-        // A PS5 / capture session that is still connecting: a pill in the
+        // A capture session that is still connecting: a pill in the
         // middle of the (still black) picture, cut out of the native video.
         Rectangle {
             objectName: "min-live-opening"
@@ -150,19 +150,17 @@ VPage {
     VMenu {
         id: sourceMenu
         objectName: "min-source-menu"
-        title: qsTr("片源")
-        items: [{ label: qsTr("打开文件…"), icon: "folder", act: "file" },
-                { label: qsTr("播放地址…"), icon: "cast", act: "network" },
-                { label: qsTr("PS5 串流…"), icon: "gamepad", act: "ps5" },
-                { label: qsTr("PC 串流…"), icon: "cast", act: "moonlight" },
-                { label: qsTr("Xbox 串流…"), icon: "gamepad", act: "xbox" },
-                { label: qsTr("屏幕捕获…"), icon: "monitor", act: "screen" },
+        title: qsTr("Source")
+        items: [{ label: qsTr("Open file…"), icon: "folder", act: "file" },
+                { label: qsTr("Open media URL…"), icon: "cast", act: "network" },
+                { label: qsTr("PC streaming…"), icon: "cast", act: "moonlight" },
+                { label: qsTr("Xbox streaming…"), icon: "gamepad", act: "xbox" },
+                { label: qsTr("Screen capture…"), icon: "monitor", act: "screen" },
                 { sep: true },
-                { label: qsTr("采集卡设置…"), icon: "settings", act: "capture" }]
+                { label: qsTr("Capture card settings…"), icon: "settings", act: "capture" }]
         onPicked: (i, o) => {
             if (o.act === "file") veyra.openFileDialog()
             else if (o.act === "network") veyra.openNetworkDialog()
-            else if (o.act === "ps5") veyra.openPs5Dialog()
             else if (o.act === "moonlight") veyra.openMoonlightDialog()
             else if (o.act === "xbox") veyra.openXboxDialog()
             else if (o.act === "screen") veyra.openScreenCaptureDialog()

@@ -1,5 +1,7 @@
 # Veyra 2.1.9 构建与对应源码
 
+> **Fork note (2026-11-22):** This is a historical record of the parent project's release. This fork removes PS5 Remote Play and Chiaki entirely; the Chiaki pins, patches and notices described here no longer apply to the current build.
+
 实际程序产品提交`b430d986c2adace6eae6cd2893fbb7a491473aaa`，PE2.1.9.0，EXE SHA256 `c8a53dc778331c696f5a488400885ef842adb849e1b22a9fbea07520a9ecb8f0`。两个显卡包使用同一EXE；发行沿用已验程序，不因发布文档重编译。MSVC2022/C++20、CMake/Ninja Release、Qt6.8.3、D3D12；本地构建命令和依赖入口见BUILD_2.1.9_2026-11-15.md及STARTUP_MUSIC_RESTART_2026-11-15.md。历史“未发布”只描述对应阶段，不覆盖本次正式发行。
 
 发行标签与`Veyra-2.1.9-source.zip`包含本次README/发布文档/二维码；生产代码、QML、i18n、着色器和构建文件与实际产品提交相同，发布前用git diff核对。manifest同时记录built product、publication commit和源码ZIP SHA，SHA256SUMS与GitHub资产digest可核对。专有运行库/SDK、BGM、用户配置/凭据/测试媒体不进入Git或对应源码ZIP。

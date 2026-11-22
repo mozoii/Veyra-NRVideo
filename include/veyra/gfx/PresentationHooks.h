@@ -4,7 +4,7 @@
 // Field crashes 2026-10-01: with RivaTuner Statistics Server (MSI Afterburner's on-screen
 // display, RTSSHooks64.dll) injected, every session that turned XeSS frame generation on
 // crashed inside d3d11.dll a second or two later: RTSS draws its OSD with D3D11On12 into
-// the XeSS proxy swapchain. GamePP (游加加) held swapchain buffers so every resize failed
+// the XeSS proxy swapchain. GamePP (GamePP) held swapchain buffers so every resize failed
 // and the driver crashed on a window change. The same tools are fine with the ordinary
 // DXGI swapchain and with DLSS frame generation.
 #include <windows.h>
@@ -93,7 +93,7 @@ template <class Match> inline bool processRunning(Match match) {
     return false;
 }
 
-// NVIDIA's in-game overlay is switched on: NVIDIA App's "NVIDIA 信息浮窗" runs
+// NVIDIA's in-game overlay is switched on: NVIDIA App's "NVIDIA overlay" runs
 // NVIDIA Overlay.exe, GeForce Experience's in-game overlay runs NVIDIA Share.exe; both
 // exit when the overlay is switched off. nvspcap64.dll alone says nothing: the driver
 // loads it into every Direct3D process whether or not the overlay is on.
@@ -112,7 +112,7 @@ inline bool nvidiaOverlayRunning() {
     });
 }
 
-// GamePP (游戏加加, GamePP.exe and its GamePP* helpers) injects GPP64.dll (overlay),
+// GamePP (GamePP, GamePP.exe and its GamePP* helpers) injects GPP64.dll (overlay),
 // GameTracker64.dll and shade64.dll (filters) into programs it treats as games. Field
 // dump 2026-10-01: with them injected, the video's and the interface's swapchains both
 // failed every ResizeBuffers and the driver crashed on a window change; the same
@@ -125,14 +125,14 @@ inline bool gamePPInjected() {
     return GetModuleHandleW(L"GPP64.dll") || GetModuleHandleW(L"GameTracker64.dll") || GetModuleHandleW(L"shade64.dll");
 }
 
-// 抖音直播伴侣 (Douyin live companion): the launcher 直播伴侣.exe and its capture and
-// encoding engine MediaSDK_Server.exe (named in the vendor's guide 如何设置直播伴侣以高性能
-// 模式运行). Field logs 2026-10-15 (RTX 4070 SUPER, driver 616.64, capture with NR and
+// The Douyin live companion (vendor process "直播伴侣.exe"): the launcher and its
+// capture and encoding engine MediaSDK_Server.exe (named in the vendor's guide
+// "how to run the companion in high-performance mode"). Field logs 2026-10-15 (RTX 4070 SUPER, driver 616.64, capture with NR and
 // NVIDIA optical flow): the GPU hung (nvlddmkm 153, DXGI_ERROR_DEVICE_HUNG) a few
 // minutes into capture, twice within three minutes, also with the interface drawn in
 // software; the user ties the hangs to the companion running. Not installed here.
 inline bool douyinLiveCompanionRunning() {
-    // 直播伴侣.exe, spelled as code points so the interface-string extractor
+    // The launcher exe, spelled as code points so the interface-string extractor
     // (scripts/i18n/extract.py) does not take the process name for UI text.
     static constexpr wchar_t launcher[] = {0x76F4, 0x64AD, 0x4F34, 0x4FA3, L'.', L'e', L'x', L'e', 0};
     return processRunning([](const wchar_t* name) {

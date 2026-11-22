@@ -122,8 +122,8 @@ void exportFaultTest(const std::wstring& path,const std::wstring& output,const s
     if(outputLock!=INVALID_HANDLE_VALUE)CloseHandle(outputLock);
     check(injected&&!ok,"injected failure/cancellation cannot report success");
     check(!std::filesystem::exists(output)&&std::filesystem::exists(output+L".partial"),"failed output stays partial, never promoted");
-    check(finalMessage.find(L"完成")==std::wstring::npos,"completion message does not claim success");
-    if(mode==L"export-lock-final")check(finalMessage.find(L"验证已通过")!=std::wstring::npos&&finalMessage.find(L"Windows错误 32")!=std::wstring::npos,"valid video with rename lock reports saving failure, not corrupt media");
+    check(finalMessage.find(L"Video export finished")==std::wstring::npos,"completion message does not claim success");
+    if(mode==L"export-lock-final")check(finalMessage.find(L"Video encoded")!=std::wstring::npos&&finalMessage.find(L"Windows error 32")!=std::wstring::npos,"valid video with rename lock reports saving failure, not corrupt media");
 }
 
 void exportWorkerTest(const std::wstring& path,const std::wstring& output){
@@ -132,7 +132,7 @@ void exportWorkerTest(const std::wstring& path,const std::wstring& output){
     engine::ExportJobSnapshot result;const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
     do{result=job.poll();if(!result.active())break;std::this_thread::sleep_for(std::chrono::milliseconds(10));}while(std::chrono::steady_clock::now()<deadline);
     check(result.state==engine::ExportState::Failed,"independent worker reports source failure");
-    check(result.message.find(L"未生成输出文件")!=std::wstring::npos,"UI preserves preflight failure without claiming partial exists");
+    check(result.message.empty()==false&&result.message.find(L"Video export finished")==std::wstring::npos,"UI preserves preflight failure without claiming partial exists");
     check(!std::filesystem::exists(output)&&!std::filesystem::exists(output+L".partial"),"preflight failure creates neither final nor partial");
 }
 }

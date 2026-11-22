@@ -76,7 +76,7 @@ Item {
     }
 
     // Keyboard (field request 2026-10-01): a clicked or dragged slider takes focus and the
-    // arrow keys move it by the 设置 step (1 / 0.1 / 0.01), at least a thousandth of the
+    // arrow keys move it by the Settings step (1 / 0.1 / 0.01), at least a thousandth of the
     // range so wide ranges still move. While focused the arrows belong to the slider, not
     // to the window's seek and volume shortcuts; Esc gives them back.
     activeFocusOnTab: enabledControl
@@ -264,9 +264,9 @@ Item {
         visible: slider.resettable
         enabled: slider.enabledControl && Math.abs(slider.value - slider.defaultValue) > 0.000001
         text: "↺"
-        Accessible.name: qsTr("重置此参数")
+        Accessible.name: qsTr("Reset this setting")
         ToolTip.visible: hovered
-        ToolTip.text: qsTr("还原默认值：%1").arg(slider.defaultValue)
+        ToolTip.text: qsTr("Reset to default: %1").arg(slider.defaultValue)
         contentItem: Text {
             text: parent.text; color: parent.enabled ? Theme.t2 : Theme.t3
             font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter

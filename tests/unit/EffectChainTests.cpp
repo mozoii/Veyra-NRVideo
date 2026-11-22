@@ -192,7 +192,7 @@ void testExistingChainContracts() {
         chain.nodes[0] = ChainNode{}; chain.nodes[0].type = EffectType::FrameGeneration; chain.nodes[0].enabled = true;
         chain.nodes[1] = ChainNode{}; chain.nodes[1].type = EffectType::NrEnhance; chain.nodes[1].enabled = true;
         const auto verdict = validateChain(chain);
-        check(!verdict.accepted && std::string(verdict.message).find("补帧") != std::string::npos,
+        check(!verdict.accepted && std::string(verdict.message).find("Frame generation") != std::string::npos,
               "frame generation before another enabled stage is rejected");
 
         EffectChain ok;
@@ -1077,7 +1077,7 @@ __declspec(noinline) void testInactiveEffectEdits(){
         check(active.sameVideoConfiguration(next)==(backend==FrameGenerationBackend::Vfg),"shared flow stays active for every external-flow FG consumer");
         next=active;next.nrPolicy=veyra::pipeline::NrSizePolicy::Native;next.nrRuntime=NrRuntime::LmxxfAmd;
         check(active.sameVideoConfiguration(next),"active FG does not activate stored NR parameters");
-        // 边缘神盾 (fgMotionRefine) shapes every FG motion taken from optical flow (2026-11-13):
+        // Edge aegis (fgMotionRefine) shapes every FG motion taken from optical flow (2026-11-13):
         // DLSS/FSR/ANR, and XeSS with the optical-flow source; VFG estimates its own.
         next=active;next.fgMotionRefine=false;
         const bool refines=backend!=FrameGenerationBackend::Vfg;

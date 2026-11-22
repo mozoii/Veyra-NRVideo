@@ -81,18 +81,13 @@
 #include "veyra/source/CaptureFrameRate.h"
 #include "veyra/source/MagewellCapture.h"
 #include "CapturePreferenceStore.h"
-#ifdef VEYRA_ENABLE_REMOTEPLAY
 // SDL3-static's system libraries (see CMakeLists: kept off the link line).
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "imm32.lib")
 #pragma comment(lib, "version.lib")
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "dinput8.lib")
-#include "veyra/remoteplay/ControllerInput.h"
-#include "veyra/remoteplay/Discovery.h"
-#include "veyra/remoteplay/ProfileStore.h"
-#include "veyra/source/RemotePlaySource.h"
-#endif
+#include "veyra/input/ControllerInput.h"
 #ifdef VEYRA_ENABLE_XBOX
 #include "veyra/ui/XboxModel.h"
 #endif
@@ -111,7 +106,7 @@
 namespace Gdiplus { using std::min; using std::max; }
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
-// 1.4.4's live status rules (正常 / 补帧调度降档 / 输出未达标 / 输入帧率不足).
+// 1.4.4's live status rules (Normal / Frame generation scheduling downgraded / output unmet / input frame rate insufficient).
 #include "LiveStatusHistory.h"
 // GPU utilization for the performance orb: the Windows "GPU Engine" counters,
 // the same source Task Manager reads.
@@ -153,8 +148,8 @@ inline QString lastFailurePath() {
 inline QString injectionAdvice(const QString& modules) {
     QStringList parts;
     if (modules.contains(QStringLiteral("RTSSHooks64.dll"), Qt::CaseInsensitive) && !qApp->property("veyraSoftwareUi").toBool())
-        parts << QCoreApplication::translate("QmlPlayerBridge", "检测到 RivaTuner（小飞机 OSD）注入了 Veyra。请把 设置 → 监控软件兼容 设为“自动”并在小飞机运行时重启 Veyra：界面改用兼容绘制，OSD 只显示在视频上");
-    return parts.join(QStringLiteral("；"));
+        parts << QCoreApplication::translate("QmlPlayerBridge", "RivaTuner (RTSS OSD) is injected into Veyra. Set Settings → Monitoring overlay compatibility to Auto and restart Veyra while RTSS is running: the interface uses compatible drawing and the OSD shows on the video only");
+    return parts.join(QStringLiteral("; "));
 }
 // Messages and fixed table labels shown to the user, in the interface language
 // (UiLanguage.h). Data that only passes through the UI - paths, device, preset and
@@ -190,7 +185,7 @@ ui::EffectGpu effectGpu();
 
 namespace bridge_detail {
 // WM_DISPLAYCHANGE reaches every top-level window when a display mode, refresh
-// rate or HDR state, or the set of screens, changes: the 可变刷新 state is then
+// rate or HDR state, or the set of screens, changes: the Variable Refresh Rate state is then
 // read once more (DisplayStateService) instead of on a timer.
 struct DisplayChangeFilter final : QAbstractNativeEventFilter {
     bool* changed = nullptr;
@@ -254,7 +249,7 @@ struct QmlPlayerBridge::Impl {
     engine::ChainSession session;
     engine::ChainSession savedSession;
     QTimer* sessionSaveTimer = nullptr;
-    // 音量 is a shell preference (2026-11-08); a drag is written once it settles.
+    // Volume is a shell preference (2026-11-08); a drag is written once it settles.
     QTimer* volumeSaveTimer = nullptr;
     int selectedNr=-1;
     int nrIndex() const {
@@ -282,7 +277,7 @@ struct QmlPlayerBridge::Impl {
     // generation lets a newer open or a stop cancel it.
     int liveOpenGen = 0;
     QString pendingLiveText;
-    // 调色 history: each commit pushes the layer's previous state; a slider
+    // Colour history: each commit pushes the layer's previous state; a slider
     // drag (edits under 600 ms apart on one layer) is one step.
     struct ColourStep { int index = -1; engine::ColorSettings colour{}; };
     std::vector<ColourStep> colourUndo, colourRedo;
@@ -330,7 +325,6 @@ struct QmlPlayerBridge::Impl {
     std::wstring captureDevice;
     QString screenTarget;
     bool screenCropPreview = false;
-    QString remotePlayHost, remotePlayPin;
 
     QTimer* timer = nullptr;
 
@@ -439,7 +433,7 @@ struct QmlPlayerBridge::Impl {
     std::chrono::steady_clock::time_point netLossNoticeAt{};
     struct CaptureListCache { bool valid = false; uint64_t generation = 0; QString language; std::wstring a, b; QVariantList list; };
     CaptureListCache captureFormatsCache, captureResolutionCache, captureRateCache, capturePixelCache;
-    // Settings → 组件与许可. Read once and on refreshComponentList(): the property used to
+    // Settings -> Components and licences. Read once and on refreshComponentList(): the property used to
     // notify with every engine snapshot, so each 60 Hz tick re-read the manifest and
     // rebuilt the page's 49 rows (audit 2026-10-15 B5).
     QVariantList componentList; bool componentListRead = false;
@@ -464,45 +458,21 @@ struct QmlPlayerBridge::Impl {
     double captureFps = 0;
     QString captureStatus;
     ui::CapturePreferences capturePrefs;
-    // --- PS5 Remote Play ---
-    QVariantMap ps5Form;
-    QString ps5Status;
-    std::wstring ps5Profile;                 // file name inside profileDirectory()
-    QVariantList ps5ProfileList;
-    bool ps5Watching = false;
-    struct Ps5Outcome { std::wstring message; std::vector<std::pair<std::string, std::string>> hosts; std::wstring savedPath; bool refreshProfiles = false; };
-    std::mutex ps5Mutex;
-    Ps5Outcome ps5Outcome;
-    std::atomic<bool> ps5Done{false};
-    bool ps5Busy = false;
-    QTimer* controllerTimer = nullptr;
-    // PS5 手柄控制 (capture card dialog).
-    QTimer* ps5ControlTimer = nullptr;
-    QVariantMap ps5ControlState;
-    std::wstring ps5ControlProfile;          // pairing (or test host) the session was started with
-    QString ps5ControlNoticed;               // state the last notice was shown for
-    int ps5ControlTicks = 0;
-    bool ps5ControlNoPair = false;           // switched on without a pairing; cleared once pairings exist
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-    remoteplay::ControllerInput controller;
-    // One SDL pad reader shared by PS5 stream, PS5 手柄控制, PC and Xbox streaming.
-    // Each user acquires it and only the last release stops it, so the timer of a
-    // source that just ended never cuts off the pad the next source started using.
-    enum PadUser : unsigned { PadPs5 = 1, PadPs5Control = 2, PadMoonlight = 4, PadXbox = 8 };
+    // One SDL pad reader shared by PC and Xbox streaming. Each user acquires it
+    // and only the last release stops it, so the timer of a source that just
+    // ended never cuts off the pad the next source started using.
+    input::ControllerInput controller;
+    enum PadUser : unsigned { PadMoonlight = 1, PadXbox = 2 };
     unsigned padUsers = 0;
     bool acquirePad(unsigned user) {
         const bool ok = controller.start(); // no-op once initialized
         padUsers |= user;
-        controller.setFollowLastPressed((padUsers & PadPs5Control) != 0);
         return ok;
     }
     void releasePad(unsigned user) {
         padUsers &= ~user;
         if (!padUsers) controller.stop();
-        else controller.setFollowLastPressed((padUsers & PadPs5Control) != 0);
     }
-#endif
-    std::jthread ps5Worker;                  // last: joined before what it touches
     // --- screen capture ---
     std::vector<source::ScreenCaptureTarget> screenList;
     bool screenFillActive = false;
@@ -531,13 +501,13 @@ struct QmlPlayerBridge::Impl {
     QString runStatus, runLevel, runDetail;
     QStringList runOptions;
     double effectiveOutputFps=-1;
-    // FG output hint for the 倍率 row; 可变刷新 level (gfx::vrrLevel) of the
+    // FG output hint for the multiplier row; Variable Refresh Rate level (gfx::vrrLevel) of the
     // presenting monitor, or of the main window's monitor while idle.
     QString fgDisplayHint;
     int vrrState=0;
     // The shown monitor's Windows HDR (-1 unknown) and refresh rate.
     int displayHdr=-1;double displayRefreshHz=0;
-    // 刷新显示器状态: the display generation it asked for, until the shown monitor
+    // refresh monitor state: the display generation it asked for, until the shown monitor
     // answers (displayChecking also covers any query in flight).
     bool displayChecking=false,displayRecheckPending=false,displayChanged=false;
     uint64_t displayRecheckGeneration=0;
@@ -594,7 +564,7 @@ struct QmlPlayerBridge::Impl {
                 id.toStdString(), uint32_t(d.AdapterLuid.HighPart), d.AdapterLuid.LowPart, d.DedicatedVideoMemory >> 20));
         }
     }
-    // 游戏模式: the native side, the capture it belongs to and what the UI reported.
+    // Game mode: the native side, the capture it belongs to and what the UI reported.
     ui::GamePassthrough game;
     std::wstring gameModeUri;          // the screen URI startScreenCapture opened in game mode
     uint64_t gameModeSessionId = 0;    // its engine session once the open ran
@@ -603,8 +573,8 @@ struct QmlPlayerBridge::Impl {
     QRectF gameVideoRect;
     QPointer<QWindow> gameWindow;
     HMONITOR gameMonitor = nullptr;
-    // The monitored GPU also computes when 设置 -> "同时用这块显卡运算" is on
-    // and a specific GPU (not 自动) is chosen; otherwise the default order.
+    // The monitored GPU also computes when Settings -> "use this GPU for compute" is on
+    // and a specific GPU (not "auto") is chosen; otherwise the default order.
     QString computeGpuName;
     uint64_t computeLuid = 0;
     void applyComputeGpu() {
@@ -756,7 +726,7 @@ struct QmlPlayerBridge::Impl {
 
     std::optional<engine::EnhancementSettings> exportSettings(QString& error) const {
         if (chain.mode == engine::ChainMode::Node) {
-            error = QObject::tr("节点链尚未接入导出执行器，请切换列表模式后导出");
+            error = QObject::tr("The node chain is not wired to the export executor yet; switch to list mode to export");
             return std::nullopt;
         }
         auto settings = facade.pendingSettings();
@@ -767,11 +737,11 @@ struct QmlPlayerBridge::Impl {
                 return entry.name == exportPresetName;
             });
             if (preset == entries.end()) {
-                error = QObject::tr("导出预设已不存在，请重新选择");
+                error = QObject::tr("The export preset no longer exists; choose again");
                 return std::nullopt;
             }
             if (preset->kind != engine::ChainMode::List) {
-                error = QObject::tr("节点预设尚未接入导出执行器");
+                error = QObject::tr("Node presets are not wired to the export executor yet");
                 return std::nullopt;
             }
             engine::PresetLibrary::apply(*preset, settings);
@@ -792,20 +762,20 @@ struct QmlPlayerBridge::Impl {
             }
         }
         if (exportRateControl != sink::ExportRateControl::Cq && !exportBitrateMbps) {
-            error = QObject::tr("CBR/VBR 需要指定码率");
+            error = QObject::tr("CBR/VBR needs a bitrate");
             return std::nullopt;
         }
         if (const auto why = settings.validate(); !why.empty()) {
             veyra::log::warn("export-settings", std::format("invalid: {} bitrateMbps={}", why, settings.exportBitrateMbps));
-            error = QObject::tr("导出设置无效：%1").arg(utf8Of(why));
+            error = QObject::tr("Invalid export settings: %1").arg(utf8Of(why));
             return std::nullopt;
         }
         if (const auto why = unavailableEffects(settings); !why.isEmpty()) {
-            error = QObject::tr("导出设置无效：%1").arg(why);
+            error = QObject::tr("Invalid export settings: %1").arg(why);
             return std::nullopt;
         }
         if(settings.multiplier>1&&engine::presentSinkFrameGeneration(settings.frameGenerationBackend)){
-            error=QObject::tr("XeSS 尚未提供可编码的补帧纹理，请为导出选择 FSR、DLSS 或 VFG 补帧");
+            error=QObject::tr("XeSS does not expose generated textures for encoding. Select FSR, DLSS or VFG for export.");
             return std::nullopt;
         }
         return settings;
@@ -922,7 +892,7 @@ struct QmlPlayerBridge::Impl {
                 engine::ChainConfiguration::capture(acceptedChain, facade.pendingSettings()));
             auto document = std::make_shared<engine::NodeEditorDocument>();
             document->nodes = chain; document->layout = layout; document->globals = draftGlobals; check->editor = document;
-            if (!check->valid()) { validation = {false, "节点参数无效，未提交"}; return false; }
+            if (!check->valid()) { validation = {false, "Invalid node settings, not submitted"}; return false; }
             validation = layout.project(chain, *projected);
             if (!validation.accepted) {
                 uint32_t end = layout.inputNext;
@@ -955,20 +925,20 @@ struct QmlPlayerBridge::Impl {
         s.content=engine::currentContentRate(s.content);
         if(const auto error=s.validate();!error.empty()){
             veyra::log::error("qml-settings",error);
-            validation={false,"效果参数无效，未提交；详见诊断日志"};return false;
+            validation={false,"Invalid effect settings, not submitted; see the diagnostic log"};return false;
         }
         const auto order = engine::runtimeOrder(*projected);
         const bool changed = s != previous || order != engine::runtimeOrder(acceptedChain);
         if (apply && changed) {
             if (const auto reason = unavailableEffects(s); !reason.isEmpty()) {
-                validation = {false, "当前硬件或包不支持所选效果，请查看组件页"};
+                validation = {false, "The hardware or package does not support this effect; check Components"};
                 veyra::log::warn("effect-availability", reason.toStdString());
                 return false;
             }
         }
         if(apply && changed && !facade.applySettings(s,order)){
             facade.setPending(previous);
-            validation={false,"引擎未接受设置，已保留原状态"};
+            validation={false,"The engine did not accept the settings; previous state kept"};
             return false;
         }
         if(!apply || !changed)facade.setPending(s);
@@ -995,7 +965,7 @@ struct QmlPlayerBridge::Impl {
     // revisions, so an unchanged snapshot costs one comparison per tick.
 
     // The chain the UI edits, kept in step with the facade's pending settings.
-    uint64_t fgAutoSession = 0;       // 已为哪个会话决定过档位
+    uint64_t fgAutoSession = 0;       // which session already got its step decided
 };
 
 

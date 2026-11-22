@@ -21,16 +21,16 @@ with (LOGS/'package-stage.log').open('xb') as log:
 shutil.copytree(AMD,STAGE/'runtime/amd-nr')
 for name in ('FIELD_UPGRADE_PLAN_2026-10-03.md','FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md','AMD_NR_INTEGRATION_2026-10-03.md'):
     shutil.copy2(ROOT/'docs'/name,STAGE/'docs'/name)
-(STAGE/'LOCAL-FIELD-FIX.md').write_text('''# Veyra 本地修复候选 / Local field-fix candidate
+(STAGE/'LOCAL-FIELD-FIX.md').write_text('''# Veyra local field-fix candidate / Veyra 本地修复候选
 
-双击 veyra_qml_ui.exe。基于 2.0.2，含本轮 Xbox 输出/重连、导出码率、RTSS 背景和 NVIDIA 插件误判修复。
-尚未合并、推送或公开发布；详情见 docs/FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md。
+Double-click veyra_qml_ui.exe. Based on 2.0.2, includes this round's Xbox output/reconnect, export bitrate, RTSS background and NVIDIA plugin false-positive fixes.
+Not merged, pushed or published; details in docs/FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md.
 
-AMD NR 已接入共享图，用户 0.39 模型/HIP 资源已附在 runtime/amd-nr。
-仅用于本地实验；权重不是 MIT 源码，不代表公开分发授权。需要 RX9000 和驱动自带 amdhip64_7.dll。
-本机 RTX5070 未验证 AMD 推理；当前仅 1080p 像素预算，不支持 HDR/原生 4K AMD NR 导出。
-AMD 使用模型强度/残差/保护，style 在 assets/native-game-flags.txt；不加载 ReShade/Magpie 注入模块。
-Xbox 真机有声/长稳仍需验收。本机导出测试驱动 616.56，用户 616.92 未直接验证。
+AMD NR is wired into the shared graph, user 0.39 model/HIP resources attached in runtime/amd-nr.
+Local experiments only; weights are not MIT source, do not represent public distribution authorization. Requires RX9000 and the driver-bundled amdhip64_7.dll.
+This machine RTX5070 did not verify AMD inference; only 1080p pixel budget currently, no HDR/native 4K AMD NR export.
+AMD uses model strength/residual/protection, style in assets/native-game-flags.txt; does not load ReShade/Magpie injection modules.
+Xbox physical-machine audio/long-term stability still awaits acceptance. This machine export test driver 616.56, user 616.92 not directly verified.
 
 Launch veyra_qml_ui.exe. This local 2.0.2 candidate fixes Xbox audio startup and bounded reconnection,
 bitrate input, the RTSS software background and NVIDIA module false warnings.

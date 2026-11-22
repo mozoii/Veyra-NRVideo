@@ -77,7 +77,7 @@ Rectangle {
                 opacity: enabled ? 1 : 0.4
                 implicitWidth: segContent.implicitWidth + 20
                 implicitHeight: 24
-                // { id, label, icon? }: the design's 列表 / 节点 toggle carries icons.
+                // { id, label, icon? }: the design's list / node toggle carries icons.
                 Row {
                     id: segContent
                     anchors.centerIn: parent

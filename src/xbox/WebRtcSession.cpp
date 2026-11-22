@@ -2,6 +2,7 @@
 // Channel set-up, handshake and messages follow Greenlight's player (unknownskl/greenlight
 // packages/player/src/client/lib, MIT): channel.ts, control.ts, message.ts, input.ts, sdp.ts.
 #include "veyra/xbox/WebRtcSession.h"
+#include "veyra/xbox/ResolutionMode.h"
 
 #include <windows.h>
 
@@ -268,15 +269,23 @@ bool WebRtcSession::sendMessageJson(const std::string& text) {
 }
 
 bool WebRtcSession::sendClientConfig() {
+    const ResolutionDesc& profile = profile_;
     bool sent=true;
     sent &= sendMessageJson(message("/streaming/systemUi/configuration", {{"version", {0, 2, 0}}, {"systemUis", json::array()}}));
     sent &= sendMessageJson(message("/streaming/properties/clientappinstallidchanged", {{"clientAppInstallId", "c97d7ee0-73b2-4239-bf1d-9d805a338429"}}));
     sent &= sendMessageJson(message("/streaming/characteristics/orientationchanged", {{"orientation", 0}}));
     sent &= sendMessageJson(message("/streaming/characteristics/touchinputenabledchanged", {{"touchInputEnabled", false}}));
-    sent &= sendMessageJson(message("/streaming/characteristics/clientdevicecapabilities", json::object()));
+    sent &= sendMessageJson(message("/streaming/characteristics/clientdevicecapabilities", {{
+        {"supportsCustomResolution", true}, {"supportsHevc", false}, {"supportsHdr", false},
+        {"supportsFps", profile.fps}, {"maxWidth", profile.width}, {"maxHeight", profile.height},
+        {"maxBitrateKbps", profile.maxBitrateKbps},
+        {"video", {{"width", profile.width}, {"height", profile.height}, {"maxWidth", profile.width},
+                    {"maxHeight", profile.height}, {"maxBitrateKbps", profile.maxBitrateKbps}}}}}));
     sent &= sendMessageJson(message("/streaming/characteristics/dimensionschanged", {
-        {"horizontal", 1920}, {"vertical", 1080}, {"preferredWidth", 1920}, {"preferredHeight", 1080},
-        {"safeAreaLeft", 0}, {"safeAreaTop", 0}, {"safeAreaRight", 1920}, {"safeAreaBottom", 1080}, {"supportsCustomResolution", true}}));
+        {"horizontal", profile.width}, {"vertical", profile.height},
+        {"preferredWidth", profile.width}, {"preferredHeight", profile.height},
+        {"safeAreaLeft", 0}, {"safeAreaTop", 0}, {"safeAreaRight", profile.width}, {"safeAreaBottom", profile.height},
+        {"supportsCustomResolution", true}}));
     return sent;
 }
 
@@ -291,10 +300,19 @@ void WebRtcSession::onMessageChannel(const std::string& text) {
         const auto sendControl = [this](const std::string& s) {
             return sendBinary(control_,reinterpret_cast<const uint8_t*>(s.data()),s.size());
         };
+        // Order follows the official client's control-channel sequence (provisional, pending the capture):
+        // authorize, announce the video preference, attach pad 0, ask for the chosen tier.
+        const ResolutionDesc& profile = profile_;
         bool initialized=sendControl(json{{"message", "authorizationRequest"}, {"accessKey", "4BDB3609-C1F1-4195-9B37-FEFF45DA8B8E"}}.dump());
+        initialized &= sendControl(json{
+            {"message", "VideoPreference"}, {"type", "VideoPreference"},
+            {"resolution", {{"width", profile.width}, {"height", profile.height}}},
+            {"dimensions", {{"width", profile.width}, {"height", profile.height}}},
+            {"maxFPS", profile.fps}}.dump());
         initialized &= sendControl(json{{"message", "gamepadChanged"}, {"gamepadIndex", 0}, {"wasAdded", true}}.dump());
         initialized &= sendControl(json{{"message", "gamepadChanged"}, {"gamepadIndex", 0}, {"wasAdded", false}}.dump());
         initialized &= sendControl(json{{"message", "gamepadChanged"}, {"gamepadIndex", 0}, {"wasAdded", true}}.dump());
+        initialized &= sendControl(json{{"message", "userRequestedResolutionUpdate"}, {"resolutionAlias", profile.alias}}.dump());
         if (input_ && input_->isOpen()) {
             const auto report = clientMetadataReport(0, nowMs(), 1);
             initialized &= sendBinary(input_,report.data(),report.size());

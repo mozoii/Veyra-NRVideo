@@ -846,7 +846,7 @@ bool MediaFileSource::open(const SourceOpenDesc& desc)
         std::wstring failure;
         auto opened = media::DemuxSession::open(session, &failure);
         if (!opened || !demuxer_.openShared(std::move(opened))) {
-            errorMessage_ = failure.empty() ? L"无法打开视频，请查看诊断" : failure;
+            errorMessage_ = failure.empty() ? L"Could not open the video; see diagnostics" : failure;
             veyra::log::error("source-file", "shared demux session open failed");
             return false;
         }
@@ -958,7 +958,7 @@ bool MediaFileSource::open(const SourceOpenDesc& desc)
     auto& dv=info_.dolbyVision;
     if(const auto* side=av_packet_side_data_get(params->coded_side_data,params->nb_coded_side_data,AV_PKT_DATA_DOVI_CONF)){
         if(side->size<offsetof(AVDOVIDecoderConfigurationRecord,dv_bl_signal_compatibility_id)+sizeof(uint8_t)){
-            errorMessage_=L"Dolby Vision 配置信息不完整";return false;
+            errorMessage_=L"Dolby Vision configuration is incomplete";return false;
         }
         const auto& config=*reinterpret_cast<const AVDOVIDecoderConfigurationRecord*>(side->data);
         dv.present=true;dv.profile=config.dv_profile;dv.level=config.dv_level;
@@ -1112,7 +1112,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
             const int result=deinterlacer_.receive(&frame);
             if(result>=0)break;
             if(result==AVERROR_EOF)return SourceReadStatus::Eos;
-            if(result!=AVERROR(EAGAIN)||filterDraining_){errorMessage_=L"去隔行输出失败，请查看诊断";return SourceReadStatus::Error;}
+            if(result!=AVERROR(EAGAIN)||filterDraining_){errorMessage_=L"Deinterlaced output failed. See diagnostics.";return SourceReadStatus::Error;}
         }
         frame = decoder_.receiveFrame();
         if(frame){
@@ -1124,7 +1124,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
             if(deinterlaceEnabled_&&((frame->flags&AV_FRAME_FLAG_INTERLACED)||deinterlacer_.active())){
                 const bool damaged=frame->decode_error_flags||(frame->flags&AV_FRAME_FLAG_CORRUPT);
                 if(frame->width!=int(info_.width)||frame->height!=int(info_.height)||(damaged&&!tolerant_)){
-                    errorMessage_=L"隔行视频画面损坏或尺寸改变，已停止处理";return SourceReadStatus::Error;
+                    errorMessage_=L"The interlaced frame is corrupt or its dimensions changed. Processing stopped.";return SourceReadStatus::Error;
                 }
                 // Interlaced network TV (1080i IPTV) loses packets like any other stream:
                 // the same damaged-picture policy applies before the picture reaches the filter.
@@ -1135,20 +1135,20 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
                     if(demuxer_.averageFps()>0)rate=av_d2q(demuxer_.averageFps(),1000000);
                     if(frame->duration>0)av_reduce(&rate.num,&rate.den,decoder_.frameTimeBaseDen(),frame->duration*decoder_.frameTimeBaseNum(),INT_MAX);
                     if(!deinterlacer_.open(frame,surface,decoder_.frameTimeBaseNum(),decoder_.frameTimeBaseDen(),rate.num,rate.den)){
-                        errorMessage_=L"去隔行组件不可用或不支持当前格式；请关闭去隔行或改用软解";return SourceReadStatus::Error;
+                        errorMessage_=L"The deinterlacing component is missing or this format is unsupported. Disable deinterlacing or select software decoding.";return SourceReadStatus::Error;
                     }
                     info_.deinterlaced=true;info_.deinterlacePath=deinterlacer_.path();
                     info_.averageFps=av_q2d(rate)*2;info_.nominalRateNum=rate.num*2;info_.nominalRateDen=rate.den;
                 }
                 const int result=deinterlacer_.push(frame,surface);
-                if(result<0){log::error("deinterlace",std::format("filter push failed code={}",result));errorMessage_=L"去隔行处理失败，请查看诊断";return SourceReadStatus::Error;}
+                if(result<0){log::error("deinterlace",std::format("filter push failed code={}",result));errorMessage_=L"Deinterlacing failed. See diagnostics.";return SourceReadStatus::Error;}
                 continue;
             }
             break;
         }
         if (decoder_.receiveStatus() == media::DecodeReceiveStatus::EndOfStream) {
             if(deinterlacer_.active()){
-                if(deinterlacer_.push(nullptr)<0){errorMessage_=L"去隔行尾帧输出失败";return SourceReadStatus::Error;}
+                if(deinterlacer_.push(nullptr)<0){errorMessage_=L"Could not drain the final deinterlaced frames.";return SourceReadStatus::Error;}
                 filterDraining_=true;continue;
             }
             return SourceReadStatus::Eos;
@@ -1161,11 +1161,11 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
             if (fallbackToSoftware("decoder-error")) {
                 continue;
             }
-            errorMessage_ = L"视频解码失败，已停止处理，请检查源文件是否损坏";
+            errorMessage_ = L"Video decoding failed and processing stopped; check whether the source file is damaged";
             return SourceReadStatus::Error;
         }
         if (draining_) {
-            errorMessage_ = L"视频解码失败，已停止处理，请检查源文件是否损坏";
+            errorMessage_ = L"Video decoding failed and processing stopped; check whether the source file is damaged";
             return SourceReadStatus::Error;
         }
         const auto got = demuxer_.readVideoPacketEx(nonBlocking_ ? 20 : 50, nonBlocking_);
@@ -1182,13 +1182,13 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
         }
         if (got == media::FFmpegDemuxer::ReadResult::Error) {
             const auto failure = demuxer_.shared() ? demuxer_.session()->failureMessage() : std::wstring{};
-            errorMessage_ = failure.empty() ? L"源视频读取失败，已停止处理" : failure;
+            errorMessage_ = failure.empty() ? L"Could not read the source video; processing stopped" : failure;
             return SourceReadStatus::Error;
         }
         if (got == media::FFmpegDemuxer::ReadResult::Eof) {
             draining_ = true;
             if (!decoder_.sendPacket(nullptr)) {
-                errorMessage_ = L"视频尾帧解码失败，已停止处理";
+                errorMessage_ = L"Could not decode the last video frame; processing stopped";
                 return SourceReadStatus::Error;
             }
             continue;
@@ -1212,7 +1212,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
         if (packet->flags & AV_PKT_FLAG_CORRUPT) {
             if (!tolerant_) {
                 veyra::log::error("source-file", "corrupt video packet; refusing to skip source data");
-                errorMessage_ = L"源视频包含损坏数据，已停止处理";
+                errorMessage_ = L"The source video contains corrupt data; processing stopped";
                 return SourceReadStatus::Error;
             }
             ++corruptPacketsSeen_;
@@ -1247,7 +1247,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
             if (fallbackToSoftware("send-packet-error")) {
                 continue;
             }
-            errorMessage_ = L"视频解码失败，已停止处理，请检查源文件是否损坏";
+            errorMessage_ = L"Video decoding failed and processing stopped; check whether the source file is damaged";
             return SourceReadStatus::Error;
         }
     }
@@ -1261,14 +1261,14 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
             desc.SampleDesc.Count != 1 || desc.DepthOrArraySize != 1 ||
             (desc.Format != DXGI_FORMAT_NV12 && desc.Format != DXGI_FORMAT_P010) ||
             desc.Width < UINT64(frame->width) || desc.Height < UINT(frame->height)) {
-            errorMessage_ = L"去隔行输出格式无法导入，已停止处理";
+            errorMessage_ = L"Cannot import the deinterlaced output format; processing stopped";
             return SourceReadStatus::Error;
         }
     } else if (!deinterlacer_.active() && decoder_.hardwareActive() && !decoder_.hardwareFrameImportable()) {
         if (fallbackToSoftware("unsupported-d3d12-surface")) {
             return read(out, decodedFrame);
         }
-        errorMessage_ = L"硬件解码输出格式无法导入，且软件回退失败";
+        errorMessage_ = L"The hardware decoder's output format cannot be imported, and the software fallback failed";
         return SourceReadStatus::Error;
     }
 
@@ -1277,7 +1277,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
     if (!deinterlacer_.active() && ((frame->flags & AV_FRAME_FLAG_CORRUPT) || frame->decode_error_flags)) {
         if (!tolerant_) {
             veyra::log::error("source-file", std::format("corrupt decoded frame flags={} decodeErrors={}", frame->flags, frame->decode_error_flags));
-            errorMessage_ = L"源视频包含损坏画面，已停止处理";
+            errorMessage_ = L"The source video contains corrupt pictures; processing stopped";
             return SourceReadStatus::Error;
         }
         if (!keepDamagedPicture(frame)) {
@@ -1286,7 +1286,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
     }
     if (frame->width <= 0 || frame->height <= 0 || uint32_t(frame->width) != info_.width || uint32_t(frame->height) != info_.height) {
         veyra::log::error("source-file", std::format("frame extent changed: opened={}x{} decoded={}x{}; file processing stopped before upload", info_.width, info_.height, frame->width, frame->height));
-        errorMessage_ = L"视频中途改变分辨率，当前文件处理不支持，已安全停止";
+        errorMessage_ = L"The video changes resolution midway, which processing this file does not support; stopped safely";
         return SourceReadStatus::Error;
     }
 
@@ -1516,7 +1516,7 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
         // refuse the frame when the RPU did not supply usable parameters instead
         // of silently returning a wrong picture.
         if(!usable){
-            errorMessage_=L"Dolby Vision P5：这一帧没有可用的 RPU 转换参数（缺少 RPU、颜色块为空或整形方式不受支持），无法正确转换，已停止以避免错误颜色";
+            errorMessage_=L"Dolby Vision P5: this frame has no usable RPU conversion parameters (missing RPU, empty colour block, or an unsupported reshaping method), so it cannot be converted correctly; playback stopped to avoid wrong colours";
             log::error("source-dovi","profile 5 base layer has no usable RPU conversion parameters; refusing the ordinary YUV fallback");
             return SourceReadStatus::Error;
         }
@@ -1524,12 +1524,12 @@ readAgain:   // a damaged picture was dropped (corrupt policy WaitKeyframe): fet
     }
     const bool hasRpu=av_frame_get_side_data(frame,AV_FRAME_DATA_DOVI_METADATA)||av_frame_get_side_data(frame,AV_FRAME_DATA_DOVI_RPU_BUFFER);
     if(hasRpu&&!dv.present){
-        errorMessage_=L"检测到 Dolby Vision RPU，但缺少基础层兼容声明，无法确认颜色，已停止";
+        errorMessage_=L"A Dolby Vision RPU was found but the base layer's compatibility signalling is missing, so the colors cannot be confirmed; stopped";
         return SourceReadStatus::Error;
     }
     if(hasRpu&&!dv.rpuObserved){dv.rpuObserved=true;log::info("source-dovi","decoded RPU observed; dynamic metadata (L1) drives the HDR curve only when the Dolby Vision follow switch is on (ProPage), otherwise the static curve is used");}
     if(!dv.matches(out.colorInfo)){
-        errorMessage_=L"Dolby Vision 基础层颜色与兼容声明不匹配，已停止以避免错误颜色";
+        errorMessage_=L"Dolby Vision base-layer color does not match its compatibility signalling; stopped to avoid wrong colors";
         return SourceReadStatus::Error;
     }
     // The hardware frame format does not encode bit depth. In particular,

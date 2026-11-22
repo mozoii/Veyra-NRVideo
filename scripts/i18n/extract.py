@@ -1,12 +1,12 @@
-"""Collect every Chinese source string into i18n/catalog.json, keeping existing translations.
+"""Collect every English source string into i18n/catalog.json, keeping existing translations.
 
 usage: python -B scripts/i18n/extract.py [--check]
 
-Sources (Simplified Chinese is the source language and the lookup key):
+Sources (English is the source language and the lookup key):
   * QML: the argument of every qsTr("...") in qml/Veyra;
-  * C++ UI: tr("...") / QCoreApplication::translate(..., "...") and the other Chinese literals in
+  * C++ UI: tr("...") / QCoreApplication::translate(..., "...") and the other literals in
     src/ui and apps/veyra-qml (fixed tables and wide-string messages shown through uiText());
-  * engine messages: Chinese wide literals in src/** that reach the interface as status or error
+  * engine messages: wide literals in src/** that reach the interface as status or error
     text. std::format slots ({}, {:.1f}) stay in the key; the runtime matches them as patterns.
 Adjacent C++ literals ("a" "b") are joined, as the compiler does.
 
@@ -20,13 +20,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / 'i18n/catalog.json'
-LANGS = ('zh-TW', 'en', 'ja', 'ko', 'es', 'fr', 'de', 'pt-BR', 'ru')
-HAN = re.compile('[一-鿿]')
-ESC = {'n': '\n', 't': '\t', '"': '"', "'": "'", '\\': '\\', '0': '\0'}
+LANGS = ('zh', 'zh-TW', 'ja', 'ko', 'es', 'fr', 'de', 'pt-BR', 'ru')
 
 
 def unescape(body):
     out, i = [], 0
+    ESC = {'n': '\n', 't': '\t', '"': '"', "'": "'", '\\': '\\', '0': '\0',
+           'r': '\r', 'a': '\a', 'b': '\b', 'f': '\f', 'v': '\v', '?': '?'}
     while i < len(body):
         c = body[i]
         if c == '\\' and i + 1 < len(body):
@@ -54,14 +54,14 @@ def qml_strings(text):
         yield unescape(text[i:j]), ctx.group(1) if ctx else ''
 
 
-# tr("关闭", "off"): a C++ string with a disambiguation.
+# tr("...", "ctx"): a C++ string with a disambiguation.
 CPP_DISAMBIGUATED = re.compile(r'\btr\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"([^"]*)"\s*\)')
 
 
 def cpp_literal_runs(text):
     """Yield (prefix_before_run, joined_value) for each run of adjacent string literals."""
     i, n = 0, len(text)
-    tokens = []  # (start, end, value)
+    tokens = []
     while i < n:
         if text.startswith('//', i):
             j = text.find('\n', i)
@@ -110,23 +110,36 @@ LOG_CALL = re.compile(r'(log::(info|warn|error|debug)|logUi|veyra::log::\w+)\(\s
 
 
 def collect():
-    found = {}
+    """Every source string the interface may show, keyed on the English source.
 
-    def add(s, where, ctx=''):
-        if s and HAN.search(s):
+    QML qsTr() and C++ tr() are localization markers and are kept as-is.
+    Raw C++ literal runs are only kept when the catalog already knows them:
+    the catalog set was built by hand from this same tree, so anything else
+    is an internal string (a log category, a registry key, a path) rather
+    than interface prose. Stale entries drop out via the catalog diff.
+    """
+    found = {}
+    catalog_keys = set()
+    if CATALOG.exists():
+        for e in json.loads(CATALOG.read_text(encoding='utf-8')).get('entries', []):
+            catalog_keys.add((e['en'], e.get('ctx', '')))
+
+    def add_qml(s, where, ctx=''):
+        if s and any(c.isalnum() for c in s):
             found.setdefault((s, ctx), where)
 
     for f in sorted((ROOT / 'qml/Veyra').glob('*.qml')):
         for s, ctx in qml_strings(f.read_text(encoding='utf-8')):
-            add(s, 'qml/' + f.name, ctx)
+            add_qml(s, 'qml/' + f.name, ctx)
+
     cpp = list((ROOT / 'src/ui').rglob('*.cpp')) + list((ROOT / 'apps/veyra-qml').glob('*.cpp'))
     # The bridge's private state/default strings moved out of its translation
     # unit. Keep collecting exactly that source alongside its domain modules.
     cpp += [ROOT / 'src/ui/QmlPlayerBridge_p.h']
-    # The live status words (正常 / 输出未达标 / ...) come from this header and
-    # are shown through uiText() in the status bar.
+    # The live status words come from this header and are shown through uiText()
+    # in the status bar.
     cpp += [ROOT / 'apps/veyra/ui/LiveStatusHistory.h']
-    for d in ('engine', 'source', 'gfx', 'pipeline', 'moonlight', 'xbox', 'remoteplay', 'sink', 'media', 'ngx', 'base'):
+    for d in ('engine', 'source', 'gfx', 'pipeline', 'moonlight', 'xbox', 'sink', 'media', 'ngx', 'base', 'input'):
         cpp += list((ROOT / 'src' / d).rglob('*.cpp'))
         # Default member values (a status set in a class body) live in the headers.
         cpp += list((ROOT / 'include/veyra' / d).rglob('*.h'))
@@ -134,12 +147,16 @@ def collect():
         rel = f.relative_to(ROOT).as_posix()
         source_text = f.read_text(encoding='utf-8', errors='replace')
         for m in CPP_DISAMBIGUATED.finditer(source_text):
-            add(unescape(m.group(1)), rel, m.group(2))
+            s = unescape(m.group(1))
+            # tr() is an explicit localization marker: keep whatever it carries.
+            if s and any(c.isalnum() for c in s):
+                found.setdefault((s, m.group(2)), rel)
         for before, value in cpp_literal_runs(source_text):
             # Log lines stay in the source language and are not catalogued.
             if LOG_CALL.search(before):
                 continue
-            add(value, rel)
+            if value and (value, '') in catalog_keys:
+                found.setdefault((value, ''), rel)
     return found
 
 
@@ -151,12 +168,15 @@ def main():
     old = {}
     if CATALOG.exists():
         for e in json.loads(CATALOG.read_text(encoding='utf-8')).get('entries', []):
-            old[(e['zh'], e.get('ctx', ''))] = e
+            old[(e['en'], e.get('ctx', ''))] = e
     found = collect()
+    new_keys = sorted(set(found) - set(old))
+    for k in new_keys:
+        print(f'NEW (untranslated, from {found[k]}): {k[0]!r}')
     entries = []
     for key in sorted(found):
-        zh, ctx = key
-        e = {'zh': zh}
+        en, ctx = key
+        e = {'en': en}
         if ctx:
             e['ctx'] = ctx
         e['src'] = found[key]
@@ -168,7 +188,7 @@ def main():
     problems = 0
     missing = {lang: 0 for lang in LANGS}
     for e in entries:
-        want = placeholders(e['zh'])
+        want = placeholders(e['en'])
         for lang in LANGS:
             t = e[lang]
             if not t:
@@ -176,8 +196,9 @@ def main():
                 continue
             if placeholders(t) != want:
                 problems += 1
-                print(f'placeholder mismatch [{lang}] {e["zh"]!r} -> {t!r}')
-    print(f'entries={len(entries)} dropped={sorted(set(old) - set(found))[:8]} missing={missing} placeholder problems={problems}')
+                print(f'placeholder mismatch [{lang}] {e["en"]!r} -> {t!r}')
+    dropped = sorted(set(old) - set(found))
+    print(f'entries={len(entries)} dropped={dropped[:8]} missing={missing} placeholder problems={problems}')
     if '--check' in sys.argv:
         sys.exit(1 if problems else 0)
     CATALOG.parent.mkdir(exist_ok=True)

@@ -9,16 +9,16 @@
 namespace veyra::engine {
 namespace {
 constexpr std::array<EffectInfo, effectTypeCount> kCatalog{{
-    {EffectType::Color, effectTypeName(EffectType::Color), "调色", kMaxColorInstances, true, false, false, false, false},
-    {EffectType::SuperResolution, effectTypeName(EffectType::SuperResolution), "超分辨率", 1, false, false, false, true, false},
-    {EffectType::NrEnhance, effectTypeName(EffectType::NrEnhance), "NR 画面增强", kMaxNrInstances, true, false, false, false, true},
-    {EffectType::Protection, effectTypeName(EffectType::Protection), "NR 保护区域", 1, false, false, false, false, false},
+    {EffectType::Color, effectTypeName(EffectType::Color), "Color", kMaxColorInstances, true, false, false, false, false},
+    {EffectType::SuperResolution, effectTypeName(EffectType::SuperResolution), "Super resolution", 1, false, false, false, true, false},
+    {EffectType::NrEnhance, effectTypeName(EffectType::NrEnhance), "NR enhancement", kMaxNrInstances, true, false, false, false, true},
+    {EffectType::Protection, effectTypeName(EffectType::Protection), "NR protected areas", 1, false, false, false, false, false},
     {EffectType::VideoHdr, effectTypeName(EffectType::VideoHdr), "RTX Video HDR", 1, false, false, true, false, false},
-    {EffectType::FrameGeneration, effectTypeName(EffectType::FrameGeneration), "补帧", 1, false, true, false, false, false},
-    {EffectType::AntiAliasing, effectTypeName(EffectType::AntiAliasing), "抗锯齿", kMaxAntiAliasInstances, true, false, false, false, false, false},
-    {EffectType::Beauty, effectTypeName(EffectType::Beauty), "美颜", kMaxBeautyInstances, true, false, false, false, false, false},
-    {EffectType::NrStabilizer, effectTypeName(EffectType::NrStabilizer), "NR 输出稳定器", 1, false, false, false, false, false},
-    {EffectType::Exclusion, effectTypeName(EffectType::Exclusion), "全效果剔除", 1, false, false, true, false, false},
+    {EffectType::FrameGeneration, effectTypeName(EffectType::FrameGeneration), "Frame Gen", 1, false, true, false, false, false},
+    {EffectType::AntiAliasing, effectTypeName(EffectType::AntiAliasing), "Anti-aliasing", kMaxAntiAliasInstances, true, false, false, false, false, false},
+    {EffectType::Beauty, effectTypeName(EffectType::Beauty), "Beauty", kMaxBeautyInstances, true, false, false, false, false, false},
+    {EffectType::NrStabilizer, effectTypeName(EffectType::NrStabilizer), "NR output stabilizer", 1, false, false, false, false, false},
+    {EffectType::Exclusion, effectTypeName(EffectType::Exclusion), "Exclude all effects", 1, false, false, true, false, false},
 }};
 } // namespace
 
@@ -36,7 +36,7 @@ int NodeGraphLayout::indexOf(const EffectChain& chain, uint32_t id) const {
 }
 
 ChainValidation NodeGraphLayout::initialize(const EffectChain& chain) {
-    if (chain.mode != ChainMode::Node) return {false, "只有节点模式使用编辑连接"};
+    if (chain.mode != ChainMode::Node) return {false, "Only node mode uses edit connections"};
     if (auto v = validateChain(chain); !v.accepted) return v;
     NodeGraphLayout candidate;
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
@@ -51,26 +51,26 @@ ChainValidation NodeGraphLayout::initialize(const EffectChain& chain) {
 
 ChainValidation NodeGraphLayout::validate(const EffectChain& chain) const {
     if (chain.mode != ChainMode::Node || chain.nodeCount > kMaxChainNodes)
-        return {false, "节点编辑文档类型或容量无效"};
-    if (nextId < 2) return {false, "节点标识计数器无效"};
+        return {false, "Invalid node editor document type or capacity"};
+    if (nextId < 2) return {false, "Invalid node ID counter"};
     std::array<uint32_t, effectTypeCount> counts{};
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
         const auto& n = chain.nodes[i];
-        if (ids[i] < 2 || ids[i] >= nextId) return {false, "节点标识无效"};
+        if (ids[i] < 2 || ids[i] >= nextId) return {false, "Invalid node ID"};
         for (uint32_t j = 0; j < i; ++j)
-            if (ids[i] == ids[j]) return {false, "节点标识重复"};
+            if (ids[i] == ids[j]) return {false, "Duplicate node ID"};
         if (size_t(n.type) >= effectTypeCount)
-            return {false, "节点模式不支持该效果类型"};
+            return {false, "Node mode does not support this effect type"};
         if (++counts[size_t(n.type)] > effectInfo(n.type).maxInstances)
-            return {false, "已存在节点（含未连接节点）超过数量上限"};
+            return {false, "Existing nodes (including unconnected ones) exceed the limit"};
         if (!std::isfinite(n.viewX) || !std::isfinite(n.viewY) ||
             std::abs(n.viewX) > 1000000 || std::abs(n.viewY) > 1000000)
-            return {false, "节点坐标无效"};
+            return {false, "Invalid node coordinates"};
         if (n.type == EffectType::NrEnhance && !pipeline::validNrSizePolicy(n.nr.sizePolicy))
-            return {false, "NR 内部处理分辨率非法"};
+            return {false, "Invalid NR internal resolution"};
     }
     const auto validTarget = [&](uint32_t id) { return id <= Output || indexOf(chain, id) >= 0; };
-    if (!validTarget(inputNext)) return {false, "输入节点连接目标不存在"};
+    if (!validTarget(inputNext)) return {false, "The input node's link target does not exist"};
     std::array<uint32_t, kMaxChainNodes> incoming{};
     uint32_t outputIncoming = 0;
     const auto admit = [&](uint32_t target) {
@@ -78,16 +78,16 @@ ChainValidation NodeGraphLayout::validate(const EffectChain& chain) const {
         if (target == Output) return ++outputIncoming <= 1;
         return ++incoming[size_t(indexOf(chain, target))] <= 1;
     };
-    if (!admit(inputNext)) return {false, "输出只允许一个输入"};
+    if (!admit(inputNext)) return {false, "The output takes only one input"};
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
-        if (!validTarget(next[i])) return {false, "节点连接目标不存在"};
-        if (!admit(next[i])) return {false, "节点只允许一个输入，不支持合流"};
+        if (!validTarget(next[i])) return {false, "The node link target does not exist"};
+        if (!admit(next[i])) return {false, "A node takes only one input; merging is not supported"};
     }
     // Include detached components. Traversal is bounded even for corrupt files.
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
         uint32_t id = ids[i], visits = 0;
         while (id > Output) {
-            if (++visits > chain.nodeCount) return {false, "节点连接不能形成环"};
+            if (++visits > chain.nodeCount) return {false, "Node links cannot form a loop"};
             id = next[size_t(indexOf(chain, id))];
         }
     }
@@ -107,11 +107,11 @@ ChainValidation NodeGraphLayout::project(const EffectChain& chain, EffectChain& 
         candidate->nodes[candidate->nodeCount++] = chain.nodes[i];
         id = next[i];
     }
-    if (id != Output) return {false, "输入至输出尚未连接完整，保留上个运行链"};
+    if (id != Output) return {false, "The path from input to output is not fully connected; the previous running chain is kept"};
     if (auto v = validateChain(*candidate); !v.accepted) return v;
     for (uint32_t i = 0; i + 1 < candidate->nodeCount; ++i)
         if (candidate->nodes[i].type == EffectType::FrameGeneration)
-            return {false, "补帧节点固定在输出前，禁用时也不能移到链路中间"};
+            return {false, "The frame generation node is fixed before the output and cannot move into the middle of the chain even when disabled"};
     output = *candidate;
     return {};
 }
@@ -120,7 +120,7 @@ ChainValidation NodeGraphLayout::connect(const EffectChain& chain, uint32_t from
     if (auto v = validate(chain); !v.accepted) return v;
     const int index = indexOf(chain, from);
     if (from == Output || (from != Input && index < 0) || to == Input ||
-        (to != Output && indexOf(chain, to) < 0)) return {false, "连接端点无效"};
+        (to != Output && indexOf(chain, to) < 0)) return {false, "Invalid connection endpoint"};
     auto candidate = *this;
     if (from == Input) candidate.inputNext = to;
     else candidate.next[size_t(index)] = to;
@@ -133,7 +133,7 @@ ChainValidation NodeGraphLayout::disconnect(const EffectChain& chain, uint32_t f
     if (auto v = validate(chain); !v.accepted) return v;
     if (from == Input) { inputNext = Input; return {}; }
     const int index = indexOf(chain, from);
-    if (index < 0) return {false, "固定输出或不存在节点不能断开"};
+    if (index < 0) return {false, "The fixed output or a missing node cannot be disconnected"};
     next[size_t(index)] = Input;
     return {};
 }
@@ -141,11 +141,11 @@ ChainValidation NodeGraphLayout::disconnect(const EffectChain& chain, uint32_t f
 ChainValidation NodeGraphLayout::duplicate(EffectChain& chain, uint32_t id, uint32_t& createdId) {
     if (auto v = validate(chain); !v.accepted) return v;
     const int index = indexOf(chain, id);
-    if (index < 0) return {false, "固定节点不能复制"};
+    if (index < 0) return {false, "Fixed nodes cannot be copied"};
     const auto type = chain.nodes[size_t(index)].type;
     if (effectInfo(type).maxInstances <= 1 || chain.countOf(type) >= effectInfo(type).maxInstances ||
-        chain.nodeCount == kMaxChainNodes) return {false, "单例节点或数量已达上限，不能复制"};
-    if (nextId == std::numeric_limits<uint32_t>::max()) return {false, "节点标识已耗尽"};
+        chain.nodeCount == kMaxChainNodes) return {false, "Single-instance node, or the limit has been reached; cannot copy"};
+    if (nextId == std::numeric_limits<uint32_t>::max()) return {false, "Node IDs exhausted"};
     auto candidate = std::make_unique<EffectChain>(chain);
     auto layout = *this;
     auto& copy = candidate->nodes[candidate->nodeCount];
@@ -160,7 +160,7 @@ ChainValidation NodeGraphLayout::duplicate(EffectChain& chain, uint32_t id, uint
                 std::abs(chain.nodes[i].viewY - copy.viewY) < 300) placed = false;
         if (placed) break;
     }
-    if (!placed) return {false, "副本附近没有可用位置"};
+    if (!placed) return {false, "No free spot near the copy"};
     const uint32_t newId = layout.nextId++;
     layout.ids[candidate->nodeCount] = newId;
     layout.next[candidate->nodeCount++] = Input; // detached, with enabled state preserved
@@ -172,7 +172,7 @@ ChainValidation NodeGraphLayout::duplicate(EffectChain& chain, uint32_t id, uint
 ChainValidation NodeGraphLayout::remove(EffectChain& chain, uint32_t id) {
     if (auto v = validate(chain); !v.accepted) return v;
     const int index = indexOf(chain, id);
-    if (index < 0) return {false, "固定节点或不存在节点不能删除"};
+    if (index < 0) return {false, "Fixed or missing nodes cannot be deleted"};
     auto candidate = std::make_unique<EffectChain>(chain);
     auto layout = *this;
     const uint32_t successor = layout.next[size_t(index)];
@@ -194,10 +194,10 @@ ChainValidation NodeGraphLayout::insertAfter(const EffectChain& chain, uint32_t 
     if (auto v = validate(chain); !v.accepted) return v;
     const int index = indexOf(chain, id), anchor = indexOf(chain, after);
     if (index < 0 || id == after || after == Output || (after != Input && anchor < 0))
-        return {false, "插入端点无效"};
+        return {false, "Invalid insertion point"};
     if (chain.nodes[size_t(index)].type == EffectType::FrameGeneration ||
         (anchor >= 0 && chain.nodes[size_t(anchor)].type == EffectType::FrameGeneration))
-        return {false, "补帧固定末位，不能在其后插入"};
+        return {false, "Frame generation is fixed at the end; nothing can be inserted after it"};
     auto candidate = *this;
     const uint32_t oldNext = candidate.next[size_t(index)];
     if (candidate.inputNext == id) candidate.inputNext = oldNext;
@@ -234,37 +234,37 @@ uint32_t removeLegacyNodeProtection(EffectChain& chain, int* selectedNr, int* se
 }
 
 ChainValidation validateChain(const EffectChain& chain) {
-    if (chain.nodeCount > kMaxChainNodes || chain.overflow) return {false, "链路节点过多"};
+    if (chain.nodeCount > kMaxChainNodes || chain.overflow) return {false, "Too many nodes in the chain"};
     std::array<uint32_t, effectTypeCount> seen{};
     uint32_t lastEnabled = kMaxChainNodes; // index of the last enabled node
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
         const auto& node = chain.nodes[i];
         const auto index = size_t(node.type);
-        if (index >= effectTypeCount) return {false, "未知效果类型"};
+        if (index >= effectTypeCount) return {false, "Unknown effect type"};
         if(node.type==EffectType::NrEnhance&&!pipeline::validNrSizePolicy(node.nr.sizePolicy))
-            return {false, "NR 内部处理分辨率非法"};
+            return {false, "Invalid NR internal resolution"};
         if((node.type==EffectType::Protection||node.type==EffectType::Exclusion)&&!node.protection.validate().empty())
-            return {false,"保护区域参数无效"};
+            return {false,"Invalid protection region parameters."};
         if(node.type==EffectType::NrStabilizer&&(!std::isfinite(node.holdStrength)||node.holdStrength<0||node.holdStrength>1||
            !std::isfinite(node.holdTolerance)||node.holdTolerance<0||node.holdTolerance>1))
-            return {false,"稳定器参数超出范围"};
+            return {false,"Stabilizer parameters are out of range."};
         if(node.type==EffectType::Beauty&&!node.beauty.validate().empty())
-            return {false, "美颜参数超出范围"};
+            return {false, "Beauty settings out of range"};
         ++seen[index];
         if (node.enabled) lastEnabled = i;
     }
     for (uint32_t t = 0; t < effectTypeCount; ++t) {
         const auto& info = kCatalog[t];
-        if (seen[t] > info.maxInstances) return {false, "该效果数量超出上限"};
+        if (seen[t] > info.maxInstances) return {false, "Too many of this effect"};
     }
-    if (!chain.beautyDetection.validate().empty()) return {false, "美颜人脸识别设置超出范围"};
+    if (!chain.beautyDetection.validate().empty()) return {false, "Beauty face detection settings out of range"};
     // Frame generation always runs on the chain's final output: the present
     // sink owns the swapchain and the OSD/subtitles are composited after it.
     // The UI refuses to move it, and this is the engine-side guard.
     for (uint32_t i = 0; i < chain.nodeCount; ++i) {
         if (chain.nodes[i].type == EffectType::FrameGeneration && chain.nodes[i].enabled &&
             i != lastEnabled) {
-            return {false, "补帧只能放在链路最后"};
+            return {false, "Frame generation can only be at the end of the chain"};
         }
     }
     // Video HDR turns an SDR frame into an HDR one, and the stages after it
@@ -279,11 +279,11 @@ ChainValidation validateChain(const EffectChain& chain) {
             if (chain.nodes[i].type == EffectType::FrameGeneration) fgIndex = int32_t(i);
         }
         if (hdrIndex >= 0) {
-            if (fgIndex >= 0 && hdrIndex > fgIndex) return {false, "RTX Video HDR 只能放在补帧前面"};
+            if (fgIndex >= 0 && hdrIndex > fgIndex) return {false, "RTX Video HDR can only go before frame generation"};
             for (uint32_t j = uint32_t(hdrIndex) + 1; j < chain.nodeCount; ++j) {
                 if (!chain.nodes[j].enabled) continue;
                 if (chain.nodes[j].type != EffectType::FrameGeneration && chain.nodes[j].type != EffectType::Exclusion)
-                    return {false, "RTX Video HDR 之后只能接全效果剔除与补帧"};
+                    return {false, "Only effect exclusion and frame generation may follow RTX Video HDR."};
             }
         }
     }
@@ -293,10 +293,10 @@ ChainValidation validateChain(const EffectChain& chain) {
         for(uint32_t j=i+1;j<chain.nodeCount;++j){
             if(!chain.nodes[j].enabled)continue;
             if(node.type==EffectType::Exclusion&&chain.nodes[j].type!=EffectType::FrameGeneration)
-                return {false,"全效果剔除必须位于其他画质效果之后、补帧之前"};
+                return {false,"Place effect exclusion after image effects and before frame generation."};
             if(node.type==EffectType::NrStabilizer&&
                (chain.nodes[j].type==EffectType::NrEnhance||chain.nodes[j].type==EffectType::Protection))
-                return {false,"NR 稳定器必须位于最后一层 NR 与 NR 保护区域之后"};
+                return {false,"Place the NR stabilizer after the final NR layer and NR protection."};
         }
     }
     const ChainNrParams* firstNr=nullptr;
@@ -304,7 +304,7 @@ ChainValidation validateChain(const EffectChain& chain) {
         const auto& node=chain.nodes[i];
         if(node.type!=EffectType::NrEnhance||!node.enabled)continue;
         if(firstNr&&(node.nr.runtime!=firstNr->runtime||node.nr.lowLatencyPairing!=firstNr->lowLatencyPairing))
-            return {false, "启用的 NR 层必须使用同一运行时和 NR/SR 顺序"};
+            return {false, "Enabled NR layers must use the same runtime and NR/SR order"};
         firstNr=&node.nr;
     }
     return {};
@@ -387,7 +387,7 @@ ChainValidation restoreRuntimeOrder(const EnhancementSettings& settings, const C
     if (order.nodeCount > kMaxChainNodes || settings.nrLayerCount > kMaxNrInstances ||
         settings.additionalColorCount >= kMaxColorInstances || settings.additionalAntiAliasCount >= kMaxAntiAliasInstances ||
         settings.additionalBeautyCount >= kMaxBeautyInstances)
-        return {false, "运行节点顺序或实例数量无效"};
+        return {false, "Invalid running node order or instance count"};
     const auto source = toChain(settings);
     EffectChain restored;
     restored.mode = ChainMode::Node;
@@ -403,7 +403,7 @@ ChainValidation restoreRuntimeOrder(const EnhancementSettings& settings, const C
     bool untouchedAa = !settings.antiAlias.configured() && !settings.additionalAntiAliasCount;
     bool untouchedBeauty = !settings.beauty.configured() && !settings.additionalBeautyCount;
     for (uint32_t i = 0; i < order.nodeCount; ++i) {
-        if (uint32_t(order.types[i]) >= effectTypeCount) return {false, "运行节点类型无效"};
+        if (uint32_t(order.types[i]) >= effectTypeCount) return {false, "Invalid running node type"};
         uint32_t index = 0;
         while (index < source.nodeCount && (used[index] || source.nodes[index].type != order.types[i])) ++index;
         if (index == source.nodeCount) {
@@ -414,7 +414,7 @@ ChainValidation restoreRuntimeOrder(const EnhancementSettings& settings, const C
             }
             bool& untouched = order.types[i] == EffectType::AntiAliasing ? untouchedAa : untouchedBeauty;
             if ((order.types[i] != EffectType::AntiAliasing && order.types[i] != EffectType::Beauty) || !untouched)
-                return {false, "运行节点顺序与实例参数数量不匹配"};
+                return {false, "Running node order does not match the number of instance settings"};
             untouched = false;
             restored.nodes[i] = ChainNode{};
             restored.nodes[i].type = order.types[i];
@@ -431,7 +431,7 @@ ChainValidation restoreRuntimeOrder(const EnhancementSettings& settings, const C
             (node.type == EffectType::Color && settings.additionalColorCount) ||
             (node.type == EffectType::AntiAliasing && settings.additionalAntiAliasCount) ||
             (node.type == EffectType::Beauty && settings.additionalBeautyCount))
-            return {false, "运行节点顺序遗漏实例参数"};
+            return {false, "Running node order is missing instance settings"};
     }
     const auto valid = validateChain(restored);
     if (!valid.accepted) return valid;
@@ -556,13 +556,13 @@ void fromChain(const EffectChain& chain, EnhancementSettings& settings) {
 
 ChainValidation compileChainExecutionPlan(const EffectChain& chain, const ChainExecutionRequest& request,
                                          ChainExecutionPlan& result) {
-    if (chain.mode != ChainMode::List && chain.mode != ChainMode::Node) return {false, "未知链路模式"};
+    if (chain.mode != ChainMode::List && chain.mode != ChainMode::Node) return {false, "Unknown chain mode"};
     const auto validation = validateChain(chain);
     if (!validation.accepted) return validation;
     if (!request.source.valid() || !pipeline::validSrTarget(request.srTarget) ||
         !pipeline::validSrPrescale(request.srPrescale) || !pipeline::validSrOutput(request.srOutput) ||
         !pipeline::validSrTarget(request.dualSrTarget))
-        return {false, "执行计划尺寸或超分目标非法"};
+        return {false, "Invalid execution plan size or super resolution target"};
 
     // Retain storage ordinals even when an earlier instance is disabled. This
     // is how the existing settings arrays address parameters; GPU resources

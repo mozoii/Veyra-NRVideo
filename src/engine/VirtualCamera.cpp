@@ -170,18 +170,18 @@ struct VirtualCamera::State {
             if(FAILED(a)||FAILED(b))code=DWORD(FAILED(a)?a:b);
         }else if(!code)code=ERROR_INVALID_DATA;
         installed=systemInstalled.load()||!virtualcam::registeredModule(false).empty();
-        {std::lock_guard lock(textMutex);setupError=code?L"摄像机组件安装或卸载失败，请查看日志":L"";}
+        {std::lock_guard lock(textMutex);setupError=code?L"Camera component installation or removal failed. See the log.":L"";}
         if(code)log::error("virtual-camera",std::format("setup completed remove={} code=0x{:08X} machineRegistered={}",setupRemoves,code,systemInstalled.load()));
         else log::info("virtual-camera",std::format("setup completed remove={} machineRegistered={}",setupRemoves,systemInstalled.load()));
     }
     bool setup(bool remove,std::wstring& why){
-        std::lock_guard lock(control);pollSetupLocked();if(setupProcess){why=L"正在安装摄像机组件，请等待";return false;}
+        std::lock_guard lock(control);pollSetupLocked();if(setupProcess){why=L"Camera component setup is already running. Please wait.";return false;}
         const auto file=modules()/L"veyra-camera-setup.exe";std::error_code ec;
-        if(!std::filesystem::is_regular_file(file,ec)){why=L"虚拟摄像机组件不完整，请完整解压Veyra软件包";return false;}
+        if(!std::filesystem::is_regular_file(file,ec)){why=L"Virtual camera components are missing. Extract the complete Veyra package.";return false;}
         SHELLEXECUTEINFOW launch{sizeof(launch)};launch.fMask=SEE_MASK_NOCLOSEPROCESS|SEE_MASK_FLAG_NO_UI;
         launch.lpVerb=L"runas";launch.lpFile=file.c_str();launch.lpParameters=remove?L"--uninstall":L"--install";launch.nShow=SW_HIDE;
         if(!ShellExecuteExW(&launch)){
-            const auto code=GetLastError();why=code==ERROR_CANCELLED?L"已取消摄像机组件的管理员授权":L"无法启动摄像机安装程序，请查看日志";
+            const auto code=GetLastError();why=code==ERROR_CANCELLED?L"Camera component administrator approval was cancelled.":L"Could not start camera component setup. See the log.";
             log::warn("virtual-camera",std::format("setup launch remove={} win32={}",remove,code));return false;
         }
         setupProcess=launch.hProcess;setupRemoves=remove;installing=true;
@@ -223,7 +223,7 @@ struct VirtualCamera::State {
                     const auto completed=b.fence->GetCompletedValue();
                     if(completed<b.value){pendingGpu=true;break;}
                     const bool deviceLost=completed==UINT64_MAX;
-                    if(deviceLost){fail(L"虚拟摄像机：显卡已断开，请重新打开播放内容");b.state=0;continue;}
+                    if(deviceLost){fail(L"Virtual camera: graphics device disconnected. Reopen the media.");b.state=0;continue;}
                     b.state=3;
                     if(armed.load()&&group->epoch==generation){
                         const unsigned rate=fps.load()?fps.load():60; // the format offered before a consumer asks
@@ -254,7 +254,7 @@ struct VirtualCamera::State {
                                 else ++dropped;
                             }else{
                                 log::error("virtual-camera",std::format("readback Map hrY=0x{:X} hrUV=0x{:X}",unsigned(a),unsigned(z)));
-                                fail(L"虚拟摄像机：无法读取输出画面");
+                                fail(L"Virtual camera: could not read the output frame.");
                             }
                             const D3D12_RANGE none{0,0};if(SUCCEEDED(z))b.uvRead->Unmap(0,&none);if(SUCCEEDED(a))b.yRead->Unmap(0,&none);
                         }else ++dropped; // A consumer still maps the previous queue; retry each frame without blocking playback.
@@ -298,12 +298,12 @@ bool VirtualCamera::start(uint32_t rate,std::wstring& error){
     const auto x64=directory/L"veyra-virtualcam64.dll",x86=directory/L"veyra-virtualcam32.dll";
     std::error_code ec;
     if(!std::filesystem::is_regular_file(x64,ec)||!std::filesystem::is_regular_file(x86,ec)){
-        error=L"虚拟摄像机组件不完整，请完整解压Veyra软件包";s.fail(error);return false;
+        error=L"Virtual camera components are missing. Extract the complete Veyra package.";s.fail(error);return false;
     }
     SetLastError(0);HANDLE owner=CreateMutexW(nullptr,FALSE,L"Local\\VeyraVirtualCameraProducerV1");
     const DWORD last=GetLastError();
     if(!owner||last==ERROR_ALREADY_EXISTS){
-        if(owner)CloseHandle(owner);error=L"另一个Veyra实例已启用虚拟摄像机";s.fail(error);return false;
+        if(owner)CloseHandle(owner);error=L"Another Veyra instance is using the virtual camera.";s.fail(error);return false;
     }
     s.pollSetupLocked();s.systemInstalled=machineRegistered();
     s.systemOutdated=s.systemInstalled.load()&&!machineCurrent();
@@ -318,13 +318,13 @@ bool VirtualCamera::start(uint32_t rate,std::wstring& error){
         if(SUCCEEDED(hr))hr=virtualcam::registerModule(x86.c_str(),true);
     }
     if(FAILED(hr)){
-        CloseHandle(owner);error=L"虚拟摄像机注册失败，请查看日志";s.fail(error);
+        CloseHandle(owner);error=L"Virtual camera registration failed. See the log.";s.fail(error);
         log::error("virtual-camera",std::format("current-user registration hr=0x{:X}",unsigned(hr)));return false;
     }
-    if(!s.wake||!s.done){CloseHandle(owner);error=L"虚拟摄像机工作线程初始化失败";s.fail(error);return false;}
+    if(!s.wake||!s.done){CloseHandle(owner);error=L"Virtual camera worker could not start.";s.fail(error);return false;}
     if(!worker_->thread.joinable()){
         try{worker_->thread=std::thread([state=state_]{state->run();});}
-        catch(const std::exception&){CloseHandle(owner);error=L"虚拟摄像机工作线程初始化失败";s.fail(error);return false;}
+        catch(const std::exception&){CloseHandle(owner);error=L"Virtual camera worker could not start.";s.fail(error);return false;}
     }
     {std::lock_guard text(s.textMutex);s.error.clear();}
     s.ownership=owner;s.installed=true;s.failed=false;s.fps=rate;s.frames=s.dropped=0;s.consumerInterval=0;++s.epoch;s.armed=true;
@@ -342,7 +342,7 @@ bool VirtualCamera::uninstall(std::wstring& error){
     const auto a=virtualcam::unregisterModule(false),b=virtualcam::unregisterModule(true);
     if(FAILED(a)||FAILED(b)){
         log::error("virtual-camera",std::format("unregister HRESULT64=0x{:X} HRESULT32=0x{:X}",unsigned(a),unsigned(b)));
-        error=L"虚拟摄像机卸载失败，请查看日志";return false;
+        error=L"Could not remove the virtual camera. See the log.";return false;
     }
     state_->installed=false;state_->failed=false;
     {std::lock_guard lock(state_->textMutex);state_->error.clear();}return true;
@@ -382,15 +382,15 @@ bool VirtualCamera::record(ID3D12GraphicsCommandList* list,const Frame& frame){
     if(!lock){++s.dropped;return false;}
     const unsigned targetW=std::max(frame.width,frame.nativeWidth),targetH=std::max(frame.height,frame.nativeHeight);
     if(frame.width<1||frame.height<1||targetW>8192||targetH>8192||uint64_t((targetW+1)&~1u)*((targetH+1)&~1u)>33554432u){
-        s.fail(L"虚拟摄像机输出尺寸超出范围（最大8192边长、约3355万像素）");return false;
+        s.fail(L"Virtual camera output exceeds the size limit (8192 per side, about 33.55 million pixels).");return false;
     }
     ComPtr<ID3D12Device> device;const HRESULT hr=frame.texture->GetDevice(IID_PPV_ARGS(&device));
-    if(FAILED(hr)){log::error("virtual-camera",std::format("GetDevice hr=0x{:X}",unsigned(hr)));s.fail(L"虚拟摄像机无法访问显卡");return false;}
+    if(FAILED(hr)){log::error("virtual-camera",std::format("GetDevice hr=0x{:X}",unsigned(hr)));s.fail(L"Virtual camera could not access the graphics device.");return false;}
     auto group=s.surfaces.load();const auto generation=s.epoch.load();
     if(!group||!group->matches(frame,device.Get(),generation)){
         if(group&&!group->idle()){++s.dropped;return false;}
         auto next=std::make_shared<Surfaces>();
-        if(!next->create(device.Get(),frame,generation)){s.fail(L"虚拟摄像机GPU输出初始化失败");return false;}
+        if(!next->create(device.Get(),frame,generation)){s.fail(L"Virtual camera GPU output could not initialize.");return false;}
         s.surfaces.store(next);group=std::move(next);
     }
     unsigned index=count;
@@ -403,7 +403,7 @@ bool VirtualCamera::record(ID3D12GraphicsCommandList* list,const Frame& frame){
 }
 void VirtualCamera::submitted(ID3D12Fence* fence,uint64_t value){
     auto& s=*state_;if(!s.pending)return;
-    if(!fence||!value){discarded();s.fail(L"虚拟摄像机GPU提交栅栏无效");return;}
+    if(!fence||!value){discarded();s.fail(L"Virtual camera received an invalid GPU submission fence.");return;}
     auto& b=s.pending->buffers[size_t(s.pendingIndex)];b.fence=fence;b.value=value;b.state=2;
     if(s.gpuDone)fence->SetEventOnCompletion(value,s.gpuDone); // wakes the worker when the readback lands
     s.pending.reset();s.pendingIndex=-1;SetEvent(s.wake);

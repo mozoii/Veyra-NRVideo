@@ -36,18 +36,19 @@ if mode in ('stage','finish-stage'):
     (STAGE/'vfg-runtime-manifest.json').write_text(json.dumps(vfg,ensure_ascii=False,indent=2),encoding='utf8')
     shutil.copytree(SDK/'nvidia_vfx-0.2.0.0.dist-info/licenses/packaging',STAGE/'licenses/nvidia-vfg',dirs_exist_ok=True)
     samples=STAGE/'licenses/vfg-samples';samples.mkdir(exist_ok=True);shutil.copy2(BASE/'deps/vfg-samples-20261003/LICENSE',samples/'MIT.txt')
-    (STAGE/'LOCAL-VFG.md').write_text('''# Veyra VFG 本地候选
+    (STAGE/'LOCAL-VFG.md').write_text('''# Veyra VFG local candidate
 
-双击 veyra_qml_ui.exe。专业页添加补帧，选择 NVIDIA VFG，再选倍率和质量；节点模式同样可用。
-包含 2X / 3X / 4X / 5X / 6X / 7X / 8X 和低 / 中 / 高三档，默认中档。
-预览、视频导出、预设与重启保存均接入原生 VFG。运行组件已放在 runtime/nvidia-vfg，无需 Python。
-RTX 40 / 50 是官方 Windows 支持范围；本机仅 RTX 5070、616.56 已测试。高倍率为实验选项。
-高档 8X 运算成本较高，实时播放可能降档或跳过预览帧；离线导出完整处理，不丢源帧。
-软件显示的是提交帧率。它不等于屏幕实际显示帧率，也不证明端到端延迟降低。
-本包还保留 Xbox 音频/重连、码率编辑、RTSS 背景、NVIDIA App 误检测修复和 AMD NR 0.39。
-Xbox 真机有声/长期稳定、AMD RX9000 推理、RTX40、616.92、HDR色度专项仍未实机验收。
-这是本地实验候选，未合并 main、未推送、未公开发布。第三方组件按独立 manifest 与许可记录。
-详见 docs/VFG_INTEGRATION_ACCEPTANCE_2026-10-03.md 和 docs/FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md。
+Double-click veyra_qml_ui.exe. The professional page adds frame-gen, select NVIDIA VFG, then choose multiplier and quality; node mode works the same.
+Includes 2X / 3X / 4X / 5X / 6X / 7X / 8X and low / medium / high tiers, medium by default.
+Preview, video export, presets and restart save are all wired to native VFG. The runtime components are placed in runtime/nvidia-vfg, no Python needed.
+RTX 40 / 50 is the official Windows support range; only this machine's RTX 5070, 616.56 has been tested. High multipliers are experimental options.
+High-tier 8X is compute-heavy; real-time playback may degrade or skip preview frames; offline export fully processes without dropping source frames.
+The software shows submission FPS. It does not equal the actual screen display FPS, nor does it prove end-to-end latency reduction.
+This package also keeps Xbox audio/reconnect, bitrate editing, RTSS background, NVIDIA App false-detection fix and AMD NR 0.39.
+Xbox physical-machine audio/long-term stability, AMD RX9000 inference, RTX40, 616.92, HDR chroma remain unaccepted.
+This is a local experimental candidate, not merged to main, not pushed, not published. Third-party components recorded per independent manifest and license.
+See docs/VFG_INTEGRATION_ACCEPTANCE_2026-10-03.md and docs/FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md.
+
 ''',encoding='utf8')
     for name in ('VFG_INTEGRATION_EXECUTION_2026-10-03.md','VFG_INTEGRATION_ACCEPTANCE_2026-10-03.md','VFG_RESEARCH_AND_INTEGRATION_PLAN_2026-10-03.md','FIELD_UPGRADE_ACCEPTANCE_2026-10-03.md','AMD_NR_INTEGRATION_2026-10-03.md'):shutil.copy2(ROOT/'docs'/name,STAGE/'docs'/name)
     print('LOCAL VFG CANDIDATE STAGED',STAGE,flush=True)

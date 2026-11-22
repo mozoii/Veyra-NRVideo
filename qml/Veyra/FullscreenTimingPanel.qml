@@ -33,11 +33,11 @@ Rectangle {
                 Layout.fillWidth: true
                 VButton {
                     Layout.fillWidth: true
-                    text: qsTr("性能与耗时") + (panel.expanded ? "  ▾" : "  ▸")
+                    text: qsTr("Performance and timing") + (panel.expanded ? "  ▾" : "  ▸")
                     onClicked: panel.expanded = !panel.expanded
                 }
                 VButton {
-                    text: qsTr("%1 关闭").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
+                    text: qsTr("%1 to close").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
                     onClicked: panel.closeRequested()
                 }
             }
@@ -55,12 +55,12 @@ Rectangle {
             }
             Text {
                 visible: panel.expanded
-                text: veyra.stageBudgetMs > 0 ? qsTr("源帧预算 %1 ms").arg(veyra.stageBudgetMs.toFixed(2)) : qsTr("源帧预算 —")
+                text: veyra.stageBudgetMs > 0 ? qsTr("Source frame budget %1 ms").arg(veyra.stageBudgetMs.toFixed(2)) : qsTr("Source frame budget —")
                 color: Theme.t2
                 font.family: Theme.fontMono
                 font.pixelSize: Theme.fsSmall
             }
-            VEyebrow { visible: panel.expanded; text: qsTr("GPU · 平均 / P95") }
+            VEyebrow { visible: panel.expanded; text: qsTr("GPU · Mean / P95") }
             Repeater {
                 model: panel.visible && panel.expanded ? veyra.stageTimings.length : 0
                 delegate: TimingRow {

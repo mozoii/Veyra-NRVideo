@@ -1,5 +1,5 @@
 // A confirmation in the app's own dialog chrome (DialogHost's DLayer look):
-// scrim, #dialog card with radius 16, glyph + title, body, 取消 / 确定.
+// scrim, #dialog card with radius 16, glyph + title, body, Cancel / OK.
 // Replaces the platform Dialog whose white title bar and OK/Cancel buttons did
 // not belong to this design.
 import QtQuick
@@ -12,11 +12,11 @@ Item {
     property string title: ""
     property string text: ""
     property string glyph: "info"
-    property string acceptText: qsTr("确定")
+    property string acceptText: qsTr("OK")
     property bool acceptEnabled: true
-    property string rejectText: qsTr("取消")
+    property string rejectText: qsTr("Cancel")
     property bool shown: false
-    // Wider cards and custom content (the design's 列表 / 节点 comparison) go
+    // Wider cards and custom content (the design's list / node comparison) go
     // between the text and the buttons.
     property int cardWidth: 440
     property string acceptIcon: ""

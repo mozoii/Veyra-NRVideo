@@ -11,7 +11,7 @@ ColumnLayout {
     spacing: 6
     VGroup {
         VRow {
-            label: qsTr("音量")
+            label: qsTr("Volume")
             value: Math.round(veyra.volume * 100) + "%"
             VSlider {
                 implicitWidth: 150
@@ -21,7 +21,7 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("静音")
+            label: qsTr("Mute")
             VSwitch {
                 checked: veyra.muted
                 onToggled: checked => veyra.muted = checked
@@ -29,8 +29,8 @@ ColumnLayout {
         }
         VRow {
             visible: veyra.sourceKind === "capture"
-            label: qsTr("本机音频监听")
-            hint: qsTr("关闭后仍可录制和保存回放；本机不播放采集声音")
+            label: qsTr("Local audio monitoring")
+            hint: qsTr("When off, recording and replay still receive audio; capture sound is not played locally.")
             VSwitch {
                 objectName: "pro-capture-audio-monitor"
                 checked: veyra.preferences.captureAudioMonitor !== false
@@ -38,18 +38,18 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("声音同步")
-            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("软件估算补偿 ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("自动估算 · 采集卡 / PS5 实时输入时生效"))
-                  : veyra.audioSyncMode === 1 ? qsTr("手动偏移 · 实时输入时生效") : qsTr("关闭补偿")
+            label: qsTr("Audio sync")
+            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+                  : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
             VSeg {
-                options: [{ id: "0", label: qsTr("自动估算") }, { id: "1", label: qsTr("手动") }, { id: "2", label: qsTr("关闭", "off") }]
+                options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]
                 current: String(veyra.audioSyncMode)
                 onPicked: id => veyra.audioSyncMode = Number(id)
             }
         }
         VRow {
-            label: qsTr("音频偏移")
-            hint: qsTr("正值延后音频")
+            label: qsTr("Audio offset")
+            hint: qsTr("Positive values delay the audio")
             value: veyra.audioOffsetMs + " ms"
             VSlider {
                 implicitWidth: 150
@@ -59,10 +59,10 @@ ColumnLayout {
             }
         }
     }
-    VEyebrow { text: qsTr("音轨") }
+    VEyebrow { text: qsTr("Audio tracks") }
     Text {
         visible: veyra.audioTracks.length === 0
-        text: qsTr("当前源没有可选音轨。")
+        text: qsTr("This source has no selectable audio tracks.")
         color: Theme.t3
         font.family: Theme.fontUi
         font.pixelSize: Theme.fsSmall
@@ -96,7 +96,7 @@ ColumnLayout {
                         font.pixelSize: Theme.fsBody
                     }
                     Text {
-                        text: modelData.channels > 0 ? modelData.channels + qsTr(" 声道") : ""
+                        text: modelData.channels > 0 ? modelData.channels + qsTr(" ch") : ""
                         color: Theme.t3
                         font.family: Theme.fontUi
                         font.pixelSize: 11

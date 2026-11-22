@@ -176,7 +176,7 @@ private:
     int64_t startTimeUs_ = 0;
     std::wstring path_;
     bool preferHardwareDecode_ = false;
-    bool requireHardwareDecode_ = false; // "强制硬解": never fall back to software
+    bool requireHardwareDecode_ = false; // "force hardware decode": never fall back to software
     const std::atomic<bool>* cancelled_ = nullptr;
 };
 

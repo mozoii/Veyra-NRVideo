@@ -29,7 +29,7 @@ struct AdapterInfo {
     std::wstring driverVersionSource;    // "registry" or "dxgi-raw"
 };
 
-// Compute adapter chosen in 设置 -> "同时用这块显卡运算" (0 = default order,
+// Compute adapter chosen in Settings -> "use this GPU for compute" (0 = default order,
 // highest-performance hardware adapter first). A device created without
 // requiredLuid tries it first and falls back to the default order. Kept in
 // the process environment (VEYRA_COMPUTE_ADAPTER_LUID) so export worker

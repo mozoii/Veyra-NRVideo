@@ -19,20 +19,20 @@ ColumnLayout {
     }
     readonly property bool residualWeb: usesWeb("nrResidualView")
     readonly property bool correctionWeb: usesWeb("nrCorrectionView")
-    readonly property var residualSpecs: [{key:"total",label:qsTr("总变化强度"),hint:qsTr("整体倍率 · 同时影响四个方向的变化"),min:0,max:5,defaultValue:1},
-               {key:"darken",label:qsTr("暗化变化"),hint:qsTr("增加 NR 带来的暗化，不是直接调低画面亮度。"),min:0,max:2,defaultValue:1},
-               {key:"brighten",label:qsTr("亮化变化"),hint:qsTr("增加 NR 带来的提亮；0 取消这部分变化。"),min:0,max:2,defaultValue:1},
-               {key:"color",label:qsTr("色彩变化"),hint:qsTr("增加 NR 带来的颜色变化；0 取消这部分变化。"),min:0,max:2,defaultValue:1},
-               {key:"luminance",label:qsTr("明度变化"),hint:qsTr("增加 NR 带来的明度变化；0 取消这部分变化。"),min:0,max:2,defaultValue:1}]
-    readonly property var correctionSpecs: [{key:"hueProtection",label:qsTr("色相保护"),hint:qsTr("保留原图色相；没有色相偏移时变化较小"),min:0,max:1,defaultValue:1},
-                    {key:"chromaProtection",label:qsTr("色度保护"),hint:qsTr("软化过量色度变化；小幅变化保留"),min:0,max:1,defaultValue:0.75},
-                    {key:"neutralProtection",label:qsTr("中性色保护"),hint:qsTr("抑制白墙、云和灰色区域的额外染色"),min:0,max:1,defaultValue:0},
-                    {key:"colorRetention",label:qsTr("原图色彩保留"),hint:qsTr("保留原图色相与饱和度；1 为完全保留色彩"),min:0,max:1,defaultValue:0},
-                    {key:"luminanceRetention",label:qsTr("亮度保持"),hint:qsTr("减少 NR 明暗改动；1 为保留原图亮度"),min:0,max:1,defaultValue:0},
-                    {key:"shadowProtection",label:qsTr("暗部保护"),hint:qsTr("减少暗部被进一步压黑，保留提亮细节"),min:0,max:1,defaultValue:0},
-                    {key:"highlightProtection",label:qsTr("高光保护"),hint:qsTr("只压缩向白色溢出的变化，保留高光回暗"),min:0,max:1,defaultValue:1},
-                    {key:"localCompression",label:qsTr("局部压缩"),hint:qsTr("同时软化过大的亮度和颜色变化"),min:0,max:1,defaultValue:0.75},
-                    {key:"temporalStability",label:qsTr("时域稳定"),hint:qsTr("播放时减闪；暂停单帧不体现时域效果"),min:0,max:1,defaultValue:0.8}]
+    readonly property var residualSpecs: [{key:"total",label:qsTr("Overall change strength"),hint:qsTr("Overall multiplier · Affects all four change directions"),min:0,max:5,defaultValue:1},
+               {key:"darken",label:qsTr("Darkening change"),hint:qsTr("Increase darkening introduced by NR, rather than lowering overall brightness."),min:0,max:2,defaultValue:1},
+               {key:"brighten",label:qsTr("Brightness change"),hint:qsTr("Increase brightening introduced by NR; 0 removes this change."),min:0,max:2,defaultValue:1},
+               {key:"color",label:qsTr("Color change"),hint:qsTr("Increase color changes introduced by NR; 0 removes this change."),min:0,max:2,defaultValue:1},
+               {key:"luminance",label:qsTr("Lightness change"),hint:qsTr("Increase luminance changes introduced by NR; 0 removes this change."),min:0,max:2,defaultValue:1}]
+    readonly property var correctionSpecs: [{key:"hueProtection",label:qsTr("Hue protection"),hint:qsTr("Retain source hue; little change when hue already matches"),min:0,max:1,defaultValue:1},
+                    {key:"chromaProtection",label:qsTr("Chroma protection"),hint:qsTr("Soften excessive chroma changes; retain small changes"),min:0,max:1,defaultValue:0.75},
+                    {key:"neutralProtection",label:qsTr("Neutral color protection"),hint:qsTr("Suppress added tint on white walls, clouds and gray areas"),min:0,max:1,defaultValue:0},
+                    {key:"colorRetention",label:qsTr("Source color retention"),hint:qsTr("Retain source hue and saturation; 1 fully retains color"),min:0,max:1,defaultValue:0},
+                    {key:"luminanceRetention",label:qsTr("Lightness retention"),hint:qsTr("Reduce NR lightness changes; 1 retains source lightness"),min:0,max:1,defaultValue:0},
+                    {key:"shadowProtection",label:qsTr("Shadow protection"),hint:qsTr("Reduce further shadow darkening while retaining brighter detail"),min:0,max:1,defaultValue:0},
+                    {key:"highlightProtection",label:qsTr("Highlight protection"),hint:qsTr("Compress changes toward blown whites; retain highlight darkening"),min:0,max:1,defaultValue:1},
+                    {key:"localCompression",label:qsTr("Local compression"),hint:qsTr("Soften excessive lightness and color changes together"),min:0,max:1,defaultValue:0.75},
+                    {key:"temporalStability",label:qsTr("Temporal stability"),hint:qsTr("Reduce flicker during playback; a paused frame does not show temporal effects"),min:0,max:1,defaultValue:0.8}]
     signal edited(int nodeIndex, string key, double amount)
     signal duplicateRequested(int nodeIndex)
     signal removeRequested(int nodeIndex)
@@ -41,7 +41,7 @@ ColumnLayout {
     readonly property string amdRuntimeLabel: {
         const choices = veyra.nrRuntimeChoices || []
         const choice = choices.find(entry => String(entry.id) === "4")
-        return choice ? choice.label : qsTr("RX 7000 / 9000 · AMD NR（实验）")
+        return choice ? choice.label : qsTr("RX 7000 / 9000 · AMD NR (experimental)")
     }
     property string autoReason: ""
     readonly property bool manualSize: layerData.manualSize ?? false
@@ -64,11 +64,11 @@ ColumnLayout {
     }
     readonly property var sizeChoices: [
         {id:"2",label:"480p"}, {id:"3",label:"720p"}, {id:"4",label:"900p"},
-        {id:"0",label:qsTr("1080p · 默认")}, {id:"5",label:"1440p",disabled:amdNr,note:amdNr ? qsTr("AMD NR 最高 1080p 像素预算") : ""}, {id:"1",label:qsTr("原生"),disabled:amdNr,note:amdNr ? qsTr("AMD NR 最高 1080p 像素预算") : ""},
-        {id:"6",label:qsTr("自动（按负载）"),disabled:autoReason.length>0,note:autoReason},
-        {id:"manual",label:qsTr("手动")}
+        {id:"0",label:qsTr("1080p · default")}, {id:"5",label:"1440p",disabled:amdNr,note:amdNr ? qsTr("AMD NR has a maximum 1080p pixel budget") : ""}, {id:"1",label:qsTr("Native"),disabled:amdNr,note:amdNr ? qsTr("AMD NR has a maximum 1080p pixel budget") : ""},
+        {id:"6",label:qsTr("Auto (by load)"),disabled:autoReason.length>0,note:autoReason},
+        {id:"manual",label:qsTr("Manual")}
     ]
-    readonly property string sizeLabel: manualSize ? qsTr("手动") : sizeChoices.find(o => Number(o.id) === layerData.sizePolicy)?.label ?? qsTr("未知")
+    readonly property string sizeLabel: manualSize ? qsTr("Manual") : sizeChoices.find(o => Number(o.id) === layerData.sizePolicy)?.label ?? qsTr("Unknown")
     spacing: 6
 
     component NrValueRow: VRow {
@@ -95,37 +95,37 @@ ColumnLayout {
         visible: editor.listControls
         VButton {
             objectName: "nr-copy"
-            text: qsTr("复制此层"); enabled: editor.layerCount < 4
+            text: qsTr("Copy this layer"); enabled: editor.layerCount < 4
             onClicked: editor.duplicateRequested(editor.layerData.index)
         }
         VButton {
             objectName: "nr-reset"
-            text: qsTr("恢复默认"); ghost: true
+            text: qsTr("Reset to default"); ghost: true
             onClicked: if (editor.enabled) veyra.resetNrLayer(editor.layerData.index)
         }
         VButton {
             objectName: "nr-remove"
-            text: qsTr("删除此层")
+            text: qsTr("Delete this layer")
             onClicked: editor.removeRequested(editor.layerData.index)
         }
     }
     VRow {
-        label: qsTr("NR 版本")
-        hint: qsTr("全链共享 · 切换会重建 NR 管线")
+        label: qsTr("NR version")
+        hint: qsTr("Shared by the whole chain · switching rebuilds the NR pipeline")
         VSelect {
             objectName: "nr-runtime"
             value: editor.layerData.runtime === 4 ? editor.amdRuntimeLabel
-                   : editor.layerData.runtime === 3 ? qsTr("RTX 50 · NVIDIA 原版")
+                   : editor.layerData.runtime === 3 ? qsTr("RTX 50 · NVIDIA original")
                    : "RTX 20–50 · SF 310.9.16"
-            options: veyra.nrRuntimeChoices || [{id:"2",label:"RTX 20–50 · SF 310.9.16"},{id:"3",label:qsTr("RTX 50 · NVIDIA 原版")},{id:"4",label:qsTr("RX 7000 / 9000 · AMD NR（实验）")}]
+            options: veyra.nrRuntimeChoices || [{id:"2",label:"RTX 20–50 · SF 310.9.16"},{id:"3",label:qsTr("RTX 50 · NVIDIA original")},{id:"4",label:qsTr("RX 7000 / 9000 · AMD NR (experimental)")}]
             onPicked: id => editor.edited(editor.layerData.index, "runtime", Number(id))
         }
     }
     VRow {
         objectName: "nr-performance-row"
-        label: qsTr("启用性能优化版")
-        hint: editor.amdNr ? qsTr("开启使用 Small 模型；关闭使用原模型。每层独立选择，切换会重建 NR，画面可能有所不同。")
-                           : qsTr("开启使用新版模型 B；关闭使用旧版模型 A。切换会重建 NR，画面可能有所不同。")
+        label: qsTr("Use performance model")
+        hint: editor.amdNr ? qsTr("On: Small model. Off: Original model. Each layer selects independently. Switching rebuilds NR and may change the picture.")
+                           : qsTr("On: new model B. Off: legacy model A. Switching rebuilds NR and may change the picture.")
         enabled: (editor.layerData.runtime === 2 || editor.amdNr) && Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
         VSwitch {
@@ -135,22 +135,22 @@ ColumnLayout {
         }
     }
     VRow {
-        label: qsTr("NR 运动来源")
+        label: qsTr("NR motion source")
         enabled: Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
-        hint: qsTr("全链共享；抗闪烁开启时仍需估算光流")
+        hint: qsTr("Shared by the whole chain; anti-flicker still needs optical flow when on")
         VSeg {
             objectName: "nr-motion-source"
-            options: [{id:"0",label:qsTr("零运动")},{id:"1",label:qsTr("光流")}]
+            options: [{id:"0",label:qsTr("Zero motion")},{id:"1",label:qsTr("Optical flow")}]
             current: String(veyra.nrMotionSource)
             onPicked: id => { if (editor.enabled) veyra.nrMotionSource = Number(id) }
         }
     }
     VRow {
-        label: qsTr("内部处理分辨率")
+        label: qsTr("Internal processing resolution")
         enabled: Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
-        hint: qsTr("内部降采样 · 不改变输出尺寸")
+        hint: qsTr("Internal downsampling · output size unchanged")
         VSelect {
             objectName: "nr-resolution"
             value: editor.sizeLabel; options: editor.sizeChoices
@@ -163,8 +163,8 @@ ColumnLayout {
         visible: editor.manualSize
         enabled: Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
-        label: qsTr("处理比例")
-        hint: qsTr("松开后应用 · 宽高同比例")
+        label: qsTr("Processing scale")
+        hint: qsTr("Apply on release · scale both dimensions")
         value: Math.round(percentSlider.displayedValue) + "%"
         VSlider {
             id: percentSlider
@@ -181,23 +181,23 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         visible: editor.manualSize
-        text: editor.amdNr ? qsTr("手动比例以最高 1080p 预算内的输入为基准；适用于预览与视频导出，输出尺寸不变。")
-                          : qsTr("手动比例缩放该层输入的宽高；50% 约为四分之一像素。适用于预览与视频导出，输出尺寸不变。")
+        text: editor.amdNr ? qsTr("Manual scale is relative to the input within the 1080p budget. It applies to preview and video export; the output size is unchanged.")
+                          : qsTr("Manual scale changes the width and height of this layer’s input; 50% is about one quarter of the pixels. It applies to preview and video export; the output size is unchanged.")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11
         wrapMode: Text.WordWrap
     }
     Text {
         Layout.fillWidth: true
         visible: editor.layerData.sizePolicy === 6
-        text: qsTr("自动档在预览中按增强耗时调整 100%–40%；预建实例约增加 1.7GB 显存及半秒启动时间。视频导出固定按最高 1440p 处理，输出尺寸不变。") +
+        text: qsTr("Auto adjusts preview processing from 100% to 40% using enhancement time. Prebuilt instances add about 1.7GB of VRAM and half a second of startup time. Video export uses a fixed maximum of 1440p; the output size is unchanged.") +
               (veyra.nrAutoStatus.length > 0 ? "\n" + veyra.nrAutoStatus : "")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11
         wrapMode: Text.WordWrap
     }
     Text {
         Layout.fillWidth: true
-        text: editor.amdNr ? qsTr("AMD NR 预览与视频导出最高按内部 1080p 处理，视频保持输出尺寸；图片导出仍需符合模型尺寸预算。")
-                          : qsTr("预览与视频导出都按所选内部分辨率处理，保留比例且不放大小输入，输出尺寸不变；图片导出仍完整处理。")
+        text: editor.amdNr ? qsTr("AMD NR preview and video export use up to internal 1080p processing while keeping the video output size. Image export must still fit the model size budget.")
+                          : qsTr("Preview and video export both process NR at the selected internal resolution, keeping the aspect ratio without upscaling small inputs; the output size is unchanged. Image export is still fully processed.")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11
         wrapMode: Text.WordWrap
     }
@@ -205,12 +205,12 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !editor.amdNr && editor.layerCount > 1 &&
                  (!editor.listControls || (veyra.nrLayers.length > 0 && editor.layerData.index === veyra.nrLayers[0].index))
-        text: qsTr("多层 NR 可尝试前层 720p、末层 1080p；三层可尝试 480p / 720p / 1080p。降低前层分辨率会改变画面，视频导出同样按各层所选分辨率处理。")
+        text: qsTr("For multiple NR layers, try 720p first and 1080p last; for three layers, try 480p / 720p / 1080p. Lowering the earlier layers changes the image. Video export also uses each layer's selected resolution.")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11
         wrapMode: Text.WordWrap
     }
     NrValueRow {
-        spec: ({key:"intensity",label:qsTr("模型强度"),min:0,max:1})
+        spec: ({key:"intensity",label:qsTr("Model strength"),min:0,max:1})
         enabled: Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
         amount: editor.layerData.intensity
@@ -219,7 +219,7 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         visible: editor.amdNr || !Support.available(veyra, "nr" + editor.layerData.runtime)
-        text: !Support.available(veyra, "nr" + editor.layerData.runtime) ? Support.reason(veyra, "nr" + editor.layerData.runtime) : qsTr("AMD NR（实验）：RX 7000 / 9000 使用各自运行组件，需要 HIP 7 驱动。性能模式使用 Small，关闭使用原模型；内部最高 1080p 像素预算，支持百分比尺寸。7000 系风格固定默认，9000 系沿用运行时配置。原生 HDR 保留基底，通过 SDR 代理增强后还原。7000 系仍需实卡验收。")
+        text: !Support.available(veyra, "nr" + editor.layerData.runtime) ? Support.reason(veyra, "nr" + editor.layerData.runtime) : qsTr("AMD NR (experimental): RX 7000 / 9000 use separate runtimes and require HIP 7. Performance mode selects Small; off selects Original. Internal processing supports percentages within a 1080p pixel budget. RX 7000 uses the default style; RX 9000 retains runtime configuration. Native HDR preserves its base and reconstructs the SDR-proxy enhancement. RX 7000 hardware validation is still required.")
         color: Theme.t3; font.pixelSize: 11; wrapMode: Text.WordWrap
     }
     VSubGroup {
@@ -227,10 +227,10 @@ ColumnLayout {
         enabled: !editor.amdNr && Support.available(veyra, "nr" + editor.layerData.runtime)
         opacity: enabled ? 1 : 0.4
         Layout.fillWidth: true
-        label: qsTr("模型参数"); count: 6
+        label: qsTr("Model parameters"); count: 6
         Repeater {
-            model: [{key:"tone",label:qsTr("局部明暗"),min:0,max:1},
-                    {key:"structure",label:qsTr("局部结构"),min:0,max:1}]
+            model: [{key:"tone",label:qsTr("Local tone"),min:0,max:1},
+                    {key:"structure",label:qsTr("Local structure"),min:0,max:1}]
             delegate: NrValueRow {
                 required property var modelData
                 spec: modelData; amount: editor.layerData[modelData.key]
@@ -238,22 +238,22 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("肤质 · 未证实")
+            label: qsTr("Skin · unverified")
             VSelect {
                 objectName: "nr-skin-mode"
-                value: editor.layerData.skin < 0 ? qsTr("未指定") : qsTr("自定义")
-                options: [{id:"-1",label:qsTr("未指定")},{id:"0",label:qsTr("自定义")}]
+                value: editor.layerData.skin < 0 ? qsTr("Not specified") : qsTr("Custom")
+                options: [{id:"-1",label:qsTr("Not specified")},{id:"0",label:qsTr("Custom")}]
                 onPicked: id => editor.edited(editor.layerData.index,"skin",Number(id))
             }
         }
         NrValueRow {
             visible: editor.layerData.skin >= 0
-            spec: ({key:"skin",label:qsTr("肤质数值"),min:0,max:2})
+            spec: ({key:"skin",label:qsTr("Skin value"),min:0,max:2})
             amount: Math.max(0,editor.layerData.skin)
             onEdited: amount => editor.edited(editor.layerData.index,"skin",amount)
         }
         VRow {
-            label: qsTr("风格 · 实验")
+            label: qsTr("Style · experimental")
             VSeg {
                 objectName: "nr-style"
                 options: [{id:"0",label:"0"},{id:"1",label:"1"},{id:"2",label:"2"}]
@@ -262,7 +262,7 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("自动遮罩 · 实验")
+            label: qsTr("Auto mask · experimental")
             VSwitch {
                 objectName: "nr-autoMask"
                 checked: editor.layerData.autoMask
@@ -270,7 +270,7 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("UI 修正 · 未证实")
+            label: qsTr("UI correction · unverified")
             VSwitch {
                 objectName: "nr-uiCorrection"
                 checked: editor.layerData.uiCorrection
@@ -281,12 +281,12 @@ ColumnLayout {
     VSubGroup {
         objectName: "nr-residual-group"
         Layout.fillWidth: true
-        label: qsTr("增强变化量"); count: 5
+        label: qsTr("Enhancement change"); count: 5
         VRow {
-            label: qsTr("调节方式")
+            label: qsTr("Adjustment method")
             VSeg {
                 objectName: "nr-residual-view"
-                options: [{id:"web",label:qsTr("网状")},{id:"list",label:qsTr("列表")}]
+                options: [{id:"web",label:qsTr("Web")},{id:"list",label:qsTr("List")}]
                 current: editor.residualWeb ? "web" : "list"
                 onPicked: id => veyra.setPreference("nrResidualView", id)
             }
@@ -314,10 +314,10 @@ ColumnLayout {
     VSubGroup {
         objectName: "nr-correction-group"
         Layout.fillWidth: true
-        label: qsTr("画面调控"); count: editor.layerData.correctionEnabled ? (editor.layerData.correctionAuto ? 1 : 9) : 0
+        label: qsTr("Image correction"); count: editor.layerData.correctionEnabled ? (editor.layerData.correctionAuto ? 1 : 9) : 0
         VRow {
-            label: qsTr("开启调控")
-            hint: qsTr("关闭时保留原始变化量，最高 5")
+            label: qsTr("Enable correction")
+            hint: qsTr("Off preserves the original residual gain up to 5")
             VSwitch {
                 objectName: "nr-correctionEnabled"
                 checked: editor.layerData.correctionEnabled ?? false
@@ -326,20 +326,20 @@ ColumnLayout {
         }
         VRow {
             visible: editor.layerData.correctionEnabled ?? false
-            label: qsTr("调控方式")
+            label: qsTr("Correction mode")
             VSeg {
                 objectName: "nr-correctionAuto"
-                options: [{id:"1",label:qsTr("自动")},{id:"0",label:qsTr("手动")}]
+                options: [{id:"1",label:qsTr("Auto")},{id:"0",label:qsTr("Manual")}]
                 current: (editor.layerData.correctionAuto ?? true) ? "1" : "0"
                 onPicked: id => editor.edited(editor.layerData.index,"correctionAuto",Number(id))
             }
         }
         VRow {
             visible: (editor.layerData.correctionEnabled ?? false) && !(editor.layerData.correctionAuto ?? true)
-            label: qsTr("调节方式")
+            label: qsTr("Adjustment method")
             VSeg {
                 objectName: "nr-correction-view"
-                options: [{id:"web",label:qsTr("网状")},{id:"list",label:qsTr("列表")}]
+                options: [{id:"web",label:qsTr("Web")},{id:"list",label:qsTr("List")}]
                 current: editor.correctionWeb ? "web" : "list"
                 onPicked: id => veyra.setPreference("nrCorrectionView", id)
             }
@@ -366,30 +366,30 @@ ColumnLayout {
         }
         NrValueRow {
             visible: (editor.layerData.correctionEnabled ?? false) && (editor.layerData.correctionAuto ?? true)
-            spec: ({key:"correctionAmount",label:qsTr("自动调控力度"),hint:qsTr("0 保留原始变化；1 按当前风格完整纠偏"),min:0,max:1,defaultValue:1})
+            spec: ({key:"correctionAmount",label:qsTr("Automatic control amount"),hint:qsTr("0 retains raw changes; 1 applies this style’s full correction"),min:0,max:1,defaultValue:1})
             amount: editor.layerData.correctionAmount ?? 1
             onEdited: amount => editor.edited(editor.layerData.index,"correctionAmount",amount)
         }
         VButton {
             objectName: "nr-use-auto-defaults"
             visible: (editor.layerData.correctionEnabled ?? false) && !(editor.layerData.correctionAuto ?? true)
-            text: qsTr("采用当前风格的自动参数"); ghost: true
+            text: qsTr("Use this style’s automatic values"); ghost: true
             onClicked: editor.edited(editor.layerData.index,"correctionUseAuto",1)
         }
         Text {
             Layout.fillWidth: true
             visible: editor.layerData.correctionEnabled ?? false
-            text: qsTr("自动参数分别适配风格 0／1／2。手动可独立保留颜色、亮度和暗部；保护会降低对应变化量。时域稳定复用光流，切换方式保留手动数值。")
+            text: qsTr("Automatic values are tuned for styles 0/1/2. Manual controls independently retain color, lightness and shadows, reducing the corresponding changes. Temporal stability uses optical flow; switching modes preserves manual values.")
             color: Theme.t3; font.pixelSize: 11; wrapMode: Text.WordWrap
         }
     }
     VSubGroup {
         objectName: "nr-experimental-group"
         Layout.fillWidth: true
-        label: qsTr("实验"); count: editor.layerData.temporal ? 3 : 2
+        label: qsTr("Experimental"); count: editor.layerData.temporal ? 3 : 2
         VRow {
-            label: qsTr("时间域防闪烁")
-            hint: editor.layerData.correctionEnabled ? qsTr("画面调控已接管时域稳定；关闭调控后恢复此设置") : qsTr("需要光流；关掉则不做时域累积")
+            label: qsTr("Temporal anti-flicker")
+            hint: editor.layerData.correctionEnabled ? qsTr("Image correction controls temporal stability; this setting returns when correction is off") : qsTr("Needs optical flow; when off there is no temporal accumulation")
             VSwitch {
                 objectName: "nr-temporal"
                 checked: editor.layerData.temporal
@@ -402,25 +402,25 @@ ColumnLayout {
             // Only meaningful when temporal accumulation is on; the tier picks
             // how the accumulation behaves, not whether it runs.
             visible: editor.layerData.temporal
-            label: qsTr("抗闪烁档位")
-            hint: qsTr("静态最稳、光流为默认、低频保留高频细节")
+            label: qsTr("Anti-flicker level")
+            hint: qsTr("Static is the steadiest, optical flow is the default, low-frequency keeps high-frequency detail")
             VSelect {
                 objectName: "nr-antiflicker"
                 enabled: !(editor.layerData.correctionEnabled ?? false)
                 options: [
-                    {id:"1",label:qsTr("静态累积")},
-                    {id:"2",label:qsTr("光流累积 · 默认")},
-                    {id:"3",label:qsTr("光流累积+")},
-                    {id:"4",label:qsTr("低频时域重建")}
+                    {id:"1",label:qsTr("Static accumulation")},
+                    {id:"2",label:qsTr("Accumulated flow · default")},
+                    {id:"3",label:qsTr("Accumulated flow+")},
+                    {id:"4",label:qsTr("Low-frequency temporal rebuild")}
                 ]
-                value: options.find(o => Number(o.id) === editor.layerData.antiFlicker)?.label ?? qsTr("光流累积 · 默认")
+                value: options.find(o => Number(o.id) === editor.layerData.antiFlicker)?.label ?? qsTr("Accumulated flow · default")
                 onPicked: id => editor.edited(editor.layerData.index,"antiFlicker",Number(id))
             }
         }
         VRow {
             visible: editor.listControls
-            label: qsTr("NR → SR · 全层")
-            hint: qsTr("低延迟顺序，仅预览、全层同步")
+            label: qsTr("NR → SR · all layers")
+            hint: qsTr("Low-latency order, preview only, all layers in sync")
             VSwitch {
                 checked: editor.nrFirst
                 onToggled: checked => editor.orderEdited(checked)

@@ -42,7 +42,7 @@ for vendor in ('AMD','NVIDIA'):
     for name in ('README.md','README_CN.md','README_EN.md','THIRD_PARTY_NOTICES.md','LICENSE'):shutil.copyfile(ROOT/name,app/name)
     shutil.copyfile(ROOT/'assets/star-history.svg',app/'assets/star-history.svg')
     for name in docnames:shutil.copyfile(ROOT/'docs'/name,app/'docs'/name)
-    (app/'RELEASE_2.0.4.md').write_text('Veyra2.0.4 正式应用版本 / Stable application release\n\n选择与显卡相符的包，在新目录完整解压，运行veyra_qml_ui.exe。此包包含已审计实验增强组件，其硬件/画质边界见docs/RELEASE_NOTES_2.0.4.md。\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.4\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\n对应源码及静态字幕依赖替换/重编译见docs/BUILD_2.0.4.md。\n',encoding='utf8')
+    (app/'RELEASE_2.0.4.md').write_text('Veyra2.0.4 stable application release / Stable application release\n\nChoose the package matching your GPU, fully extract to a new directory, run veyra_qml_ui.exe. This package contains the audited experimental enhancement component, its hardware/picture boundary in docs/RELEASE_NOTES_2.0.4.md.\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.4\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\nSource and static-subtitle-dependency replacement/recompile: docs/BUILD_2.0.4.md.\n',encoding='utf8')
     for rel,digest in immutable.items():assert sha(app/rel)==digest,rel
     assert sha(app/'veyra_qml_ui.exe')=='d01329aa6d9fbd6ac2d1eee294782f4cb9d233490595ed2e3e1a9ea12c16b2d6'
     for p in (ROOT/'qml').rglob('*'):

@@ -12,18 +12,18 @@ DialogLayer {
     objectName: "capture-dialog"
     key: "capture"
     glyph: "video"
-    title: qsTr("采集卡")
-    sub: qsTr("连接设备后，先关闭增强确认基础画面，再按需开启")
+    title: qsTr("Capture card")
+    sub: qsTr("After connecting the device, turn enhancement off to check the base picture first, then turn on what you need")
     dialogWidth: 660
-    foot: qsTr("关闭其他占用同一采集卡的软件")
+    foot: qsTr("Close other software using the same capture card")
     actions: [
-        { label: captureDialog.live ? qsTr("断开") : qsTr("取消") },
-        { label: qsTr("连接并开始"), primary: true, icon: "play" }
+        { label: captureDialog.live ? qsTr("Disconnect") : qsTr("Cancel") },
+        { label: qsTr("Connect and start"), primary: true, icon: "play" }
     ]
     onActionTriggered: label => {
         if (onboardingActive) return
-        if (label === qsTr("断开")) { veyra.stopPlayback(); return }
-        if (label !== qsTr("连接并开始")) { dialogHost.close(); return }
+        if (label === qsTr("Disconnect")) { veyra.stopPlayback(); return }
+        if (label !== qsTr("Connect and start")) { dialogHost.close(); return }
         if (veyra.startCaptureSession()) dialogHost.close()
     }
     Connections {
@@ -31,8 +31,6 @@ DialogLayer {
         function onDialogChanged() {
             if (dialogHost.dialog !== "capture" || captureDialog.onboardingActive) return
             veyra.refreshCaptureDevices()
-            // The PS5 手柄控制 host list is the PS5 dialog's saved pairings.
-            if (veyra.ps5Control.available === true) veyra.ps5Load()
         }
     }
     function onboardingTarget(key) {
@@ -48,34 +46,11 @@ DialogLayer {
     }
     function labelOf(list, id, fallback) { const f = list.find(x => String(x.id) === String(id)); return f ? f.label : fallback }
     readonly property bool live: veyra.captureSignalLevel !== "idle"
-    readonly property var pc: veyra.ps5Control
-    readonly property bool pcOn: pc.available === true && pc.enabled === true
-    readonly property string pcTag: {
-        switch (pc.state) {
-        case "starting": return qsTr("连接中")
-        case "connected": return qsTr("已连接")
-        case "recovering": return qsTr("重连中")
-        case "pin": return qsTr("需要 PIN")
-        case "failed": return qsTr("已停止")
-        case "nopair": return qsTr("未配对")
-        default: return qsTr("未连接")
-        }
-    }
-    readonly property string pcStatus: {
-        switch (pc.state) {
-        case "starting": return qsTr("正在连接 PS5…")
-        case "connected": return pc.keepaliveFps >= 0 ? qsTr("PS5 手柄控制已连接 · 保活画面 %1 fps（收到即丢弃）").arg(pc.keepaliveFps) : qsTr("PS5 手柄控制已连接")
-        case "pin": return qsTr("PS5 要求输入登录 PIN")
-        case "recovering": case "failed": case "nopair": return pc.message || ""
-        default: return qsTr("采集卡连上后自动连接 PS5")
-        }
-    }
-
     VButton {
         objectName: "capture-guide-open"
         Layout.alignment: Qt.AlignLeft
         Layout.bottomMargin: 4
-        text: qsTr("如何选择采集格式？")
+        text: qsTr("How do I choose a capture format?")
         onClicked: captureDialog.guideRequested()
     }
 
@@ -110,7 +85,7 @@ DialogLayer {
             visible: !capturePoster.visible
             VIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "video"; size: 22; color: Theme.t3 }
             Text {
-                text: captureDialog.live ? qsTr("画面在主窗口播放") : qsTr("连接后在主窗口显示画面")
+                text: captureDialog.live ? qsTr("The picture plays in the main window") : qsTr("Shows the picture in the main window once connected")
                 color: Theme.t3
                 font.family: Theme.fontUi
                 font.pixelSize: 12
@@ -131,7 +106,7 @@ DialogLayer {
                 text: captureDialog.live
                       ? veyra.sourceSummary.replace("x", "×") + " · " + veyra.captureFps.toFixed(2) + " fps"
                         + (veyra.sourceFormatText.split(" · ").length > 2 ? " · " + veyra.sourceFormatText.split(" · ")[1] : "")
-                      : (veyra.captureFormatLabel.length ? veyra.captureFormatLabel : qsTr("选择设备和格式后连接"))
+                      : (veyra.captureFormatLabel.length ? veyra.captureFormatLabel : qsTr("Choose a device and format, then connect"))
                 color: Theme.t2
                 font.family: Theme.fontMono
                 font.pixelSize: 11
@@ -140,12 +115,12 @@ DialogLayer {
         }
     }
 
-    DialogSection { text: qsTr("设备") }
+    DialogSection { text: qsTr("Device") }
     DialogGroup {
         VRow {
             id: videoDeviceRow
-            label: qsTr("视频输入设备")
-            hint: veyra.captureQueryBusy ? qsTr("正在查询…当前播放继续") : (veyra.captureDevices.length === 0 ? qsTr("未检测到采集设备") : "")
+            label: qsTr("Video input device")
+            hint: veyra.captureQueryBusy ? qsTr("Checking… playback continues") : (veyra.captureDevices.length === 0 ? qsTr("No capture device detected") : "")
             RowLayout {
                 spacing: 6
                 VSelect {
@@ -162,7 +137,7 @@ DialogLayer {
                         objectName: "capture-refresh"
                         anchors.fill: parent
                         visible: !veyra.captureQueryBusy
-                        icon: true; ghost: true; iconName: "refresh"; tip: qsTr("刷新设备")
+                        icon: true; ghost: true; iconName: "refresh"; tip: qsTr("Refresh devices")
                         onClicked: veyra.refreshCaptureDevices()
                     }
                     VSpinner { anchors.centerIn: parent; visible: veyra.captureQueryBusy }
@@ -171,49 +146,49 @@ DialogLayer {
         }
         VRow {
             objectName: "capture-legacy-entry"
-            label: qsTr("旧版格式选择")
-            hint: qsTr("直接查看完整格式列表，包含被常用帧率筛选隐藏的模式")
+            label: qsTr("Legacy format selection")
+            hint: qsTr("View the full list, including modes hidden by the common frame rate filter")
             VButton {
                 objectName: "capture-legacy-open"
-                text: qsTr("打开旧版格式列表")
+                text: qsTr("Open legacy format list")
                 enabled: !veyra.captureQueryBusy && veyra.captureDeviceId.length > 0
                 onClicked: legacyPicker.open()
             }
         }
         VRow {
             id: resolutionRow
-            label: qsTr("分辨率")
-            hint: qsTr("先选择分辨率，再选择该分辨率支持的帧率和像素格式")
+            label: qsTr("Resolution")
+            hint: qsTr("Choose a resolution first, then a frame rate and pixel format supported at that resolution.")
             VSelect {
                 objectName: "capture-resolution"
                 enabled: !veyra.captureQueryBusy
                 opacity: enabled ? 1 : 0.5
                 implicitWidth: 180
-                value: captureDialog.labelOf(veyra.captureResolutionOptions, veyra.captureResolutionId, veyra.captureResolutionOptions.length ? qsTr("请选择分辨率") : "—")
+                value: captureDialog.labelOf(veyra.captureResolutionOptions, veyra.captureResolutionId, veyra.captureResolutionOptions.length ? qsTr("Choose a resolution") : "—")
                 options: veyra.captureResolutionOptions
                 onPicked: id => veyra.captureResolutionId = id
             }
         }
         VRow {
-            label: qsTr("自定义分辨率")
-            hint: qsTr("仅接受驱动尺寸范围与步进支持的值；连接时核对实际格式")
+            label: qsTr("Custom resolution")
+            hint: qsTr("Only sizes within driver bounds and granularity are accepted; the actual format is checked on connection")
             RowLayout {
                 spacing: 6
                 enabled: !veyra.captureQueryBusy && veyra.captureDeviceId.length > 0
                 DialogTextField { id: customCaptureResolution; objectName: "capture-custom-resolution"; implicitWidth: 140; text: "1920x1080" }
-                VButton { text: qsTr("检查并选择"); onClicked: veyra.captureResolutionId = customCaptureResolution.text }
+                VButton { text: qsTr("Check and select"); onClicked: veyra.captureResolutionId = customCaptureResolution.text }
             }
         }
         VRow {
             id: captureRateRow
-            label: qsTr("帧率")
-            hint: qsTr("列出离散帧率及驱动范围内的候选；设备帧率填 0 时沿用此选择，连接时验证实际值")
+            label: qsTr("Frame rate")
+            hint: qsTr("Lists discrete rates and candidates within driver bounds; device FPS 0 uses this selection, verified on connection")
             VSelect {
                 objectName: "capture-frame-rate"
                 enabled: !veyra.captureQueryBusy && veyra.captureResolutionId.length > 0
                 opacity: enabled ? 1 : 0.5
                 implicitWidth: 280
-                value: captureDialog.labelOf(veyra.captureFrameRateOptions, veyra.captureFrameRateId, veyra.captureFrameRateOptions.length ? qsTr("请选择帧率") : "—")
+                value: captureDialog.labelOf(veyra.captureFrameRateOptions, veyra.captureFrameRateId, veyra.captureFrameRateOptions.length ? qsTr("Choose a frame rate") : "—")
                 options: veyra.captureFrameRateOptions
                 onPicked: id => veyra.captureFrameRateId = id
             }
@@ -223,8 +198,8 @@ DialogLayer {
             // shows the common rates the card offers; this lists the rest too.
             objectName: "capture-all-rates-row"
             visible: veyra.captureHiddenFrameRates > 0
-            label: qsTr("显示全部可用帧率")
-            hint: qsTr("默认只列常用帧率：24、25、30、50、60、100、120、144、165、240（含 59.94 这类非整数帧率）。这张卡另外上报了 %1 个帧率").arg(veyra.captureHiddenFrameRates)
+            label: qsTr("Show all available frame rates")
+            hint: qsTr("Only common frame rates are listed by default: 24, 25, 30, 50, 60, 100, 120, 144, 165, 240 (including non-integer rates such as 59.94). This card reports %1 more").arg(veyra.captureHiddenFrameRates)
             VSwitch {
                 objectName: "capture-all-rates"
                 enabled: !veyra.captureQueryBusy
@@ -235,15 +210,15 @@ DialogLayer {
         }
         VRow {
             id: pixelFormatRow
-            label: qsTr("像素格式")
+            label: qsTr("Pixel format")
             // Never search veyra.captureFormats here: a card can list 15000+ (logs(18)).
-            hint: veyra.captureFormatCostHint ? qsTr("该格式比低延迟格式多一道处理环节，高分辨率/高帧率下建议优先低延迟格式") : qsTr("只列出当前分辨率和帧率下的像素格式")
+            hint: veyra.captureFormatCostHint ? qsTr("This format has one more processing step than the low-latency format; at high resolution / frame rate prefer the low-latency format") : qsTr("Only pixel formats available at the current resolution and frame rate")
             VSelect {
                 objectName: "capture-format"
                 enabled: !veyra.captureQueryBusy && veyra.captureResolutionId.length > 0 && veyra.captureFrameRateId.length > 0
                 opacity: enabled ? 1 : 0.5
                 implicitWidth: 220
-                value: captureDialog.labelOf(veyra.capturePixelOptions, veyra.capturePixelId, veyra.captureResolutionId.length ? qsTr("请选择像素格式") : qsTr("请先选择分辨率"))
+                value: captureDialog.labelOf(veyra.capturePixelOptions, veyra.capturePixelId, veyra.captureResolutionId.length ? qsTr("Choose a pixel format") : qsTr("Choose a resolution first"))
                 options: veyra.capturePixelOptions
                 onPicked: id => veyra.capturePixelId = id
             }
@@ -251,25 +226,25 @@ DialogLayer {
         VRow {
             objectName: "capture-driver-settings-row"
             visible: veyra.captureDeviceId.length > 0
-            label: qsTr("驱动设置")
-            hint: captureDialog.live ? qsTr("先断开采集，再配置驱动")
+            label: qsTr("Driver settings")
+            hint: captureDialog.live ? qsTr("Disconnect capture before configuring the driver")
                   : veyra.captureBlackmagicDevice
                     ? (veyra.preferences.blackmagicNativeCapture === true
-                       ? qsTr("请在设备列表选择对应的 HDMI/SDI 输入口；Driver 保留驱动当前输入。支持自动检测的卡建议选择自动，信号未锁定时会明确提示。")
-                       : qsTr("Blackmagic 两个条目可能属于同一张卡。DirectShow 黑屏可尝试下方原生采集开关；手动格式须匹配实际信号。"))
-                    : qsTr("配置驱动公开的输入与视频属性；其他采集应用占用设备时请先关闭")
+                       ? qsTr("Select the matching HDMI/SDI connector in the device list. Driver keeps the current driver input. Use Auto on cards supporting signal detection; an unlocked signal is reported explicitly.")
+                       : qsTr("Both Blackmagic entries may refer to one card. If DirectShow is black, try native capture below. Manual formats must match the input signal."))
+                    : qsTr("Configure the input and video properties exposed by the driver. Close other capture applications using the device first.")
             RowLayout {
                 spacing: 6
                 VButton {
                     objectName: "capture-driver-properties"
-                    text: qsTr("设备属性"); ghost: true
+                    text: qsTr("Device properties"); ghost: true
                     enabled: !veyra.captureQueryBusy && !captureDialog.live && !veyra.liveOpeningText.length
                     onClicked: veyra.openCaptureDriverSettings(false)
                 }
                 VButton {
                     objectName: "capture-driver-input"
                     visible: veyra.captureBlackmagicDevice
-                    text: qsTr("输入选择"); ghost: true
+                    text: qsTr("Select input"); ghost: true
                     enabled: !veyra.captureQueryBusy && !captureDialog.live && !veyra.liveOpeningText.length
                     onClicked: veyra.openCaptureDriverSettings(true)
                 }
@@ -277,8 +252,8 @@ DialogLayer {
         }
         VRow {
             objectName: "capture-blackmagic-native-row"
-            label: qsTr("Blackmagic 原生采集")
-            hint: qsTr("默认关闭。开启使用 DeckLink 原生接口，关闭使用 DirectShow。需安装 Desktop Video 驱动；切换后重新选择设备和格式并连接，不写入驱动永久配置。")
+            label: qsTr("Blackmagic native capture")
+            hint: qsTr("Off by default. On uses DeckLink; off uses DirectShow. Requires Desktop Video. Reselect the device and format, then reconnect. Driver preferences are not changed.")
             VSwitch {
                 objectName: "capture-blackmagic-native"
                 enabled: !veyra.captureQueryBusy && (veyra.captureBlackmagicDevice || veyra.preferences.blackmagicNativeCapture === true)
@@ -289,11 +264,11 @@ DialogLayer {
         }
         VRow {
             objectName: "capture-magewell-row"
-            label: qsTr("美乐威低延迟模式")
+            label: qsTr("Magewell low-latency mode")
             hint: !veyra.captureMagewellDevice
-                  ? qsTr("仅美乐威 Pro Capture（PCIe 内置卡）可用；USB Capture 系列不支持")
+                  ? qsTr("Magewell Pro Capture (PCIe) only; the USB Capture series is not supported")
                   : (veyra.captureMagewellStatus.length > 0 ? veyra.captureMagewellStatus + " · " : "")
-                    + qsTr("画面未收齐即可开始传输。持续丢帧时按原格式切回普通采集。重新连接后生效。")
+                    + qsTr("Transfer starts before the full frame arrives. Sustained drops switch back to normal capture in the same format. Reconnect to apply.")
             VSwitch {
                 objectName: "capture-magewell"
                 enabled: veyra.captureMagewellDevice
@@ -303,8 +278,8 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("设备帧率 FPS")
-            hint: qsTr("0 = 沿用所选格式；设备返回其他帧率会报错，不在软件中偷偷丢帧")
+            label: qsTr("Device frame rate (FPS)")
+            hint: qsTr("0 = use the selected format; a device that returns another frame rate reports an error instead of frames being dropped silently")
             DialogTextField {
                 objectName: "capture-fps"
                 implicitWidth: 100
@@ -320,22 +295,22 @@ DialogLayer {
             }
         }
     }
-    DialogSection { text: qsTr("音频") }
+    DialogSection { text: qsTr("Audio") }
     DialogGroup {
         VRow {
-            label: qsTr("音频输入")
-            hint: qsTr("录制采集卡声音需选择输入；本机监听可独立关闭")
+            label: qsTr("Audio input")
+            hint: qsTr("Select an audio input to record capture-card sound. Local monitoring can be turned off independently.")
             VSelect {
                 objectName: "capture-audio"
                 implicitWidth: 260
-                value: captureDialog.labelOf(veyra.captureAudioInputs, veyra.captureAudioChoice, qsTr("不采集音频"))
+                value: captureDialog.labelOf(veyra.captureAudioInputs, veyra.captureAudioChoice, qsTr("No audio input"))
                 options: veyra.captureAudioInputs
                 onPicked: id => veyra.captureAudioChoice = Number(id)
             }
         }
         VRow {
-            label: qsTr("本机音频监听")
-            hint: qsTr("关闭后仍可录制和保存回放；本机不播放采集声音")
+            label: qsTr("Local audio monitoring")
+            hint: qsTr("When off, recording and replay still receive audio; capture sound is not played locally.")
             VSwitch {
                 objectName: "capture-audio-monitor"
                 checked: veyra.preferences.captureAudioMonitor !== false
@@ -343,22 +318,22 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("Veyra 虚拟扬声器")
-            hint: veyra.captureVirtualAudioBusy ? qsTr("正在处理 VB-CABLE 安装器…")
-                : veyra.captureVirtualAudioInstalled ? qsTr("已检测到 VB-CABLE · 用于转接 Windows 侦听")
-                : qsTr("可选 · 采集卡直采无声时使用")
+            label: qsTr("Veyra Virtual Speaker")
+            hint: veyra.captureVirtualAudioBusy ? qsTr("Working with VB-CABLE Setup…")
+                : veyra.captureVirtualAudioInstalled ? qsTr("VB-CABLE detected · Receives Windows monitoring audio")
+                : qsTr("Optional · For capture cards with silent direct audio")
             RowLayout {
                 spacing: 6
                 VButton {
                     objectName: "capture-virtual-audio-setup"
-                    text: veyra.captureVirtualAudioInstalled ? qsTr("已安装") : qsTr("安装…")
+                    text: veyra.captureVirtualAudioInstalled ? qsTr("Installed") : qsTr("Install…")
                     ghost: true
                     enabled: !veyra.captureVirtualAudioBusy && !veyra.captureVirtualAudioInstalled
                     onClicked: virtualAudioGuide.showFor(1)
                 }
                 VButton {
                     objectName: "capture-virtual-audio-instructions"
-                    text: qsTr("使用说明")
+                    text: qsTr("Instructions")
                     ghost: true
                     enabled: !veyra.captureVirtualAudioBusy
                     onClicked: virtualAudioGuide.showFor(0)
@@ -366,7 +341,7 @@ DialogLayer {
                 VButton {
                     objectName: "capture-virtual-audio-remove"
                     visible: veyra.captureVirtualAudioInstalled
-                    text: qsTr("卸载…")
+                    text: qsTr("Uninstall…")
                     ghost: true
                     enabled: !veyra.captureVirtualAudioBusy
                     onClicked: virtualAudioGuide.showFor(2)
@@ -374,10 +349,10 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("Dolby / DTS 位流")
+            label: qsTr("Dolby / DTS bitstream")
             VSeg {
                 objectName: "capture-audio-ingress"
-                options: [{ id: "0", label: qsTr("自动") }, { id: "1", label: qsTr("强制 PCM") }, { id: "2", label: qsTr("位流优先") }]
+                options: [{ id: "0", label: qsTr("Auto") }, { id: "1", label: qsTr("Force PCM") }, { id: "2", label: qsTr("Bitstream first") }]
                 current: String(veyra.captureAudioIngress)
                 onPicked: id => veyra.captureAudioIngress = Number(id)
             }
@@ -396,12 +371,12 @@ DialogLayer {
             disconnectRequested = false
             open()
         }
-        title: operation === 2 ? qsTr("卸载 Veyra 虚拟扬声器")
-            : operation === 1 ? qsTr("安装 Veyra 虚拟扬声器") : qsTr("Veyra 虚拟扬声器使用说明")
+        title: operation === 2 ? qsTr("Uninstall Veyra Virtual Speaker")
+            : operation === 1 ? qsTr("Install Veyra Virtual Speaker") : qsTr("Veyra Virtual Speaker instructions")
         text: operation === 2
-            ? qsTr("先在 Windows 中关闭采集卡的“侦听此设备”，或把目标改回原设备。确认后打开 VB-Audio 安装器，选择 Remove Driver 并按提示重启。其他使用 VB-CABLE 的软件也会失去这条音频通路。")
-            : qsTr("此功能使用 VB-Audio 的 VB-CABLE（捐赠软件），可从内置安装包离线安装。首次安装需管理员确认，完成后按提示重启。\n\n1. 在 Windows“录制”里打开采集卡音频的属性，勾选“侦听此设备”，播放目标选 CABLE Input。如果已改名，请选择改后的名称。")
-        acceptText: operation === 2 ? qsTr("确认卸载") : operation === 1 ? qsTr("确认安装") : qsTr("完成")
+            ? qsTr("First turn off Listen to this device for the capture card in Windows, or restore its previous playback target. After confirming, choose Remove Driver in VB-Audio Setup and restart if prompted. Other software using VB-CABLE will lose this audio route.")
+            : qsTr("This feature uses VB-CABLE by VB-Audio (donationware). Install it offline from the bundled package. First-time installation requires administrator approval. Restart Windows if prompted.\n\n1. In Windows Recording settings, open the capture card’s audio properties, enable Listen to this device, and select CABLE Input. If you renamed it, select the new name.")
+        acceptText: operation === 2 ? qsTr("Confirm uninstall") : operation === 1 ? qsTr("Confirm installation") : qsTr("Done")
         acceptEnabled: !veyra.captureVirtualAudioBusy && !removalBlocked
         onAccepted: { if (operation !== 0) veyra.setupCaptureVirtualAudio(operation === 2) }
         Connections {
@@ -412,12 +387,12 @@ DialogLayer {
             Layout.fillWidth: true
             VButton {
                 objectName: "capture-virtual-audio-windows-listen"
-                text: qsTr("打开 Windows 录制设置")
+                text: qsTr("Open Windows recording settings")
                 ghost: true
                 onClicked: veyra.openCaptureWindowsListen()
             }
             VButton {
-                text: qsTr("VB-Audio 官网")
+                text: qsTr("VB-Audio website")
                 ghost: true
                 onClicked: veyra.openCaptureVirtualAudioVendor()
             }
@@ -427,7 +402,7 @@ DialogLayer {
             Layout.fillWidth: true
             Text {
                 Layout.fillWidth: true
-                text: qsTr("请先断开采集并等待连接结束")
+                text: qsTr("Disconnect capture and wait for the connection to close.")
                 color: Theme.t2
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsBody
@@ -436,7 +411,7 @@ DialogLayer {
             VButton {
                 objectName: "capture-virtual-audio-disconnect"
                 visible: captureDialog.live
-                text: qsTr("断开采集")
+                text: qsTr("Disconnect capture")
                 ghost: true
                 enabled: !virtualAudioGuide.disconnectRequested
                 onClicked: {
@@ -449,7 +424,7 @@ DialogLayer {
             objectName: "capture-virtual-audio-follow-up"
             visible: virtualAudioGuide.operation !== 2
             Layout.fillWidth: true
-            text: qsTr("2. 回到 Veyra，在“音频输入”选“Veyra 虚拟扬声器”，再连接采集。音频输出选真实耳机或音箱，即可使用音画同步。\n\n可选改名：在 Windows 声音的“播放”页打开 CABLE Input 的属性，在“常规”里改成“Veyra 采集音频”。")
+            text: qsTr("2. In Veyra, select Veyra virtual speaker under Audio input, then connect capture. Select real headphones or speakers as the audio output to use A/V sync.\n\nOptional: rename CABLE Input to Veyra capture audio in Windows Sound → Playback → Properties → General.")
             color: Theme.t2
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsBody
@@ -457,134 +432,42 @@ DialogLayer {
             lineHeight: 1.3
         }
     }
-    // PS5 手柄控制: the capture card stays the picture and the sound; PS5 Remote
-    // Play only carries the pad (also from a handheld this picture is re-streamed to).
-    DialogSection { visible: captureDialog.pc.available === true; text: qsTr("PS5 手柄控制") }
-    DialogGroup {
-        visible: captureDialog.pc.available === true
-        VRow {
-            label: qsTr("用远程游玩控制 PS5")
-            hint: qsTr("画面和声音来自采集卡，手柄经 PS5 远程游玩发给主机。把处理后的画面再串流给掌机或别的电脑时，用那边的手柄玩 PS5")
-            VSwitch {
-                objectName: "capture-ps5-control"
-                checked: captureDialog.pcOn
-                onToggled: checked => veyra.ps5ControlSet("enabled", checked)
-            }
-        }
-        VRow {
-            visible: captureDialog.pcOn
-            label: qsTr("PS5 主机")
-            hint: veyra.ps5Profiles.length === 0 ? qsTr("还没有配对的 PS5，先在「PS5 串流」里配对一次") : qsTr("和「PS5 串流」共用配对")
-            RowLayout {
-                spacing: 6
-                VSelect {
-                    objectName: "capture-ps5-host"
-                    visible: veyra.ps5Profiles.length > 0
-                    implicitWidth: 170
-                    value: { const p = veyra.ps5Profiles.find(x => x.id === veyra.ps5.profile); return p ? p.label : qsTr("请选择") }
-                    options: veyra.ps5Profiles
-                    onPicked: id => veyra.ps5SelectProfile(id)
-                }
-                VTag {
-                    objectName: "capture-ps5-state"
-                    Layout.alignment: Qt.AlignVCenter
-                    text: captureDialog.pcTag
-                    kind: captureDialog.pc.state === "connected" ? "ok"
-                        : captureDialog.pc.state === "failed" || captureDialog.pc.state === "nopair" || captureDialog.pc.state === "pin" ? "warn" : ""
-                }
-                VButton {
-                    objectName: "capture-ps5-restart"
-                    visible: captureDialog.pc.state === "failed"
-                    text: qsTr("重连"); ghost: true
-                    onClicked: veyra.ps5ControlRestart()
-                }
-                VButton {
-                    objectName: "capture-ps5-pair"
-                    text: veyra.ps5Profiles.length === 0 ? qsTr("去配对") : qsTr("配对…")
-                    ghost: true
-                    onClicked: dialogHost.open("ps5")
-                }
-            }
-        }
-        VRow {
-            visible: captureDialog.pcOn && captureDialog.pc.state === "pin"
-            label: qsTr("登录 PIN")
-            hint: qsTr("PS5 提示时填写，不是 8 位配对码")
-            RowLayout {
-                spacing: 6
-                DialogTextField { id: controlPin; objectName: "capture-ps5-pin"; implicitWidth: 120 }
-                VButton { text: qsTr("提交"); ghost: true; onClicked: { veyra.ps5SendLoginPin(controlPin.text); controlPin.text = "" } }
-            }
-        }
-        VRow {
-            visible: captureDialog.pcOn
-            label: qsTr("后台也转发手柄")
-            hint: qsTr("再串流时建议打开：Veyra 不在前台也继续转发。打开后在这台电脑上用别的程序时，手柄也会操作 PS5")
-            VSwitch {
-                objectName: "capture-ps5-background"
-                checked: captureDialog.pc.background === true
-                onToggled: checked => veyra.ps5ControlSet("background", checked)
-            }
-        }
-        VRow {
-            visible: captureDialog.pcOn
-            label: qsTr("手柄")
-            hint: qsTr("谁按键就用谁：本机手柄、串流软件建的虚拟手柄都可以")
-            Text {
-                objectName: "capture-ps5-pad"
-                text: (captureDialog.pc.pad || "").length > 0
-                      ? captureDialog.pc.pad + " · " + (captureDialog.pc.gyro === true ? qsTr("有陀螺仪") : qsTr("无陀螺仪"))
-                      : captureDialog.pc.state === "off" || captureDialog.pc.state === "nopair" ? "—" : qsTr("未检测到手柄")
-                color: Theme.t1
-                font.family: Theme.fontUi
-                font.pixelSize: Theme.fsSmall
-                elide: Text.ElideRight
-                width: Math.min(implicitWidth, 260)
-            }
-        }
-    }
-    DialogNote {
-        objectName: "capture-ps5-note"
-        visible: captureDialog.pcOn
-        text: (captureDialog.pcStatus.length > 0 ? captureDialog.pcStatus + "\n" : "")
-              + qsTr("PS5 仍会发一路 720p 30fps、约 5 Mbps 的保活画面，本机收到即丢弃；PS5 同一时间只允许一个远程游玩连接。再串流时记得选择上面的「音频输入」。")
-    }
-    DialogSection { text: qsTr("格式与画面") }
+    DialogSection { text: qsTr("Format and picture") }
     DialogGroup {
         VRow {
             id: inputColorRow
-            label: qsTr("输入色彩（SDR / HDR）")
-            hint: qsTr("不确定就选「自动」。采集 HDR：采集格式选 P010，这里选「HDR · PQ」（游戏机、显卡的 HDR10 都是 PQ）。「HDR · HLG」用于广播信号。「SDR · 709」是普通画面。变更需重连")
+            label: qsTr("Input color (SDR / HDR)")
+            hint: qsTr("If unsure, choose Auto. To capture HDR: pick P010 as the capture format and HDR · PQ here (HDR10 from consoles and GPUs is PQ). HDR · HLG is for broadcast signals. SDR · 709 is a normal picture. Changes need a reconnect")
             VSeg {
                 objectName: "capture-color-space"
-                options: [{ id: "0", label: qsTr("自动") }, { id: "1", label: "HDR · PQ" }, { id: "2", label: "HDR · HLG" }, { id: "3", label: "SDR · 709" }]
+                options: [{ id: "0", label: qsTr("Auto") }, { id: "1", label: "HDR · PQ" }, { id: "2", label: "HDR · HLG" }, { id: "3", label: "SDR · 709" }]
                 current: String(veyra.captureColorSpace)
                 onPicked: id => veyra.captureColorSpace = Number(id)
             }
         }
         VRow {
-            label: qsTr("输入范围")
-            hint: qsTr("Limited = 16–235，Full = 0–255。画面发灰选「有限」，暗部全黑、亮部过曝选「完全」")
+            label: qsTr("Input range")
+            hint: qsTr("Limited = 16–235, Full = 0–255. If the picture looks washed out choose Limited; if shadows crush to black and highlights blow out choose Full")
             VSeg {
                 objectName: "capture-color-range"
-                options: [{ id: "0", label: qsTr("自动") }, { id: "1", label: qsTr("有限 · Limited") }, { id: "2", label: qsTr("完全 · Full") }]
+                options: [{ id: "0", label: qsTr("Auto") }, { id: "1", label: qsTr("Limited") }, { id: "2", label: qsTr("Full") }]
                 current: String(veyra.captureColorRange)
                 onPicked: id => veyra.captureColorRange = Number(id)
             }
         }
         VRow {
-            label: qsTr("设备缓冲")
-            hint: qsTr("自动：1080p 及以下 2 帧，更高 3 帧；最小 1 帧延迟最低但可能丢帧")
+            label: qsTr("Device buffers")
+            hint: qsTr("Auto: 2 frames at 1080p and below, 3 above; 1 frame has the lowest latency but may drop frames")
             VSeg {
                 objectName: "capture-buffer-mode"
-                options: [{ id: "0", label: qsTr("自动") }, { id: "1", label: qsTr("最小") }, { id: "2", label: qsTr("驱动默认") }]
+                options: [{ id: "0", label: qsTr("Auto") }, { id: "1", label: qsTr("Minimum") }, { id: "2", label: qsTr("Driver default") }]
                 current: String(veyra.captureBufferMode)
                 onPicked: id => veyra.captureBufferMode = Number(id)
             }
         }
         VRow {
-            label: qsTr("转为 SDR 显示")
-            hint: qsTr("收到 HDR 也按 SDR 预览，立即生效")
+            label: qsTr("Show as SDR")
+            hint: qsTr("Preview HDR as SDR too; takes effect immediately")
             VSwitch {
                 objectName: "capture-force-sdr"
                 checked: veyra.captureForceSdr
@@ -592,8 +475,8 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("画面上下翻转")
-            hint: qsTr("采集画面倒置时开启，立即生效")
+            label: qsTr("Flip vertically")
+            hint: qsTr("Turn on when the captured picture is upside down; takes effect immediately")
             VSwitch {
                 objectName: "capture-flip-vertical"
                 checked: veyra.captureFlipVertical

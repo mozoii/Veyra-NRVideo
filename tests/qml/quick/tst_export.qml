@@ -25,7 +25,7 @@ Rectangle {
         property bool exportPaused: false
         property bool exportHevc: false
         property bool exportCompletionSound: true
-        // 导出时关闭正在播放的内容 reads the preference map like the real bridge.
+        // Exporting closes what is playing: reads the preference map like the real bridge.
         property var preferences: ({ exportStopsPlayback: true })
         function setPreference(key, value) { const next = Object.assign({}, preferences); next[key] = value; preferences = next; return true }
         property bool exportSelectionEditable: true
@@ -41,18 +41,18 @@ Rectangle {
         property real exportProgress: 0
         property real exportTrimStart: 0
         property real exportTrimEnd: 0
-        property string exportPresetName: "当前播放设置"
+        property string exportPresetName: "Current playback settings"
         property string exportTarget: "E:/output"
-        property string exportStatus: "添加文件后，点击开始导出"
+        property string exportStatus: "Add files, then click Start"
         property var exportTracks: []
-        property var presetChoices: [{id: "-1",label: "当前播放设置"}]
+        property var presetChoices: [{id: "-1",label: "Current playback settings"}]
         property bool imageBatchActive: false
         property string imageBatchStatus: ""
         property int compareMode: 0
         property real duration: 0
         property real position: 0
         property string positionText: "0:00"
-        property string statusText: "选择左侧文件预览"
+        property string statusText: "Select a file on the left to preview"
         property bool running: false
         property bool paused: false
         property int thumbnailGeneration: 0

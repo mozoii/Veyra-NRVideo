@@ -20,7 +20,7 @@ public:
     bool identity()const{return tables_.identity;}
 private:
     ComputePass pass_;
-    ColorDetailPass detail_;   // 纹理 / 清晰度 / 去朦胧 on output_, after the grade
+    ColorDetailPass detail_;   // texture / clarity / dehaze on output_, after the grade
     ColorGradeTables tables_;
     engine::ColorSettings settings_;
     std::array<ComPtr<ID3D12Resource>,3> textures_;

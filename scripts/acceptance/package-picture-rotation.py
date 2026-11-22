@@ -20,20 +20,20 @@ def replace(p,data):
     if p.exists():p.unlink()
     p.write_bytes(data)
 
-note='''# Veyra 2.1.0 画面旋转本地测试版（rot1）
+note='''# Veyra 2.1.0 picture-rotation local test build (rot1)
 
-完整解压，运行 veyra_qml_ui.exe。构建沿用内部 2.1.0-rec 标识，功能以本文件和清单 rot1 为准。
+  Full extraction, run veyra_qml_ui.exe. The build reuses the internal 2.1.0-rec identifier; the feature is authoritative in this file and the rot1 manifest.
 
-- 极简播放条、专业播放条和全屏播放条均有顺时针旋转小按钮，每次90°，四次恢复。
-- 极简窗口按横竖比例调整，专业/全屏画面适配预览区，控件保持正向。
-- 已有视频方向信息与手动旋转叠加。旋转时重置缩放/平移，取消未完成的保护选区。
-- 切换模式、暂停、seek、进出全屏保留角度；新开片源清零。
-- 本功能改变播放视图；截图、录制与导出仍使用处理纹理的原方向，不改写媒体。
-- 游戏模式旋转时沿用非原位预览策略：保留键盘/手柄，拦截错位鼠标穿透。
-- 包含上一轮 AMD 超分关闭与录制修复，专有运行库/模型/已编译着色器保持原样。
+- Minimal player bar, professional player bar and fullscreen player bar each have a clockwise rotation small button, 90 degrees each, 4 to restore.
+- The minimal window adjusts aspect ratio; the professional/fullscreen picture adapts to the preview area, controls stay upright.
+- Existing video orientation info and manual rotation are stacked. Rotation resets zoom/pan and cancels unfinished protective areas.
+- Switching mode, pause, seek, enter/exit fullscreen keep the angle; a new source resets it.
+- This feature changes the playback view; screenshots, recording and export still use the original orientation of the processed texture, not rewriting the media.
+- Game-mode rotation follows the non-in-place preview strategy: keeps keyboard/controller, blocks misaligned mouse pass-through.
+- Includes last round AMD super-resolution-off and recording-fix; proprietary runtime/model/compiled shaders unchanged.
 
-本地验证范围和未验项见 docs/PICTURE_ROTATION_REPORT_2026-10-23.md。不宣称绝无bug。
-尚未合入main或公开发布，Lecram按用户要求暂停。
+  Local verification scope and unverified items: docs/PICTURE_ROTATION_REPORT_2026-10-23.md. Do not claim no bugs.
+  Not merged to main or published, Lecram paused per the user's request.
 '''
 results=[]
 for vendor in ['NVIDIA','AMD']:

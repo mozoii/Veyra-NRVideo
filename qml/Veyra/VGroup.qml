@@ -23,8 +23,8 @@ Rectangle {
     border.width: 1
     border.color: Theme.stroke
     // Rows carry their own vertical padding. A note, button or plain layout at
-    // either end of the card does not, and sat on its border (导出 音轨 card,
-    // field report 2026-10-05), so those ends get the padding a row would have.
+    // either end of the card does not, and sat on its border (Export audio track
+    // card, field report 2026-10-05), so those ends get the padding a row would have.
     function edgeIsRow(last) {
         const kids = inner2.children
         for (let n = 0; n < kids.length; ++n) {

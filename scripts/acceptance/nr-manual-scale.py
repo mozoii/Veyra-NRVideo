@@ -2,7 +2,7 @@
 
 Outputs stay on E:. User App package/logs/configuration are never modified.
 The same private staging copy is reused for both runs; all replacements unlink
-first to preserve the hardlinked donor. Tests do not connect capture/PS5 hosts.
+first to preserve the hardlinked donor. Tests do not connect capture hosts.
 """
 from pathlib import Path
 import json,os,hashlib,shutil,subprocess,time,argparse

@@ -153,7 +153,7 @@ int main(){try{
     carrier.reset();outputs.clear();
     for(unsigned n=0;n<2000;++n){std::vector<uint8_t> noise(511,0);require(carrier.feed(noise,stereo,n*.01),"continuous quiet PCM");require(carrier.state().retainedBytes<=12,"bounded persistent PCM buffer");}
     {
-        // PcmCarrierRouter: any card's 16-bit stereo DirectShow pin (PS5 Bitstream
+        // PcmCarrierRouter: any card's 16-bit stereo DirectShow pin (a console Bitstream
         // behind a card with two-channel USB audio, user log 68).
         std::vector<Output> decoded;unsigned restores=0;size_t raw=0,held=0;
         source::PcmCarrierRouter router(48000,[&](const source::VendorPcmBlock& b){

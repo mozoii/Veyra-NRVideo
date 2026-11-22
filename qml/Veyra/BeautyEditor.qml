@@ -1,7 +1,7 @@
-// One beauty node's parameters, shared by the list page's 美颜 layers and the
+// One beauty node's parameters, shared by the list page's beauty layers and the
 // node page's beauty node, so both edit the same values through the same bridge
 // calls (as AntiAliasEditor does for anti-aliasing). Two independent sub-functions:
-// 人脸原画保护 blends the frame's original back in inside the faces, 磨皮 smooths
+// Original face restore blends the frame's original back in inside the faces, skin smoothing smooths
 // skin while keeping eyes, lashes and lips. The face detection is the chain's,
 // shared by every beauty node.
 import QtQuick
@@ -26,8 +26,8 @@ ColumnLayout {
     readonly property bool restoreOn: params.restore === true
     readonly property bool smoothOn: params.smooth === true
     readonly property var presets: [
-        {id: "natural", label: qsTr("自然磨皮")}, {id: "light", label: qsTr("轻度磨皮")},
-        {id: "restore", label: qsTr("人脸原画保护")}, {id: "restoreNatural", label: qsTr("原画保护 + 自然磨皮")}
+        {id: "natural", label: qsTr("Natural smoothing")}, {id: "light", label: qsTr("Light smoothing")},
+        {id: "restore", label: qsTr("Original face restore")}, {id: "restoreNatural", label: qsTr("Original restore + natural smoothing")}
     ]
 
     // A 0..1 value shown and typed as a percentage.
@@ -57,25 +57,25 @@ ColumnLayout {
         spacing: 6
         Text {
             Layout.fillWidth: true
-            text: qsTr("人脸原画保护：按人脸轮廓混回本帧原画（没有经过任何效果）。磨皮：柔化皮肤，眼睛、眉毛和嘴唇不参与。两项可分别开关。")
+            text: qsTr("Original face restore: blends this frame's original (before any effect) back in along the face outline. Skin smoothing: softens skin and leaves the eyes, brows and lips out. Each can be switched on its own.")
             color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11; wrapMode: Text.WordWrap
         }
         VRow {
-            label: qsTr("预设")
-            hint: qsTr("一键设定开关和数值，肤色范围与人脸识别保持不变")
+            label: qsTr("Presets")
+            hint: qsTr("Sets the switches and values in one go; the skin range and face detection stay as they are")
             VSelect {
                 objectName: editor.namePrefix + "-preset"
-                title: qsTr("美颜预设")
+                title: qsTr("Beauty presets")
                 options: editor.presets
-                value: qsTr("选择…")
+                value: qsTr("Choose…")
                 onPicked: id => editor.presetPicked(id)
             }
         }
 
-        // --- 人脸原画保护 ------------------------------------------------
+        // --- Original face restore ----------------------------------------
         VRow {
-            label: qsTr("人脸原画保护")
-            hint: qsTr("例如调色或增强后脸色不自然时，让人脸回到原画")
+            label: qsTr("Original face restore")
+            hint: qsTr("For example when grading or enhancement makes faces look wrong: they go back to the original")
             VSwitch {
                 objectName: editor.namePrefix + "-restore"
                 checked: editor.restoreOn
@@ -83,45 +83,45 @@ ColumnLayout {
             }
         }
         PercentRow {
-            key: "restoreStrength"; label: qsTr("保护强度"); defaultValue: 1
+            key: "restoreStrength"; label: qsTr("Restore strength"); defaultValue: 1
             visible: editor.restoreOn
         }
         VRow {
-            label: qsTr("保护范围")
-            hint: qsTr("仅皮肤：头发和背景保留效果")
+            label: qsTr("Restore area")
+            hint: qsTr("Skin only: hair and background keep the effects")
             visible: editor.restoreOn
             VSeg {
                 objectName: editor.namePrefix + "-restoreScope"
-                options: [{id: "0", label: qsTr("整张脸")}, {id: "1", label: qsTr("仅皮肤")}]
+                options: [{id: "0", label: qsTr("Whole face")}, {id: "1", label: qsTr("Skin only")}]
                 current: String(editor.params.restoreScope ?? 0)
                 onPicked: id => editor.edited("restoreScope", Number(id))
             }
         }
         PercentRow {
-            key: "regionExpand"; label: qsTr("区域扩展"); from: -0.10; to: 0.30; defaultValue: 0.05
-            hint: qsTr("相对人脸大小；负值向内收")
+            key: "regionExpand"; label: qsTr("Area expansion"); from: -0.10; to: 0.30; defaultValue: 0.05
+            hint: qsTr("Relative to the face size; negative shrinks it")
             visible: editor.restoreOn
         }
         PercentRow {
-            key: "feather"; label: qsTr("边缘羽化"); from: 0; to: 0.20; defaultValue: 0.08
+            key: "feather"; label: qsTr("Edge feather"); from: 0; to: 0.20; defaultValue: 0.08
             visible: editor.restoreOn
         }
 
-        // --- 磨皮 --------------------------------------------------------
+        // --- Skin smoothing -----------------------------------------------
         VRow {
-            label: qsTr("磨皮")
-            hint: qsTr("在原画保护之后执行")
+            label: qsTr("Skin smoothing")
+            hint: qsTr("Runs after the original restore")
             VSwitch {
                 objectName: editor.namePrefix + "-smooth"
                 checked: editor.smoothOn
                 onToggled: checked => editor.edited("smooth", checked ? 1 : 0)
             }
         }
-        PercentRow { key: "strength"; label: qsTr("整体强度"); defaultValue: 1; visible: editor.smoothOn }
-        PercentRow { key: "smoothAmount"; label: qsTr("磨皮程度"); defaultValue: 0.5; visible: editor.smoothOn }
+        PercentRow { key: "strength"; label: qsTr("Overall strength"); defaultValue: 1; visible: editor.smoothOn }
+        PercentRow { key: "smoothAmount"; label: qsTr("Smoothing amount"); defaultValue: 0.5; visible: editor.smoothOn }
         VRow {
-            label: qsTr("磨皮半径")
-            hint: qsTr("1080p 像素，随画面尺寸缩放；越大越柔")
+            label: qsTr("Smoothing radius")
+            hint: qsTr("In 1080p pixels, scaled with the picture size; larger is softer")
             visible: editor.smoothOn
             value: Number(editor.params.radius ?? 4).toFixed(1)
             VSlider {
@@ -135,21 +135,21 @@ ColumnLayout {
             }
         }
         PercentRow {
-            key: "detail"; label: qsTr("细节保护"); defaultValue: 0.65; visible: editor.smoothOn
-            hint: qsTr("越高越保留五官和发丝")
+            key: "detail"; label: qsTr("Detail protection"); defaultValue: 0.65; visible: editor.smoothOn
+            hint: qsTr("Higher keeps more of the facial features and hair")
         }
         PercentRow {
-            key: "texture"; label: qsTr("纹理保留"); defaultValue: 0.3; visible: editor.smoothOn
-            hint: qsTr("把一部分皮肤纹理留回来，避免塑料感")
+            key: "texture"; label: qsTr("Texture kept"); defaultValue: 0.3; visible: editor.smoothOn
+            hint: qsTr("Brings part of the skin texture back to avoid a plastic look")
         }
-        PercentRow { key: "brighten"; label: qsTr("肤色提亮"); defaultValue: 0; visible: editor.smoothOn }
+        PercentRow { key: "brighten"; label: qsTr("Skin brightening"); defaultValue: 0; visible: editor.smoothOn }
         VRow {
-            label: qsTr("磨皮范围")
-            hint: qsTr("全部肤色：不依赖人脸识别，画面中所有肤色区域都会处理")
+            label: qsTr("Smoothing area")
+            hint: qsTr("All skin: works without face detection; every skin-coloured area of the picture is smoothed")
             visible: editor.smoothOn
             VSeg {
                 objectName: editor.namePrefix + "-scope"
-                options: [{id: "0", label: qsTr("仅人脸")}, {id: "1", label: qsTr("全部肤色")}]
+                options: [{id: "0", label: qsTr("Faces only")}, {id: "1", label: qsTr("All skin")}]
                 current: String(editor.params.scope ?? 0)
                 onPicked: id => editor.edited("scope", Number(id))
             }
@@ -158,23 +158,23 @@ ColumnLayout {
             objectName: editor.namePrefix + "-skin-group"
             Layout.fillWidth: true
             visible: editor.restoreOn || editor.smoothOn
-            label: qsTr("肤色范围 · 高级"); count: 7
-            PercentRow { key: "hueCenter"; label: qsTr("色相中心"); defaultValue: 0.08 }
-            PercentRow { key: "hueRange"; label: qsTr("色相范围"); from: 0.01; to: 0.5; defaultValue: 0.10 }
-            PercentRow { key: "satMin"; label: qsTr("饱和度下限"); defaultValue: 0.08; hint: qsTr("须低于上限") }
-            PercentRow { key: "satMax"; label: qsTr("饱和度上限"); defaultValue: 0.80 }
-            PercentRow { key: "lumaMin"; label: qsTr("亮度下限"); defaultValue: 0.04; hint: qsTr("夜景或暗部的脸调低") }
-            PercentRow { key: "lumaMax"; label: qsTr("亮度上限"); defaultValue: 0.95 }
-            PercentRow { key: "softness"; label: qsTr("边界柔和"); defaultValue: 0.35 }
+            label: qsTr("Skin range · advanced"); count: 7
+            PercentRow { key: "hueCenter"; label: qsTr("Hue centre"); defaultValue: 0.08 }
+            PercentRow { key: "hueRange"; label: qsTr("Hue range"); from: 0.01; to: 0.5; defaultValue: 0.10 }
+            PercentRow { key: "satMin"; label: qsTr("Saturation min"); defaultValue: 0.08; hint: qsTr("Must stay below the maximum") }
+            PercentRow { key: "satMax"; label: qsTr("Saturation max"); defaultValue: 0.80 }
+            PercentRow { key: "lumaMin"; label: qsTr("Brightness min"); defaultValue: 0.04; hint: qsTr("Lower it for faces at night or in shadow") }
+            PercentRow { key: "lumaMax"; label: qsTr("Brightness max"); defaultValue: 0.95 }
+            PercentRow { key: "softness"; label: qsTr("Edge softness"); defaultValue: 0.35 }
         }
         PercentRow {
-            key: "minConfidence"; label: qsTr("人脸置信度"); from: 0.3; to: 0.95; defaultValue: 0.6
-            hint: qsTr("低于它的人脸不算；误识别时调高")
+            key: "minConfidence"; label: qsTr("Face confidence"); from: 0.3; to: 0.95; defaultValue: 0.6
+            hint: qsTr("Faces below it don't count; raise it when other things are taken for faces")
             visible: editor.restoreOn || editor.smoothOn
         }
         VRow {
-            label: qsTr("显示遮罩")
-            hint: qsTr("蓝色为原画保护区域，品红为磨皮区域；导出时自动关闭")
+            label: qsTr("Show mask")
+            hint: qsTr("Blue: original restore area; magenta: smoothing area. Turned off automatically for export")
             visible: editor.restoreOn || editor.smoothOn
             VSwitch {
                 objectName: editor.namePrefix + "-showMask"
@@ -184,27 +184,27 @@ ColumnLayout {
         }
     }
 
-    // --- 人脸识别（全部美颜节点共用） -----------------------------------------
+    // --- Face detection (shared by every beauty node) ----------------------
     VSubGroup {
         objectName: editor.namePrefix + "-detection-group"
         Layout.fillWidth: true
         visible: editor.showDetection
         expanded: editor.detectionOnly
-        label: qsTr("人脸识别 · 全部美颜节点共用"); count: 3
+        label: qsTr("Face detection · shared by all beauty nodes"); count: 3
         VRow {
-            label: qsTr("识别档位")
-            hint: editor.detection.quality === 0 ? qsTr("每帧识别 · 320 像素，最省；远处的小脸可能识别不到")
-                : editor.detection.quality === 2 ? qsTr("每帧识别 · 640 像素，小脸也能识别")
-                : qsTr("每帧识别 · 512 像素")
+            label: qsTr("Detection level")
+            hint: editor.detection.quality === 0 ? qsTr("Every frame · 320 px, lightest; small distant faces may be missed")
+                : editor.detection.quality === 2 ? qsTr("Every frame · 640 px, finds small faces too")
+                : qsTr("Every frame · 512 px")
             VSeg {
                 objectName: editor.namePrefix + "-quality"
-                options: [{id: "0", label: qsTr("性能")}, {id: "1", label: qsTr("均衡")}, {id: "2", label: qsTr("精细")}]
+                options: [{id: "0", label: qsTr("Performance")}, {id: "1", label: qsTr("Balanced")}, {id: "2", label: qsTr("Fine")}]
                 current: String(editor.detection.quality ?? 1)
                 onPicked: id => editor.detectionEdited("quality", Number(id))
             }
         }
         VRow {
-            label: qsTr("最多人脸")
+            label: qsTr("Max faces")
             value: String(editor.detection.maxFaces ?? 4)
             VSlider {
                 objectName: editor.namePrefix + "-maxFaces"
@@ -217,8 +217,8 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("跟踪平滑")
-            hint: qsTr("越高静止时越稳；人物移动时都会紧跟")
+            label: qsTr("Tracking smoothing")
+            hint: qsTr("Higher is steadier at rest; moving faces are followed closely either way")
             value: Math.round(Number(editor.detection.stability ?? 0.5) * 100) + "%"
             VSlider {
                 objectName: editor.namePrefix + "-stability"

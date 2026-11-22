@@ -10,7 +10,7 @@ Item {
     anchors.fill: parent
     z: 100
 
-    // Active dialog: network/capture/ps5/moonlight/xbox/screen/subtitle/audio/save/manage.
+    // Active dialog: network/capture/moonlight/xbox/screen/subtitle/audio/save/manage.
     property string dialog: ""
     property bool onboardingActive: false
     readonly property alias captureSettings: captureDialog
@@ -33,7 +33,6 @@ Item {
     }
     function close() { host.dialog = "" }
 
-    signal startPs5()
     signal startMoonlight()
     signal startXbox()
     signal startScreen()
@@ -73,10 +72,10 @@ Item {
         dialogHost: host
     }
 
-    // --- 采集卡 -----------------------------------------------------------
+    // --- Capture card -------------------------------------------------------------
     // The 1.4.4 capture panel, in the new design: device details and formats are
     // queried asynchronously, only an explicitly chosen audio input is opened,
-    // and the choice is remembered for "继续上次采集". Resolution, frame rate and
+    // and the choice is remembered for "resume the last capture". Resolution, frame rate and
     // pixel format are three views of that one saved format key.
     CaptureSourceDialog {
         id: captureDialog
@@ -86,14 +85,7 @@ Item {
         onGuideRequested: captureGuide.open()
     }
 
-    // --- PS5 串流 ---------------------------------------------------------
-    // The 1.4.4 Remote Play panel: saved pairings are encrypted in the user's
-    // %LOCALAPPDATA%\Veyra\remoteplay and shared with 1.4.4.
-    Ps5SourceDialog {
-        id: ps5Dialog
-        dialogHost: host    }
-
-    // --- PC 串流（Sunshine / GameStream） ----------------------------------
+    // --- PC streaming (Sunshine / GameStream) ------------------------------------
     // Hosts, pairing, the host's apps and the stream-core settings. The effect chain is not here: once
     // connected, the picture goes through the software's own pages like any other source.
     PcSourceDialog {
@@ -101,20 +93,20 @@ Item {
         dialogHost: host
     }
 
-    // --- Xbox 串流（非官方） ---------------------------------------------------
+    // --- Xbox streaming (unofficial) ------------------------------------------
     // Sign in with the Xbox (Microsoft) account on Microsoft's own page via a device code, pick a console,
     // start. The software never sees the password; only a refresh token is kept, encrypted for this user.
     XboxSourceDialog {
         id: xbDialog
         dialogHost: host    }
 
-    // --- 屏幕捕获 ---------------------------------------------------------
+    // --- Screen capture ---------------------------------------------------
     ScreenSourceDialog {
         id: screenDialog
         dialogHost: host
     }
 
-    // --- 字幕设置 ---------------------------------------------------------
+    // --- Subtitle settings --------------------------------------------------
     SubtitleSettingsDialog {
         id: subtitleDialog
         dialogHost: host
@@ -123,12 +115,12 @@ Item {
         dialogHost: host
     }
 
-    // --- 音频设置 ---------------------------------------------------------
+    // --- Audio settings -----------------------------------------------------
     AudioSettingsDialog {
         dialogHost: host
     }
 
-    // --- 另存为预设 -------------------------------------------------------
+    // --- Save as preset -----------------------------------------------------
     // The design lists every part that will be saved before asking for a name, so
     // the user can see what they are about to store.
     SavePresetDialog {
@@ -136,7 +128,7 @@ Item {
         dialogHost: host
     }
 
-    // --- 管理预设 ---------------------------------------------------------
+    // --- Manage presets -----------------------------------------------------
     ManagePresetsDialog {
         id: manageDialog
         dialogHost: host

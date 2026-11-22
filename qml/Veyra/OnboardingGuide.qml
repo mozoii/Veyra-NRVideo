@@ -22,32 +22,32 @@ Popup {
     readonly property var step: steps[stepIndex]
     property rect spotlight: Qt.rect(0, 0, 0, 0)
     readonly property var steps: [
-        { target: "capture", title: qsTr("从采集卡开始"),
-          detail: qsTr("在首页打开「采集卡」，进入 HDMI 画面的采集设置。") },
-        { target: "device", title: qsTr("选择你接入的采集卡"),
-          detail: qsTr("在「视频输入设备」里选你实际连接的采集卡。选定后会读取它支持的采集档位。") },
-        { target: "resolution", title: qsTr("选择采集分辨率"),
-          detail: qsTr("从这张采集卡列出的分辨率里选你要用的那一档。帧率列表会随这项选择更新。") },
-        { target: "capture-rate", title: qsTr("采集帧率优先选 60 FPS"),
-          detail: qsTr("如果设备提供 60 FPS，优先选它。59.94 FPS 也是常见的近 60 档。游戏本身跑 30 FPS，也可以按 60 FPS 采集。") },
-        { target: "format", title: qsTr("选择采集格式"),
-          detail: qsTr("「像素格式」会列出当前分辨率和帧率下可以用的选项。这几种常见格式的区别如下。") },
-        { target: "input-color", title: qsTr("设置输入色彩"),
-          detail: qsTr("主机正在输出 HDR10 时，选 P010，再把这里设为「HDR · PQ」。NV12、YUY2 和 RGB24 走「SDR · 709」。修改后重新连接才生效。") },
-        { target: "connect", title: qsTr("连接并开始采集"),
-          detail: qsTr("选好设备和格式后，在这里连接。先确认预览有画面、采集帧率符合预期，再看专业模式里的增强选项。") },
-        { tab: "quality", target: "sr", title: qsTr("超分辨率在这里"),
-          detail: qsTr("需要改变输出尺寸时，在「超分辨率」里选择算法和目标尺寸。") },
-        { tab: "quality", target: "nr", title: qsTr("DLSS 5 神经渲染（NR）"),
-          detail: qsTr("在「NR 画面增强」里添加一层。Veyra 对已采集的画面使用实验性神经渲染，增强光照、材质和视觉细节。") },
-        { tab: "quality", target: "hdr", title: qsTr("SDR 转 HDR 在这里"),
-          detail: qsTr("想把 SDR 画面转换为 HDR，可以在支持的显卡和 HDR 显示器上试用 RTX Video HDR。") },
-        { tab: "fg", target: "fg", title: qsTr("补帧在这里设置"),
-          detail: qsTr("切到「补帧」，在这里选算法、倍率和档位。倍率决定每组原始画面之间生成多少帧。") },
-        { tab: "fg", target: "dedup", title: qsTr("打开自动去重"),
-          detail: qsTr("在「光流 · 运动估算」打开「去除重复帧」，下拉选「自动去除」。软件比较画面内容，跳过重复帧，让补帧用不同画面生成中间帧。游戏帧率波动时也按画面内容判断。") },
-        { tab: "quality", target: "timing", title: qsTr("最后看帧率和耗时"),
-          detail: qsTr("对照输入帧率、输出帧率和 GPU 耗时，看看设置能否稳定运行。全屏按 Home 可以看详细耗时。") }
+        { target: "capture", title: qsTr("Start with your capture card"),
+          detail: qsTr("On the home page, open Capture card to set up your HDMI input.") },
+        { target: "device", title: qsTr("Choose your capture card"),
+          detail: qsTr("Under Video input device, pick the capture card you connected. Veyra will list the capture modes it supports.") },
+        { target: "resolution", title: qsTr("Choose a capture resolution"),
+          detail: qsTr("Pick one of the resolutions your capture card reports. The list of frame rates updates with your selection.") },
+        { target: "capture-rate", title: qsTr("Prefer 60 FPS for capture"),
+          detail: qsTr("Use 60 FPS if your card offers it. 59.94 FPS is another common option close to 60. You can capture at 60 FPS even if the game runs at 30 FPS.") },
+        { target: "format", title: qsTr("Choose a capture format"),
+          detail: qsTr("Pixel format lists the options available at the selected resolution and frame rate. Here is what the common formats carry.") },
+        { target: "input-color", title: qsTr("Set the input color"),
+          detail: qsTr("When your console is outputting HDR10, choose P010 and set the input to HDR · PQ. Use SDR · 709 for NV12, YUY2, or RGB24. Reconnect to apply the change.") },
+        { target: "connect", title: qsTr("Connect and start capture"),
+          detail: qsTr("After you choose a device and format, connect here. Check that the preview has a picture and the capture rate looks right, then explore enhancements in Pro mode.") },
+        { tab: "quality", target: "sr", title: qsTr("Find Super resolution here"),
+          detail: qsTr("In Super resolution, pick an algorithm and a target size when you want to change the output resolution.") },
+        { tab: "quality", target: "nr", title: qsTr("DLSS 5 neural rendering (NR)"),
+          detail: qsTr("Add a layer under NR enhancement. Veyra applies experimental neural rendering to the captured picture to enhance lighting, materials, and visual details.") },
+        { tab: "quality", target: "hdr", title: qsTr("Convert SDR to HDR here"),
+          detail: qsTr("Try RTX Video HDR to convert SDR to HDR when you have a supported GPU and an HDR display.") },
+        { tab: "fg", target: "fg", title: qsTr("Set up frame generation"),
+          detail: qsTr("Go to Frame Gen to choose an algorithm, a multiplier, and a quality mode. The multiplier controls how many frames are generated between source frames.") },
+        { tab: "fg", target: "dedup", title: qsTr("Turn on automatic deduplication"),
+          detail: qsTr("Under Optical flow · motion estimation, turn on Remove duplicate frames and select Automatic removal. Veyra compares images and skips repeats so frame generation uses different source frames. It checks the picture even when the game's frame rate varies.") },
+        { tab: "quality", target: "timing", title: qsTr("Check frame rates and timings"),
+          detail: qsTr("Compare input FPS, output FPS, and GPU timings to check whether your settings are running steadily. In fullscreen, press Home for detailed timings.") }
     ]
 
     function start() {
@@ -310,7 +310,7 @@ Popup {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     elide: Text.ElideRight
-                    text: qsTr("第 %1 / %2 步").arg(guide.stepIndex + 1).arg(guide.steps.length)
+                    text: qsTr("Step %1 of %2").arg(guide.stepIndex + 1).arg(guide.steps.length)
                     color: Theme.accent
                     font.family: Theme.fontUi
                     font.pixelSize: 12
@@ -326,7 +326,7 @@ Popup {
                     icon: true
                     iconName: "x"
                     ghost: true
-                    tip: qsTr("退出引导")
+                    tip: qsTr("Exit tour")
                     Accessible.name: closeButton.tip
                     onClicked: guide.close()
                 }
@@ -387,10 +387,10 @@ Popup {
                             spacing: 4
                             Repeater {
                                 model: [
-                                    { name: "NV12", note: qsTr("8 位 4:2:0 · SDR，所需带宽较低。") },
-                                    { name: "YUY2", note: qsTr("8 位 4:2:2 · SDR，保留更多纵向色彩细节。") },
-                                    { name: "RGB24", note: qsTr("8 位 RGB · SDR，每像素有完整的 RGB 分量，带宽较高。") },
-                                    { name: "P010", note: qsTr("10 位 4:2:0 · 这四种里，采集原生 HDR10 要选 P010。") }
+                                    { name: "NV12", note: qsTr("8-bit 4:2:0 · SDR with lower bandwidth requirements.") },
+                                    { name: "YUY2", note: qsTr("8-bit 4:2:2 · SDR with more vertical color detail.") },
+                                    { name: "RGB24", note: qsTr("8-bit RGB · SDR with a full set of RGB components per pixel and higher bandwidth.") },
+                                    { name: "P010", note: qsTr("10-bit 4:2:0 · Of these four formats, use P010 for native HDR10 capture.") }
                                 ]
                                 delegate: RowLayout {
                                     required property var modelData
@@ -411,10 +411,10 @@ Popup {
                             visible: guide.step?.target === "dedup"
                             width: parent.width
                             spacing: 4
-                            CopyText { text: qsTr("30 FPS 游戏示例"); color: Theme.t3 }
-                            CopyText { text: qsTr("60 FPS 采集"); width: parent.width }
+                            CopyText { text: qsTr("30 FPS game example"); color: Theme.t3 }
+                            CopyText { text: qsTr("60 FPS capture"); width: parent.width }
                             FrameRow {}
-                            CopyText { text: qsTr("自动去除后"); width: parent.width }
+                            CopyText { text: qsTr("After automatic removal"); width: parent.width }
                             FrameRow { deduplicated: true }
                         }
                     }
@@ -427,7 +427,7 @@ Popup {
                     Layout.column: tip.compact ? 1 : 0
                     Layout.maximumWidth: (tip.width - 56) / 2
                     Layout.preferredHeight: tip.compact ? 24 : implicitHeight
-                    text: qsTr("上一步")
+                    text: qsTr("Previous")
                     enabled: guide.stepIndex > 0
                     onClicked: guide.goTo(guide.stepIndex - 1)
                 }
@@ -439,7 +439,7 @@ Popup {
                     Layout.alignment: Qt.AlignRight
                     Layout.maximumWidth: (tip.width - 56) / 2
                     Layout.preferredHeight: tip.compact ? 24 : implicitHeight
-                    text: guide.stepIndex === guide.steps.length - 1 ? qsTr("完成") : qsTr("下一步")
+                    text: guide.stepIndex === guide.steps.length - 1 ? qsTr("Done") : qsTr("Next")
                     primary: true
                     onClicked: guide.goTo(guide.stepIndex + 1)
                 }

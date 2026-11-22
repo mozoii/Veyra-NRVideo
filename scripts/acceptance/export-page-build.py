@@ -24,7 +24,6 @@ for line in cache.read_text(encoding='utf-8').splitlines():
     if (key.startswith('VEYRA_') and (key.endswith('_ROOT') or key.endswith('_DIR'))) or key in ('CMAKE_PREFIX_PATH', 'CMAKE_MAKE_PROGRAM', 'PROTOC', 'PKG_CONFIG_EXECUTABLE'):
         settings.append(f'set({key} [[{value}]] CACHE {kind} "Read-only dependency location" FORCE)')
 settings += ['set(VEYRA_BUILD_QML_UI ON CACHE BOOL "QML" FORCE)',
-             'set(VEYRA_ENABLE_REMOTEPLAY ON CACHE BOOL "Preserve product configuration" FORCE)',
              'set(VEYRA_ENABLE_EXPERIMENTAL_DLSSNR ON CACHE BOOL "Existing runtime API" FORCE)']
 (TMP / 'dependencies.cmake').write_text('\n'.join(settings), encoding='utf-8')
 targets = sys.argv[2:] or ['veyra_qml_ui', 'veyra_qml_quick_tests', 'veyra_qml_data_tests', 'veyra_qml_easing_tests', 'veyra_export_workflow_tests']

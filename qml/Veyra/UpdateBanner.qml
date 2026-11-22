@@ -31,7 +31,7 @@ Rectangle {
         anchors.right: closeButton.left
         anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter
-        text: qsTr("发现新版本 %1，点击查看更新").arg(banner.version)
+        text: qsTr("Version %1 available. Click to view the update.").arg(banner.version)
         color: "#D5F3DE"
         font.family: Theme.fontUi
         font.pixelSize: Theme.fsBody
@@ -47,7 +47,7 @@ Rectangle {
         icon: true
         iconName: "x"
         ghost: true
-        tip: qsTr("关闭")
+        tip: qsTr("Close")
         onClicked: banner.dismiss()
     }
 }

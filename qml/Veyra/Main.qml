@@ -21,7 +21,7 @@ Window {
     id: root
     width: 1280
     height: 800
-    // 极简 follows the film, and a portrait film needs a narrow window (the dock is
+    // Minimal follows the film, and a portrait film needs a narrow window (the dock is
     // about 330px wide).
     minimumWidth: cinema ? 360 : 720
     minimumHeight: 260
@@ -29,7 +29,7 @@ Window {
     // The software scene graph cannot draw the Shape background. Keep the native
     // window opaque as well, including while its first frame is being produced.
     color: typeof vySoftwareUi !== "undefined" && vySoftwareUi ? (cinema ? Theme.videoBlack : Theme.bgOuter) : "transparent"
-    // 游戏模式 click-through (ui/GamePassthrough.h): Qt's own flags, so Qt keeps the
+    // Game mode click-through (ui/GamePassthrough.h): Qt's own flags, so Qt keeps the
     // window's layered/transparent/no-activate styles in both interface renderers.
     flags: Qt.Window | Qt.FramelessWindowHint
            | (veyra.passthroughActive ? Qt.WindowTransparentForInput : 0)
@@ -42,11 +42,11 @@ Window {
     readonly property bool onboardingActive: onboarding.visible
     // The node page splitter: height of its video card (picture + 40px bar).
     property real nodeVideoHeight: 330
-    // Every navigation goes through here: "专业" means the node page while the
+    // Every navigation goes through here: "Pro" means the node page while the
     // node configuration is active, so the dock never drops into the list UI.
     function goPageTarget(p) { return p === "pro" && veyra.nodeMode === 1 ? "node" : p }
     function goPage(p) { page = goPageTarget(p) }
-    // 设置 → 赞助作者, from the home page's coffee line.
+    // Settings → Sponsors, from the home page's coffee line.
     function showSponsor() {
         settingsPage.section = "sponsor"
         goPage("set")
@@ -76,7 +76,7 @@ Window {
 
     // Cinema geometry: the main window ends at the picture. The independent pill
     // can extend below it without leaving an opaque strip in this window.
-    // 16:9 until a source reports its own shape: a PS5 / capture session has no
+    // 16:9 until a source reports its own shape: a streaming / capture session has no
     // aspect while it connects, and 2.39 then left a thin black strip.
     property real filmAspect: 16 / 9
     readonly property bool gameAligned: fullscreen && veyra.gameMode && !veyra.gameScaledPreview
@@ -153,7 +153,7 @@ Window {
         }
         // Test the page itself: the cinema binding may not have caught up with
         // this change yet, and a stale value shrank the page after min instead.
-        // Leaving 极简 gives the window back the height it had before (core.js
+        // Leaving Minimal gives the window back the height it had before (core.js
         // clears the cinema height on any other page).
         const wasCinema = lastPage === "min"
         lastPage = page
@@ -329,7 +329,6 @@ Window {
         anchors.fill: parent
         onboardingActive: root.onboardingActive
         // The dialogs open the source through the bridge; show the picture.
-        onStartPs5: if (root.page === "home") root.goPage("min")
         onStartMoonlight: if (root.page === "home") root.goPage("min")
         onStartXbox: if (root.page === "home") root.goPage("min")
         onStartScreen: {
@@ -392,7 +391,7 @@ Window {
         locked: root.fullLocked
         forcedTip: root.test.tip !== undefined ? root.test.tip : ""
         opened: pinned
-        // In fullscreen only the picture is on screen, so another page (专业 above all)
+        // In fullscreen only the picture is on screen, so another page (Pro above all)
         // would change nothing visible: leave fullscreen first, as the pill's menu does.
         onRequestPage: p => {
             if (root.fullscreen && root.goPageTarget(p) !== root.page) root.toggleFullscreen()
@@ -462,8 +461,8 @@ Window {
     // Fullscreen quick-adjust panel (Home): the professional mode's own controls
     // over the picture - the list inspector (with the performance orbs) in list
     // mode, the node canvas along the bottom in node mode (veyra.nodeMode). From
-    // 极简 the professional page becomes current underneath the fullscreen picture
-    // while the panel is open, and 极简 returns when it closes.
+    // Minimal: the professional page becomes current underneath the fullscreen picture
+    // while the panel is open, and Minimal returns when it closes.
     property bool quickPanel: false
     property string quickReturnPage: ""
     // A page change the user cannot see (under the fullscreen picture) skips the
@@ -498,7 +497,7 @@ Window {
         onCloseRequested: root.closeQuickPanel()
         z: 75
     }
-    // 游戏模式 (屏幕捕获 → 游戏模式): fullscreen on the captured monitor (or the
+    // Game mode (screen capture → game mode): fullscreen on the captured monitor (or the
     // monitor of the captured window); the bridge then makes the picture click-through
     // so the program underneath keeps the keyboard, mouse and gamepad.
     function enterGameFullscreen() {
@@ -554,7 +553,7 @@ Window {
     }
     function toggleFullscreen() {
         if (!fullscreen && veyra.fullscreenMemorySafe === false) {
-            toast.show(qsTr("本次播放检测到全屏显存持续增长，请使用窗口播放；重新打开片源后可再次测试全屏。"), true)
+            toast.show(qsTr("VRAM kept growing in fullscreen during this session. Use windowed playback; reopen the source to test fullscreen again."), true)
             veyra.logUi("ui-fullscreen", "blocked after sustained video-memory growth")
             return
         }
@@ -612,7 +611,7 @@ Window {
             if (Math.abs(p.x - last.x) < 1 && Math.abs(p.y - last.y) < 1) return
             last = p
             root.pointerActivity()
-            // Fullscreen: the top edge brings the dock down (极简 / 专业 switch in
+            // Fullscreen: the top edge brings the dock down (Minimal / Pro switch in
             // place). Its own 12px hot zone sits under the native picture, where
             // hover is not always delivered, so the window-wide handler helps it.
             if (root.fullscreen && !root.fullLocked) {
@@ -687,8 +686,8 @@ Window {
     }
     // Anything floating over the picture is cut out of the video window (videoCover:
     // the dock, popovers, tips). A click on it belongs to it, never to the picture:
-    // the window-wide handlers below used to see the dock's 专业模式 click too, so
-    // leaving 极简 also paused or resumed the film (field report 2026-10-05).
+    // the window-wide handlers below used to see the dock's Pro mode click too, so
+    // leaving Minimal also paused or resumed the film (field report 2026-10-05).
     function overVideoCover(scenePoint) {
         const visit = item => {
             if (!item || !item.visible || item.opacity <= 0) return false
@@ -722,7 +721,7 @@ Window {
             if (root.page !== "min" && root.page !== "pro" && root.page !== "node" && !root.fullscreen) return
             if (dialogs.dialog !== "" || !veyra.hasSource) return
             if (root.fullscreen && root.quickPanelShown && (proPage.overlayContains(p.x, p.y) || nodePage.overlayContains(p.x, p.y))) return
-            // 游戏模式: a click on the picture beside the panel returns to the game.
+            // Game mode: a click on the picture beside the panel returns to the game.
             if (root.fullscreen && root.quickPanelShown && veyra.gameMode) { root.closeQuickPanel(); return }
             // Do not re-test geometry on release: a picture double click may
             // already have left fullscreen before this second tap restores play.
@@ -820,19 +819,19 @@ Window {
     readonly property bool pillHidden: veyra.preferences.cinePillHidden === true
     function setPillHidden(hidden) {
         veyra.setPreference("cinePillHidden", hidden)
-        toast.show(hidden ? qsTr("播放条已隐藏 · 鼠标移到顶部，点胶囊里的眼睛可重新打开") : qsTr("播放条已显示"), false)
+        toast.show(hidden ? qsTr("Playback bar hidden · move the pointer to the top and click the eye in the dock to bring it back") : qsTr("Playback bar shown"), false)
     }
     function toggleLock() {
         fullLocked = !fullLocked
         if (fullLocked) dock.opened = false
         else { fullControls = true; fullHide.restart() }
-        toast.show(fullLocked ? qsTr("已锁定全屏 · Ctrl+L 解锁，Esc 退出全屏") : qsTr("已解锁全屏"), false)
+        toast.show(fullLocked ? qsTr("Fullscreen locked · Ctrl+L to unlock, Esc to leave fullscreen") : qsTr("Fullscreen unlocked"), false)
         veyra.logUi("ui-fullscreen", "locked=" + fullLocked + " shortcut=Ctrl+L")
     }
     // Subtitles keep clear of the control pill: fullscreen bar 24px margin + pill,
     // windowed cinema pill straddling the picture's bottom edge.
     Binding { target: veyra; property: "subtitleBottomInset"; value: fullBar.shown ? (root.fullscreen ? 84 : 56) : 0 }
-    // Rebindable (设置 → 快捷键); the hold-to-compare key is handled by the bridge's
+    // Rebindable (Settings → Shortcuts); the hold-to-compare key is handled by the bridge's
     // application event filter because it needs the key release too.
     Shortcut { sequence: veyra.shortcuts.playPause; enabled: !screenCrop.editing; onActivated: veyra.togglePlayPause() }
     Shortcut { sequence: veyra.shortcuts.fullscreen; onActivated: root.toggleFullscreen() }
@@ -845,7 +844,7 @@ Window {
         onActivated: root.goPage(root.page === "min" ? "pro" : "min")
     }
     Shortcut { sequences: ["F11", "Alt+Return", "Alt+Enter"]; onActivated: root.toggleFullscreen() }
-    // In 游戏模式 Esc closes the adjust panel and gives the input back to the game.
+    // In game mode, Esc closes the adjust panel and gives the input back to the game.
     Shortcut {
         sequence: "Esc"
         enabled: root.fullscreen && !screenCrop.editing && !maskInput.moving && !dialogs.captureGuideOpen
@@ -861,7 +860,7 @@ Window {
             else root.toggleFullscreen()
         }
     }
-    // Home: the fullscreen quick-adjust panel, from 极简 or 专业 (list or node view).
+    // Home: the fullscreen quick-adjust panel, from Minimal or Pro (list or node view).
     Shortcut {
         sequence: "Home"
         enabled: root.fullscreen && !root.fullLocked && dialogs.dialog === "" &&
@@ -955,13 +954,13 @@ Window {
         id: overlayRestart
         objectName: "overlay-restart-confirm"
         property string kind: "rtss"
-        readonly property string product: kind === "nvidia" ? qsTr("NVIDIA 信息浮窗") : qsTr("游戏加加（GamePP）")
-        title: kind === "rtss" ? qsTr("检测到 RTSS 屏显服务") : qsTr("检测到 %1").arg(product)
+        readonly property string product: kind === "nvidia" ? qsTr("NVIDIA in-game overlay") : qsTr("GamePP")
+        title: kind === "rtss" ? qsTr("RTSS on-screen display service detected") : qsTr("%1 detected").arg(product)
         text: kind === "rtss"
-              ? qsTr("检测到 RTSS 屏显服务正在运行。开启兼容绘制需重启 Veyra，重启后 OSD 仅显示在视频上。现在重启吗？当前播放或串流将停止。")
-              : qsTr("%1 正在运行。它会同时挂接界面和视频两个画面，可能让 Veyra 卡死；开启兼容绘制需重启 Veyra，重启后界面改用软件绘制，它只作用在视频上。现在重启吗？当前播放或串流将停止。").arg(product)
-        acceptText: qsTr("重启")
-        rejectText: qsTr("稍后")
+              ? qsTr("The RTSS on-screen display service is running. Restart Veyra to enable compatible rendering and show the OSD on the video only. Restart now? Current playback or streaming will stop.")
+              : qsTr("%1 is running. It hooks both the interface and the video, which can freeze Veyra. Restart Veyra to enable compatible rendering: the interface is then drawn in software and %1 only affects the video. Restart now? Current playback or streaming will stop.").arg(product)
+        acceptText: qsTr("Restart")
+        rejectText: qsTr("Later")
         onAccepted: veyra.restartForOverlayCompatibility()
     }
 
@@ -973,7 +972,7 @@ Window {
         function onNavigate(p) {
             onboarding.close()
             // A dialog key opens the dialog; anything else is a page.
-            if (p === "network" || p === "capture" || p === "ps5" || p === "moonlight" || p === "xbox" || p === "screen"
+            if (p === "network" || p === "capture" || p === "moonlight" || p === "xbox" || p === "screen"
                 || p === "subtitle" || p === "translation" || p === "audio" || p === "save" || p === "manage") {
                 dialogs.open(p)
                 return
@@ -1010,7 +1009,7 @@ Window {
         active: root.test.motionProbe === "seg"
         x: 40; y: 160; z: 100
         sourceComponent: VSeg {
-            options: [{ id: "a", label: qsTr("自动") }, { id: "b", label: qsTr("有限 / Limited") }, { id: "c", label: qsTr("完整 / Full") }]
+            options: [{ id: "a", label: qsTr("Auto") }, { id: "b", label: qsTr("Limited") }, { id: "c", label: qsTr("Full") }]
             current: "a"
         }
     }
@@ -1051,7 +1050,7 @@ Window {
         }
     }
 
-    // 设置 → 启动窗口大小: a fixed size or the last one, clamped to the screen
+    // Settings → startup window size: a fixed size or the last one, clamped to the screen
     // and centred. A --size test switch resizes after this, so tests keep theirs.
     function applyStartupSize() {
         const choice = veyra.preferences.windowSize || "1280x800"
@@ -1067,8 +1066,8 @@ Window {
         root.y = a.y + Math.round((a.height - root.height) / 2)
     }
     onClosing: if (!root.fullscreen && !root.maximized && !root.cinema) veyra.rememberWindowSize(root.width, root.height)
-    // 日落 startup intro (DuskIntro.qml, 2026-11-15): on a plain start to the home page in the
-    // dusk palette, unless 设置 → 外观 → 启动动画 is off, animations are reduced or a test
+    // Dusk startup intro (DuskIntro.qml, 2026-11-15): on a plain start to the home page in the
+    // dusk palette, unless Settings → Appearance → startup animation is off, animations are reduced or a test
     // switch is set. Its clock starts with the first frame on screen; a page change (a file
     // from the command line, a resumed source) fades it out at once.
     Loader {
@@ -1077,7 +1076,7 @@ Window {
         z: 1000
         active: false
         sourceComponent: DuskIntro {
-            skipText: qsTr("单击或按任意键跳过")
+            skipText: qsTr("Click or press any key to skip")
             musicClock: () => { const s = vyMusic.position(); return s >= 0 ? s * 1000 : -1 }
             onFrame: target = root.introTarget()
             onRevealHome: homePage.introHold = false
@@ -1182,7 +1181,7 @@ Window {
             onTapped: root.stopStartupMusicForSession()
         }
         ToolTip.visible: musicHover.hovered
-        ToolTip.text: qsTr("停止本次启动音乐")
+        ToolTip.text: qsTr("Stop music for this launch")
     }
     // The menu anchors on laid-out buttons, so it opens once the page has settled.
     // --full-bar shown|hidden: enter fullscreen with the control window held shown

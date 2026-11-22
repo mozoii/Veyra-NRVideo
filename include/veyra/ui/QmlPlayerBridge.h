@@ -113,7 +113,6 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString currentPage READ currentPage WRITE setCurrentPage NOTIFY settingsChanged)
 
     // --- settings-page reporting -------------------------------------------
-    Q_PROPERTY(QString remotePlayState READ remotePlayState NOTIFY snapshotChanged)
     // The loaded runtime components, as the engine reports them. A hand-written
     // list here could drift from what the package actually contains.
     Q_PROPERTY(QVariantList componentList READ componentList NOTIFY componentListChanged)
@@ -177,7 +176,7 @@ class QmlPlayerBridge : public QObject {
     // method 0 WGC / 1 DXGI (monitor only), fps cap index into {follow,30,60,120,144,240},
     // pointer, crop margins in source pixels, and "fill the window".
     Q_PROPERTY(QVariantMap screenOptions READ screenOptions NOTIFY captureChanged)
-    // 游戏模式 (screen option "passthrough", ui/GamePassthrough.h): gameMode while the
+    // Game mode (screen option "passthrough", ui/GamePassthrough.h): gameMode while the
     // current source is such a capture (opening or live); passthroughActive while the
     // fullscreen picture is click-through and the captured program has the input.
     Q_PROPERTY(bool gameMode READ gameMode NOTIFY gameModeChanged)
@@ -201,20 +200,6 @@ class QmlPlayerBridge : public QObject {
     // Extra space the shell keeps free at the bottom (fullscreen controls).
     Q_PROPERTY(int subtitleBottomInset READ subtitleBottomInset WRITE setSubtitleBottomInset NOTIFY subtitlesChanged)
 
-    // --- ps5 dialog --------------------------------------------------------
-    Q_PROPERTY(QString remotePlayHost READ remotePlayHost WRITE setRemotePlayHost NOTIFY settingsChanged)
-    Q_PROPERTY(QString remotePlayPin READ remotePlayPin WRITE setRemotePlayPin NOTIFY settingsChanged)
-    // P4-e PS5 Remote Play, ported from the 1.4.4 panel: saved pairings (shared
-    // %LOCALAPPDATA%\Veyra\remoteplay, encrypted), discovery, pairing, Account ID lookup,
-    // wake, stream profile, decode/sampling, view-only, login PIN, controller
-    // forwarding and gyro calibration. `ps5` carries the form state.
-    Q_PROPERTY(QVariantMap ps5 READ ps5 NOTIFY ps5Changed)
-    Q_PROPERTY(QVariantList ps5Profiles READ ps5Profiles NOTIFY ps5Changed)
-    // PS5 手柄控制 (采集卡对话框): a controller-only Remote Play session beside the
-    // capture card, using the pairing selected in the PS5 dialog. {available,
-    // enabled, background, state: off|starting|connected|pin|recovering|failed|
-    // nopair, message, keepaliveFps (-1 = not yet), pad, gyro, touch}
-    Q_PROPERTY(QVariantMap ps5Control READ ps5Control NOTIFY ps5ControlChanged)
     // PC streaming (Moonlight / Sunshine): hosts, pairing, apps and stream settings live in
     // `moonlight` (null when the build has no Moonlight); capture state and the stats overlay here.
     Q_PROPERTY(QObject* moonlight READ moonlightModel CONSTANT)
@@ -264,21 +249,21 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(int uiScaleActive READ uiScaleActive CONSTANT)
     Q_PROPERTY(bool obsGameCaptureActive READ obsGameCaptureActive CONSTANT)
     // This run draws the interface in software because RivaTuner (RTSS) was running at start
-    // (设置 → 监控软件兼容, main.cpp): its OSD then sits on the video only.
+    // (Settings → overlay compatibility, main.cpp): its OSD then sits on the video only.
     Q_PROPERTY(bool overlayCompatActive READ overlayCompatActive CONSTANT)
-    // This run draws the interface in software: 设置 → 界面绘制 (software unless GPU is
+    // This run draws the interface in software: Settings → interface rendering (software unless GPU is
     // chosen) or one of the compatibility rules above (veyra/ui/InterfaceRenderer.h).
     Q_PROPERTY(bool softwareUiActive READ softwareUiActive CONSTANT)
     // Audio output (P4-d): the active WASAPI render endpoints by device id, the
     // stored choice (preferences.audioDevice, empty = system default) and what
     // the renderer actually opened, including a fallback to the default.
     Q_PROPERTY(QVariantList audioDevices READ audioDevices NOTIFY audioDevicesChanged)
-    // The GPU the "GPU 占用" orb measures (设置 → 通用与外观): [{id, label}], the first
-    // entry ("", 自动) picks the high-performance (discrete) GPU. Field report
+    // The GPU the "GPU usage" orb measures (Settings → general and appearance): [{id, label}], the first
+    // entry ("", automatic) picks the high-performance (discrete) GPU. Field report
     // 2026-10-02: the orb used to add the integrated and the discrete GPU together.
     Q_PROPERTY(QVariantList gpuMonitorChoices READ gpuMonitorChoices CONSTANT)
     Q_PROPERTY(QString gpuMonitorName READ gpuMonitorName NOTIFY preferencesChanged)
-    // 设置 -> "同时用这块显卡运算" (preference computeOnMonitorGpu): the GPU picked
+    // Settings -> "use this GPU for compute" (preference computeOnMonitorGpu): the GPU picked
     // for monitoring also runs enhancement, frame generation and export.
     Q_PROPERTY(QString computeGpuHint READ computeGpuHint NOTIFY preferencesChanged)
     Q_PROPERTY(QString audioOutputStatus READ audioOutputStatus NOTIFY audioDevicesChanged)
@@ -442,7 +427,7 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QVariantMap nrStabilizerState READ nrStabilizerState NOTIFY nrStabilizerChanged)
     Q_PROPERTY(bool colorEnabled READ colorEnabled WRITE setColorEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int audioOffsetMs READ audioOffsetMs WRITE setAudioOffsetMs NOTIFY settingsChanged)
-    // 1.4.4 声音补偿: 0 自动(软件估算) / 1 手动 / 2 关闭; live sources only.
+    // 1.4.4 Audio compensation: 0 automatic (software estimate) / 1 manual / 2 off; live sources only.
     Q_PROPERTY(int audioSyncMode READ audioSyncMode WRITE setAudioSyncMode NOTIFY settingsChanged)
     Q_PROPERTY(bool audioSyncLive READ audioSyncLive NOTIFY snapshotChanged)
     Q_PROPERTY(double audioCompensationMs READ audioCompensationMs NOTIFY snapshotChanged)
@@ -452,7 +437,7 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString runStatus READ runStatus NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusLevel READ runStatusLevel NOTIFY perfChanged)
     Q_PROPERTY(QString runStatusDetail READ runStatusDetail NOTIFY perfChanged)
-    // Live FG output hint ("当前帧率…超出屏幕刷新率，建议降至…"), empty when the
+    // Live FG output hint ("current fps... above the screen refresh rate, drop to..."), empty when the
     // output fits; a suggestion only, the multiplier is never changed.
     Q_PROPERTY(QString fgDisplayHint READ fgDisplayHint NOTIFY perfChanged)
     Q_PROPERTY(QStringList runOptions READ runOptions NOTIFY perfChanged)
@@ -461,18 +446,18 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(double outputRateRatio READ outputRateRatio NOTIFY perfChanged)
     // Frame interval history (ms, newest last) for the frame-time line.
     Q_PROPERTY(QVariantList frameTimes READ frameTimes NOTIFY perfChanged)
-    // 补帧 / 光流 (design gap A1-A5): motion estimation quality 0 性能 1 平衡 2 质量,
+    // Frame generation / flow (design gap A1-A5): motion estimation quality 0 performance 1 balance 2 quality,
     // AMD half-resolution flow, content cadence (engine::ContentRate order).
     Q_PROPERTY(int flowQuality READ flowQuality WRITE setFlowQuality NOTIFY settingsChanged)
     Q_PROPERTY(bool amdFlowHalf READ amdFlowHalf WRITE setAmdFlowHalf NOTIFY settingsChanged)
-    // 边缘神盾: refined optical-flow motion for XeSS (EnhancementSettings::fgMotionRefine).
+    // Edge Aegis: refined optical-flow motion for XeSS (EnhancementSettings::fgMotionRefine).
     Q_PROPERTY(bool edgeAegis READ edgeAegis WRITE setEdgeAegis NOTIFY settingsChanged)
-    // DLSS 性能模式: NVIDIA's DLSS-G performance mode (EnhancementSettings::dlssgLite);
+    // DLSS performance mode: NVIDIA's DLSS-G performance mode (EnhancementSettings::dlssgLite);
     // available when the package carries its runtime (runtime/experimental/dlssg-lite).
     Q_PROPERTY(bool dlssgLite READ dlssgLite WRITE setDlssgLite NOTIFY settingsChanged)
-    // VFG 自动调控: EnhancementSettings::vfgAutoRegulate.
+    // VFG auto-regulate: EnhancementSettings::vfgAutoRegulate.
     Q_PROPERTY(bool vfgAutoRegulate READ vfgAutoRegulate WRITE setVfgAutoRegulate NOTIFY settingsChanged)
-    // 自适应倍率 / 帧节奏修复 / HUD 自动锁定 (ported from PushFPS): EnhancementSettings::
+    // Adaptive multiplier / frame pacing repair / auto HUD lock (ported from PushFPS): EnhancementSettings::
     // fgAdaptive, pacingRepair and hudLock, global controls kept in shell preferences.
     Q_PROPERTY(bool fgAdaptive READ fgAdaptive WRITE setFgAdaptive NOTIFY settingsChanged)
     Q_PROPERTY(bool pacingRepair READ pacingRepair WRITE setPacingRepair NOTIFY settingsChanged)
@@ -484,10 +469,10 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(int fgMotionSource READ fgMotionSource WRITE setFgMotionSource NOTIFY settingsChanged)
     Q_PROPERTY(int srMotionSource READ srMotionSource WRITE setSrMotionSource NOTIFY settingsChanged)
     Q_PROPERTY(int nrMotionSource READ nrMotionSource WRITE setNrMotionSource NOTIFY settingsChanged)
-    // Presentation: display sync 0 允许撕裂 1 垂直同步 2 自动; output cap 0 关闭
-    // 1 跟随显示器 2 自定义 (+ fps). Owned by XeSS when presentationOwned.
+    // Presentation: display sync 0 allow tearing 1 vertical sync 2 automatic; output cap 0 off
+    // 1 follow display 2 custom (+ fps). Owned by XeSS when presentationOwned.
     Q_PROPERTY(int displaySync READ displaySync WRITE setDisplaySync NOTIFY presentationChanged)
-    // 可变刷新 switch (persisted with the presentation settings) and the
+    // Variable refresh switch (persisted with the presentation settings) and the
     // presenting monitor's VRR level: 0 unknown, 1 the monitor cannot do VRR
     // (switch greyed), 2 it can but the driver setting is off, 3 possible,
     // 4 active; vrrHint explains it beside the switch.
@@ -497,10 +482,10 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QObject* liveTranslation READ liveTranslation CONSTANT)
     Q_PROPERTY(int vrrState READ vrrState NOTIFY perfChanged)
     Q_PROPERTY(QString vrrHint READ vrrHint NOTIFY perfChanged)
-    // Display state of the shown monitor for the 信号 card: Windows HDR (-1
+    // Display state of the shown monitor for the signal card: Windows HDR (-1
     // unknown, 0 off, 1 on), refresh rate (0 unknown) and a short VRR summary.
     // Everything is read on events only (startup, another monitor, a display
-    // change, the switch turned on); 刷新显示器状态 (recheckDisplay) asks the
+    // change, the switch turned on); refresh the monitor state (recheckDisplay) asks the
     // driver again, and displayChecking is true until that answer arrives.
     Q_PROPERTY(int displayHdr READ displayHdr NOTIFY perfChanged)
     Q_PROPERTY(double displayRefreshHz READ displayRefreshHz NOTIFY perfChanged)
@@ -510,8 +495,8 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(double outputCustomFps READ outputCustomFps WRITE setOutputCustomFps NOTIFY presentationChanged)
     Q_PROPERTY(bool presentationOwned READ presentationOwned NOTIFY snapshotChanged)
     Q_PROPERTY(QString presentationStatus READ presentationStatus NOTIFY snapshotChanged)
-    // 显示: compare 0 增强 1 原画 2 分屏; base false 输入原画 / true 增强前底图;
-    // split 0..1 of the picture. Aspect 0 适应 1 原始 2 填充.
+    // Display: compare 0 enhanced 1 original 2 split; base false input original / true pre-enhancement base;
+    // split 0..1 of the picture. Aspect 0 fit 1 original 2 fill.
     Q_PROPERTY(int compareMode READ compareMode WRITE setCompareMode NOTIFY compareChanged)
     Q_PROPERTY(bool compareBase READ compareBase WRITE setCompareBase NOTIFY compareChanged)
     Q_PROPERTY(double compareSplit READ compareSplit NOTIFY compareChanged)
@@ -521,16 +506,16 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(bool audioSkewKnown READ audioSkewKnown NOTIFY snapshotChanged)
     // Export: an estimate of the output size ("" when there is nothing to base it on).
     Q_PROPERTY(QString exportSizeEstimate READ exportSizeEstimate NOTIFY exportChanged)
-    // 继续上次: {kind: capture|ps5|screen, label, summary}; empty when none.
+    // Resume last: {kind: capture|moonlight|xbox|screen, label, summary}; empty when none.
     Q_PROPERTY(QVariantMap lastSource READ lastSource NOTIFY preferencesChanged)
     // P5 (2026-09-29): what is playing, for the page headers.
-    // sourceKind: "" | file | image | capture | ps5 | screen.
+    // sourceKind: "" | file | image | capture | moonlight | xbox | screen.
     Q_PROPERTY(QString sourceKind READ sourceKind NOTIFY snapshotChanged)
     Q_PROPERTY(QString sourceTitle READ sourceTitle NOTIFY snapshotChanged)
     // "1080p60 · YUY2 · SDR": reported values only.
     Q_PROPERTY(QString sourceFormatText READ sourceFormatText NOTIFY snapshotChanged)
     Q_PROPERTY(QString sourceRateText READ sourceRateText NOTIFY snapshotChanged)
-    // 调色 undo / redo / copy / paste for the selected colour layer.
+    // Colour undo / redo / copy / paste for the selected colour layer.
     Q_PROPERTY(bool colourCanUndo READ colourCanUndo NOTIFY settingsChanged)
     Q_PROPERTY(bool colourCanRedo READ colourCanRedo NOTIFY settingsChanged)
     Q_PROPERTY(bool colourCanPaste READ colourCanPaste NOTIFY settingsChanged)
@@ -550,10 +535,10 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString capturePreviewUrl READ capturePreviewUrl NOTIFY snapshotChanged)
     Q_PROPERTY(QString captureSignalText READ captureSignalText NOTIFY snapshotChanged)
     Q_PROPERTY(QString captureSignalLevel READ captureSignalLevel NOTIFY snapshotChanged)
-    // A live source (PS5 / capture) that is still opening: what the picture area
+    // A live source (capture / stream) that is still opening: what the picture area
     // says meanwhile ("" once it plays or when nothing is opening).
     Q_PROPERTY(QString liveOpeningText READ liveOpeningText NOTIFY snapshotChanged)
-    // Network / server playback (#48): the signal-panel line ("缓冲 18.2 s · 下载 12.4 MB/s · 重连 0"),
+    // Network / server playback (#48): the signal-panel line ("buffering 18.2 s · download 12.4 MB/s · reconnects 0"),
     // whether playback is paused to buffer, and the reason text shown while it is.
     Q_PROPERTY(bool networkActive READ networkActive NOTIFY snapshotChanged)
     Q_PROPERTY(bool networkHolding READ networkHolding NOTIFY snapshotChanged)
@@ -588,7 +573,7 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QVariantList recentFiles READ recentFiles NOTIFY recentFilesChanged)
     Q_PROPERTY(QObject* playlist READ playlist CONSTANT)
     Q_PROPERTY(QVariantList presets READ presets NOTIFY presetsChanged)
-    // The name of the preset currently in effect, or "自定义" when the
+    // The name of the preset currently in effect, or "custom" when the
     // settings no longer match any stored preset. Derived, never guessed.
     Q_PROPERTY(QString currentPresetName READ currentPresetName NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY snapshotChanged)
@@ -745,7 +730,6 @@ public:
     void setInitialPage(const QString& value);
     QString currentPage() const;
     void setCurrentPage(const QString& value);
-    QString remotePlayState() const;
     QVariantList componentList() const;
     QVariantList readComponentList() const;
     QVariantList captureDevices() const;
@@ -812,7 +796,7 @@ public:
     QRectF gameVideoRect() const;
     // The Home panel is open: the picture stays on top but takes the input back.
     Q_INVOKABLE void setGamePanelOpen(bool open);
-    // Index into Qt.application.screens of the monitor 游戏模式 covers, or -1.
+    // Index into Qt.application.screens of the monitor game mode covers, or -1.
     Q_INVOKABLE int gameModeScreenIndex() const;
     // Test only (VEYRA_TEST_UI_BLOCK): blocks the GUI thread to exercise the hang release.
     Q_INVOKABLE void testBlockUi(int ms);
@@ -841,9 +825,6 @@ public:
     Q_INVOKABLE void toggleSubtitles();
     Q_INVOKABLE void autoAlignSubtitle();
 
-    QVariantMap ps5() const;
-    QVariantList ps5Profiles() const;
-    QVariantMap ps5Control() const;
     QObject* moonlightModel() const;
     bool moonlightCaptured() const;
     bool moonlightStatsVisible() const;
@@ -854,25 +835,6 @@ public:
     QObject* xboxModel() const;
     Q_INVOKABLE void openXboxDialog();
     Q_INVOKABLE void xboxDisconnect();
-    Q_INVOKABLE void ps5Load();
-    Q_INVOKABLE bool ps5Set(const QString& key, const QVariant& value);
-    Q_INVOKABLE void ps5SelectProfile(const QString& id);
-    Q_INVOKABLE void ps5Scan();
-    Q_INVOKABLE void ps5Pair(const QString& pin);
-    Q_INVOKABLE bool ps5Connect();
-    Q_INVOKABLE void ps5Wake();
-    Q_INVOKABLE void ps5Forget();
-    Q_INVOKABLE void ps5OpenAccountChecker();
-    Q_INVOKABLE void ps5SendLoginPin(const QString& pin);
-    Q_INVOKABLE void ps5Cancel();
-    Q_INVOKABLE void ps5Calibrate();
-    // key: enabled | background (saved preferences ps5CaptureControl / ps5ControlBackground).
-    Q_INVOKABLE void ps5ControlSet(const QString& key, const QVariant& value);
-    Q_INVOKABLE void ps5ControlRestart();
-    QString remotePlayHost() const;
-    void setRemotePlayHost(const QString& value);
-    QString remotePlayPin() const;
-    void setRemotePlayPin(const QString& value);
 
     QVariantMap preferences() const;
     QString gpuPriorityStatus() const;
@@ -901,12 +863,12 @@ public:
     bool softwareUiActive() const;
     // RivaTuner Statistics Server is running now (gfx::rivaTunerRunning).
     Q_INVOKABLE bool rivaTunerRunning() const;
-    // An overlay that 监控软件兼容 reacts to is running now: RTSS, NVIDIA's in-game overlay
+    // An overlay that overlay compatibility reacts to is running now: RTSS, NVIDIA's in-game overlay
     // or GamePP (gfx/PresentationHooks.h).
     Q_INVOKABLE bool presentationOverlayRunning() const;
     Q_INVOKABLE void openFeedbackPage();
     Q_INVOKABLE void openReleasesPage();
-    // 设置 → 赞助作者: opens the author's page for `id` (douyin, x, github,
+    // Settings → Sponsor: opens the author's page for `id` (douyin, x, github,
     // youtube, kofi) in the browser. The addresses live here; any other id does nothing.
     Q_INVOKABLE bool openSponsorLink(const QString& id);
     QObject* updates() const;
@@ -1367,7 +1329,7 @@ public:
     // window of the QML window and hands it over; the bridge never draws QML
     // into it and Qt never touches its swapchain.
     void attachVideoWindow(qulonglong nativeHandle);
-    // The QML main window: 游戏模式 changes its styles and owns its hotkeys.
+    // The QML main window: game mode changes its styles and owns its hotkeys.
     void attachMainWindow(qulonglong nativeHandle);
 
     // Run immediately before the engine opens a source. The presenter reads the
@@ -1391,7 +1353,6 @@ public:
     Q_INVOKABLE void openCaptureDialog();
     // Reopens the last capture session with the same device and format.
     Q_INVOKABLE void resumeCaptureSession();
-    Q_INVOKABLE void openPs5Dialog();
     Q_INVOKABLE void openScreenCaptureDialog();
     Q_INVOKABLE void openAudioDialog();
     Q_INVOKABLE void openSubtitleDialog();
@@ -1456,7 +1417,7 @@ public:
     Q_INVOKABLE void restartApplication();
     Q_INVOKABLE void restartForOverlayCompatibility();
     // Returns this page's controls to the engine defaults (the design's
-    // "重置本页"); it does not touch presets or other pages.
+    // "reset this page"); it does not touch presets or other pages.
     Q_INVOKABLE void resetCurrentPage();
 
     // Chain editing. The validator decides whether an edit is allowed where it
@@ -1499,7 +1460,7 @@ public:
     Q_INVOKABLE QString diagnosticsReport() const;
     Q_INVOKABLE void openProjectPage();
     Q_INVOKABLE void copyDiagnostics();
-    // Re-reads the runtime manifest (Settings → 组件与许可 calls it when shown).
+    // Re-reads the runtime manifest (Settings → components and licences calls it when shown).
     Q_INVOKABLE void refreshComponentList();
 
     void showFormatBadge(const engine::PlayerSnapshot& snapshot);
@@ -1524,8 +1485,6 @@ signals:
 
     void playlistRequested();
     void nodeAnchorsChanged();
-    void ps5Changed();
-    void ps5ControlChanged();
     void moonlightUiChanged();
     void imageBatchChanged();
     void audioDevicesChanged();
@@ -1598,8 +1557,8 @@ private:
     void pollReplay();
     // DLAA anti-aliasing needs the DLSS SR runtime and adapter; false (with a notice) otherwise.
     bool dlaaAllowed();
-    // 抖音直播伴侣 running (gfx/PresentationHooks.h): Realtime GPU priority is capped at
-    // High while it runs and restored when it exits; 监控软件兼容 "off" leaves it alone.
+    // Douyin live companion running (gfx/PresentationHooks.h): Realtime GPU priority is capped at
+    // High while it runs and restored when it exits; overlay compatibility "off" leaves it alone.
     void updateLiveCompanionCompat();
     // The settings the UI is showing: the facade's pending copy, which the
     // engine has been asked to apply. Every settings property reads this, so
@@ -1608,7 +1567,7 @@ private:
     void startGpuSampler();
     void requestApplicationRestart(bool overlayCompatibility);
     void updateRunStatus();
-    // vrrHint's text for a VRR level (the 重新检测 result notice uses it too).
+    // vrrHint's text for a VRR level (the re-detection result notice uses it too).
     QString vrrHintText(int level) const;
     QString vrrSummaryText(int level) const;
     void applyPresentation();
@@ -1637,11 +1596,6 @@ private:
     void tickSubtitles();
     void tickImageBatch();
     void tickCapture();
-    void tickPs5();
-    void tickPs5Control(bool force = false);
-    // restart: replace a running session (another pairing, or the user asked).
-    void startPs5Control(bool restart);
-    void stopPs5Control();
     bool captureCardLive() const;
     void tickMoonlight();
     void tickXbox();

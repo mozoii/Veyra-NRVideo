@@ -54,10 +54,10 @@ bool ExportQueue::needsTick()const{
     return busy()||probe_.valid()||std::any_of(items_.begin(),items_.end(),[](const auto& i){return i.inspected!=i.revision;});
 }
 bool ExportQueue::start(const std::wstring& directory,EnhancementSettings settings,bool hevc,sink::ExportRateControl rate,std::wstring& error){
-    if(busy()){error=L"上一批任务仍在执行或回收";return false;}
-    if(!readyCount()){error=L"没有待导出文件；失败项请先点击重试";return false;}
+    if(busy()){error=L"The previous batch is still running or being cleaned up";return false;}
+    if(!readyCount()){error=L"No files waiting to export; click Retry on failed items first";return false;}
     std::error_code ec;
-    if(!std::filesystem::is_directory(directory,ec)){error=L"请选择有效的输出目录";return false;}
+    if(!std::filesystem::is_directory(directory,ec)){error=L"Choose a valid output folder";return false;}
     // Check directory writability before changing queue state.
     const auto check=reserveExportTemporaryFile((std::filesystem::path(directory)/L".veyra-write-check").wstring(),error);
     if(check.empty())return false;
@@ -82,16 +82,16 @@ bool ExportQueue::start(const std::wstring& directory,EnhancementSettings settin
         // Re-probe at Start: the source may have changed since it was added.
         ++item.revision;
     }
-    running_=true;status_=L"正在预检本批文件和轨道";return true;
+    running_=true;status_=L"Pre-checking this batch's files and tracks";return true;
 }
 void ExportQueue::cancel(){
     running_=false;interrupted_=true;worker_.cancel();snapshot_=worker_.poll();
     for(auto& item:items_)if(item.state==ExportItemState::Queued)item.state=ExportItemState::Ready;
-    status_=active_?L"正在取消并回收；等待项保留":L"已停止本批导出；等待项保留";
+    status_=active_?L"Cancelling and cleaning up; waiting items are kept":L"This batch was stopped; waiting items are kept";
 }
 void ExportQueue::finishBatch(){
     running_=false;
-    status_=std::format(L"本批完成：成功 {}，失败 {}",successes_,failures_);
+    status_=std::format(L"Batch finished: {} succeeded, {} failed",successes_,failures_);
     if(successes_&&!failures_&&!interrupted_)successEvent_=batch_;
 }
 bool ExportQueue::tick(){
@@ -105,7 +105,7 @@ bool ExportQueue::tick(){
                 else{item->state=ExportItemState::Failed;++failures_;}
                 // Batch-wide storage errors stop further launches. The exact
                 // reason and owned partial remain on this failed item.
-                if(item->note.find(L"（-28）")!=std::wstring::npos||item->note.find(L"错误 112")!=std::wstring::npos){cancel();status_=L"输出磁盘空间不足，已停止本批调度";}
+                if(item->note.find(L"（-28）")!=std::wstring::npos||item->note.find(L"Error 112")!=std::wstring::npos){cancel();status_=L"The output disk is full; this batch was stopped";}
                 active_=0;
             }
         }
@@ -126,10 +126,10 @@ bool ExportQueue::tick(){
                 next->state=ExportItemState::Failed;next->note=next->info.error;++failures_;changed=true;
             }else{
                 std::error_code ec;const auto free=std::filesystem::space(directory_,ec);
-                if(ec||free.available<1024*1024){cancel();status_=L"输出目录不可用或磁盘空间不足，已停止本批调度";return true;}
+                if(ec||free.available<1024*1024){cancel();status_=L"The output folder is unavailable or the disk is full; this batch was stopped";return true;}
                 const bool started=worker_.start(next->input,next->output,next->frozen,next->hevc,0,-1,next->start,next->end,next->rate,next->media);
                 snapshot_=worker_.poll();next->job=snapshot_.jobId;next->note=snapshot_.message;
-                if(started){active_=next->id;next->state=ExportItemState::Running;status_=L"正在按队列顺序导出";}
+                if(started){active_=next->id;next->state=ExportItemState::Running;status_=L"Exporting in queue order";}
                 else{next->state=ExportItemState::Failed;++failures_;}
                 changed=true;
             }
@@ -140,7 +140,7 @@ bool ExportQueue::tick(){
         if(next&&next->inspected!=next->revision){
             probingId_=next->id;probingRevision_=next->revision;
             const auto input=next->input;const auto options=next->media;const double start=next->start,end=next->end;
-            probe_=std::async(std::launch::async,[this,input,options,start,end]{try{return ExportStreams::probe(input,options,start,end,stopProbe_);}catch(...){ExportMediaInfo result;result.error=L"读取媒体信息失败";return result;}});
+            probe_=std::async(std::launch::async,[this,input,options,start,end]{try{return ExportStreams::probe(input,options,start,end,stopProbe_);}catch(...){ExportMediaInfo result;result.error=L"Could not read the media information";return result;}});
         }
     }
     return changed;

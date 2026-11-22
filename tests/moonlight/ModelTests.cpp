@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
         // --- starting: another game runs on the host (id 7, not the app chosen)
         check(model.connectStream(881448767), "connectStream starts the job");
         check(waitFor([&] { return idle(model); }), "the launch check finishes");
-        check(!launched && statusOf(model).contains(QString::fromUtf8("另一个游戏")), "another running game blocks a new launch with an explanation");
+        check(!launched && statusOf(model).contains(QString::fromUtf8("another game")), "another running game blocks a new launch with an explanation");
 
         // --- HDR with a codec that cannot carry it
         host.currentGame = 0;
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
         // --- "pair" on a host that still trusts us needs no PIN
         model.pair(hostId);
         check(waitFor([&] { return idle(model); }), "the pairing check finishes");
-        check(model.state().value("paired").toBool() && statusOf(model).contains(QString::fromUtf8("不需要重新配对")), "pairing again is skipped while the host still trusts us");
+        check(model.state().value("paired").toBool() && statusOf(model).contains(QString::fromUtf8("pair again")), "pairing again is skipped while the host still trusts us");
 
         // --- a host that no longer knows us
         host.forgetPairing();

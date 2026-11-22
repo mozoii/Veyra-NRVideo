@@ -1,4 +1,4 @@
-// 设置 → 赞助作者: the author's pages, then Patreon, then the WeChat / Alipay codes for
+// Settings → Sponsors: the author's pages, then Patreon, then the WeChat / Alipay codes for
 // users in mainland China (the order the author asked for, 2026-10-19).
 //
 // The page names a link by id only; the bridge owns the addresses
@@ -17,7 +17,7 @@ ColumnLayout {
 
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
     readonly property var socials: [
-        { id: "douyin", name: qsTr("抖音") },
+        { id: "douyin", name: qsTr("Douyin") },
         { id: "x", name: "X" },
         { id: "github", name: "GitHub" },
         { id: "youtube", name: "YouTube" }
@@ -27,7 +27,7 @@ ColumnLayout {
         id: section
         property alias text: title.text
         property alias hint: hintText.text
-        // A block inside a section (中国大陆用户) rather than a section of its own.
+        // A block inside a section (mainland China users) rather than a section of its own.
         property bool small: false
         property real motionDy: 0
         transform: Translate { y: motionDy }
@@ -46,9 +46,9 @@ ColumnLayout {
         }
     }
 
-    VH1 { text: qsTr("赞助作者") }
+    VH1 { text: qsTr("Support the author") }
 
-    // The appeal, on the accent-tinted plate the home page uses for 继续上次.
+    // The appeal, on the accent-tinted plate the home page uses for resume-last.
     Rectangle {
         id: hero
         property real motionDy: 0
@@ -82,7 +82,7 @@ ColumnLayout {
                 spacing: 6
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Veyra 开源免费，也需要你的支持")
+                    text: qsTr("Veyra is free and open source, and it runs on your support")
                     color: Theme.t1
                     font.family: Theme.fontUi
                     font.pixelSize: Theme.fsH3
@@ -91,7 +91,7 @@ ColumnLayout {
                 }
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("开发和测试设备的开销一直由作者自己承担。如果 Veyra 对你有帮助，欢迎请作者喝杯咖啡，你的支持就是持续更新的动力。")
+                    text: qsTr("The author has always paid for development and test hardware out of pocket. If Veyra helps you, consider buying the author a coffee: your support is what keeps the updates coming.")
                     color: Theme.t2
                     font.family: Theme.fontUi
                     font.pixelSize: Theme.fsBody
@@ -102,9 +102,9 @@ ColumnLayout {
         }
     }
 
-    SectionTitle { text: qsTr("关注作者") }
+    SectionTitle { text: qsTr("Follow the author") }
 
-    // One tile per platform: the brand tile, its name and 前往主页. The whole card
+    // One tile per platform: the brand tile, its name and go-to-homepage. The whole card
     // is the button; it lifts on hover like the home page's source cards.
     Flow {
         id: socialFlow
@@ -167,7 +167,7 @@ ColumnLayout {
                                 spacing: 5
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: qsTr("前往主页")
+                                    text: qsTr("Visit page")
                                     color: socialHover.hovered ? Theme.accentInk : Theme.t1
                                     font.family: Theme.fontUi
                                     font.pixelSize: Theme.fsSmall
@@ -190,8 +190,8 @@ ColumnLayout {
     }
 
     SectionTitle {
-        text: qsTr("请作者喝杯咖啡")
-        hint: qsTr("Patreon 主页查看作者动态，咖啡赞助为 US$5。")
+        text: qsTr("Buy the author a coffee")
+        hint: qsTr("Visit Patreon for creator updates, or buy me a coffee for US$5.")
     }
 
     Flow {
@@ -202,8 +202,8 @@ ColumnLayout {
         spacing: 14
         Repeater {
             model: [
-                { id: "patreon", label: qsTr("Patreon 主页"), background: "#B82131", hover: "#D32F40" },
-                { id: "patreonCoffee", label: qsTr("☕ 请作者喝杯咖啡 · US$5"), background: "#92400E", hover: "#A84A10" }
+                { id: "patreon", label: qsTr("Patreon home"), background: "#B82131", hover: "#D32F40" },
+                { id: "patreonCoffee", label: qsTr("☕ Buy me a coffee · US$5"), background: "#92400E", hover: "#A84A10" }
             ]
             delegate: Rectangle {
                 id: support
@@ -249,8 +249,8 @@ ColumnLayout {
     SectionTitle {
         objectName: "sponsor-mainland"
         small: true
-        text: qsTr("中国大陆用户")
-        hint: qsTr("可以用微信或支付宝扫码")
+        text: qsTr("Users in mainland China")
+        hint: qsTr("Scan with WeChat or Alipay")
     }
 
     // The two codes side by side at one size; a narrow window stacks them.
@@ -262,8 +262,8 @@ ColumnLayout {
         spacing: 14
         Repeater {
             model: [
-                { id: "wechat", label: qsTr("微信扫码") },
-                { id: "alipay", label: qsTr("支付宝扫码") }
+                { id: "wechat", label: qsTr("WeChat Pay") },
+                { id: "alipay", label: qsTr("Alipay") }
             ]
             delegate: Rectangle {
                 id: code
@@ -321,7 +321,7 @@ ColumnLayout {
         transform: Translate { y: thanks.motionDy }
         Layout.fillWidth: true
         Layout.topMargin: 6
-        text: qsTr("赞助完全自愿，不影响任何功能。谢谢你的支持！")
+        text: qsTr("Sponsoring is entirely voluntary and doesn't affect any feature. Thank you for your support!")
         color: Theme.t3
         font.family: Theme.fontUi
         font.pixelSize: Theme.fsSmall

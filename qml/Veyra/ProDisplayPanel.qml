@@ -13,29 +13,29 @@ ColumnLayout {
     VGroup {
         ProPresentationRows { }
         VRow {
-            label: qsTr("原画 / 增强对比")
-            hint: (veyra.compareMode === 2 ? qsTr("在画面上按住左键拖动分割线：左边原画、右边增强。") : "") + (veyra.compareMode !== 0 ? qsTr("对比时补帧暂停，关闭对比后恢复") : "")
+            label: qsTr("Original / enhanced comparison")
+            hint: (veyra.compareMode === 2 ? qsTr("Hold the left button on the picture and drag the divider: original on the left, enhanced on the right.") : "") + (veyra.compareMode !== 0 ? qsTr("Frame generation pauses while comparing and resumes when comparison is off") : "")
             VSeg {
                 objectName: "display-compare"
-                options: [{ id: "0", label: qsTr("关闭", "off") }, { id: "2", label: qsTr("分屏") }, { id: "1", label: qsTr("只看原画") }]
+                options: [{ id: "0", label: qsTr("Off", "off") }, { id: "2", label: qsTr("Split") }, { id: "1", label: qsTr("Original only") }]
                 current: String(veyra.compareMode)
                 onPicked: id => veyra.compareMode = Number(id)
             }
         }
         VRow {
-            label: qsTr("对照底图")
-            hint: qsTr("低延迟 NR 先行时，“增强前底图”是原图缩放，不是独立超分对照")
+            label: qsTr("Reference base")
+            hint: qsTr("With low-latency NR first, \"before enhancement\" is the original scaled up, not a separate super-resolution reference")
             visible: veyra.compareMode !== 0
             VSeg {
                 objectName: "display-compare-base"
-                options: [{ id: "0", label: qsTr("输入原画") }, { id: "1", label: qsTr("增强前底图") }]
+                options: [{ id: "0", label: qsTr("Input original") }, { id: "1", label: qsTr("Before enhancement") }]
                 current: veyra.compareBase ? "1" : "0"
                 onPicked: id => veyra.compareBase = id === "1"
             }
         }
         VRow {
-            label: qsTr("按住 V 查看原画")
-            hint: qsTr("按键可在 设置 → 快捷键 里改")
+            label: qsTr("Hold V to see the original")
+            hint: qsTr("Keys can be changed under Settings → Shortcuts")
             VSwitch {
                 objectName: "display-hold-compare"
                 checked: veyra.preferences.holdCompare !== false
@@ -43,18 +43,18 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("画面比例")
-            hint: veyra.aspectMode === 1 ? qsTr("原始 = 一个输出像素对一个屏幕像素") : veyra.aspectMode === 2 ? qsTr("填满窗口，超出部分裁掉") : ""
+            label: qsTr("Aspect ratio")
+            hint: veyra.aspectMode === 1 ? qsTr("Native = one output pixel per screen pixel") : veyra.aspectMode === 2 ? qsTr("Fill the window and crop what overflows") : ""
             VSelect {
                 objectName: "display-aspect"
-                options: [{ id: "0", label: qsTr("适应") }, { id: "1", label: qsTr("原始像素") }, { id: "2", label: qsTr("填充裁切") }, { id: "3", label: qsTr("拉伸铺满") }, { id: "4", label: "16:9" }, { id: "5", label: "4:3" }, { id: "6", label: "21:9" }]
+                options: [{ id: "0", label: qsTr("Fit") }, { id: "1", label: qsTr("Native pixels") }, { id: "2", label: qsTr("Fill and crop") }, { id: "3", label: qsTr("Stretch to fill") }, { id: "4", label: "16:9" }, { id: "5", label: "4:3" }, { id: "6", label: "21:9" }]
                 value: options[veyra.aspectMode].label
                 onPicked: id => veyra.aspectMode = Number(id)
             }
         }
         VRow {
-            label: qsTr("强制 SDR 预览")
-            hint: qsTr("HDR 片源也按 SDR 显示；与采集卡的“转为 SDR 显示”是同一设置")
+            label: qsTr("Force SDR preview")
+            hint: qsTr("HDR sources are shown as SDR too; the same setting as the capture card's \"Show as SDR\"")
             VSwitch {
                 objectName: "display-force-sdr"
                 checked: veyra.captureForceSdr
@@ -62,12 +62,12 @@ ColumnLayout {
             }
         }
         VRow {
-            label: qsTr("HDR 输出格式")
-            hint: qsTr("补帧路径固定 HDR10；需要 Windows HDR 开启")
-            VSeg { objectName: "display-hdr-output"; options: [{id:"0",label:"HDR10"},{id:"1",label:qsTr("scRGB 浮点")}]; current: String(veyra.hdrOutputMode); onPicked: id => veyra.hdrOutputMode = Number(id) }
+            label: qsTr("HDR output format")
+            hint: qsTr("The frame generation path is fixed to HDR10; Windows HDR must be on")
+            VSeg { objectName: "display-hdr-output"; options: [{id:"0",label:"HDR10"},{id:"1",label:qsTr("scRGB float")}]; current: String(veyra.hdrOutputMode); onPicked: id => veyra.hdrOutputMode = Number(id) }
         }
 
-                // HDR 亮度曲线: a static curve. Unlike a plain exposure the
+                // HDR brightness curve: a static curve. Unlike a plain exposure the
                 // highlights are protected by construction.
                 VAccordion {
                     id: hdrCurveAccordion
@@ -75,12 +75,12 @@ ColumnLayout {
                     Layout.fillWidth: true
                     glyph: "sun"
                     hue: "#F5C84B"
-                    title: qsTr("HDR 亮度曲线")
-                    summary: veyra.hdrCurve ? qsTr("已开启") : qsTr("已关闭")
+                    title: qsTr("HDR brightness curve")
+                    summary: veyra.hdrCurve ? qsTr("On") : qsTr("Off")
                     on: veyra.hdrCurve
                     onToggled: on => veyra.hdrCurve = on
-                    // 曲线图（自定义）：由 C++ 用与着色器相同的公式采样，
-                    // 虚线是"不做任何处理"的参考线，橙线是当前曲线。
+                    // The curve graph (custom): C++ samples it with the same formula the
+                    // shader uses. The dashed line is the "no processing" reference; orange is the current curve.
 
                         VAccordion {
                             id: hdrReadAccordion
@@ -91,48 +91,48 @@ ColumnLayout {
                             Layout.topMargin: 8
                             enabledSwitch: false
                             open: true
-                            title: qsTr("曲线图、读数与提示")
-                            summary: qsTr("2 项")
-                    // GPU 抽样统计：本卡可见且输出曲线生效时至多每秒 4 次。
+                            title: qsTr("Curve, readings and guidance")
+                            summary: qsTr("2 items")
+                    // GPU sample statistics: at most four per second, only while this card is visible and the curve is in effect.
                     VRow {
                         hintBelow: true
                         objectName: "list-hdrcurve-live"
-                        label: qsTr("画面抽样统计")
+                        label: qsTr("Image sample statistics")
                         hint: !veyra.hdrCurveCoverage.valid
-                            ? qsTr("展开本卡片并播放 HDR 输出时测量，每秒最多 4 次")
+                            ? qsTr("Expand this card during HDR playback to sample, up to 4 times per second")
                             : veyra.hdrPeakWarning.capNits === 0
-                                ? qsTr("曲线未设「峰值上限」，不会有像素被压平。滚降区 %1% · 暗部提升区 %2%")
+                                ? qsTr("No peak cap; no hard clipping. Highlight compression %1% · shadow lift %2%")
                                     .arg(Number(veyra.hdrCurveCoverage.rollOff).toFixed(1))
                                     .arg(Number(veyra.hdrCurveCoverage.lift).toFixed(1))
                             : veyra.hdrCurveCoverage.aboveCeiling <= 0.0
-                                ? qsTr("上限 %1 nit 未被触及（滚降区 %2% · 暗部提升区 %3%）")
+                                ? qsTr("Cap %1 nit not reached (highlight compression %2% · shadow lift %3%)")
                                     .arg(veyra.hdrPeakWarning.capNits)
                                     .arg(Number(veyra.hdrCurveCoverage.rollOff).toFixed(1))
                                     .arg(Number(veyra.hdrCurveCoverage.lift).toFixed(1))
-                            : qsTr("触及硬上限 %1% · 高光压缩区 %2% · 暗部提升区 %3%")
+                            : qsTr("At hard cap %1% · highlight compression %2% · shadow lift %3%")
                                 .arg(Number(veyra.hdrCurveCoverage.aboveCeiling).toFixed(1))
                                 .arg(Number(veyra.hdrCurveCoverage.rollOff).toFixed(1))
                                 .arg(Number(veyra.hdrCurveCoverage.lift).toFixed(1))
                         value: !veyra.hdrCurveCoverage.valid ? qsTr("—")
-                            : veyra.hdrPeakWarning.capNits === 0 ? qsTr("未设上限")
-                            : veyra.hdrCurveCoverage.aboveCeiling > 5 ? qsTr("偏高")
-                            : veyra.hdrCurveCoverage.aboveCeiling > 0 ? qsTr("轻微") : qsTr("未触及")
+                            : veyra.hdrPeakWarning.capNits === 0 ? qsTr("No cap")
+                            : veyra.hdrCurveCoverage.aboveCeiling > 5 ? qsTr("Slightly high")
+                            : veyra.hdrCurveCoverage.aboveCeiling > 0 ? qsTr("Slight") : qsTr("Not reached")
                     }
-                    // 高光预警（自定义）：片源峰值 vs 曲线生效后的硬上限。
+                    // Highlight warning (custom): source peak versus the post-curve ceiling.
                     VRow {
                         objectName: "list-hdrcurve-peakwarning"
-                        label: qsTr("高光预警")
-                        hint: !veyra.hdrSourceInfo.valid ? qsTr("片源没有携带亮度信息")
-                            : !veyra.hdrPeakWarning.valid ? qsTr("曲线未开启")
-                            : veyra.hdrPeakWarning.capNits === 0 ? qsTr("曲线没有设硬上限，不会裁剪片源峰值")
-                            : qsTr("片源最亮 %1 nit，曲线硬上限 %2 nit：%3")
+                        label: qsTr("Highlight guidance")
+                        hint: !veyra.hdrSourceInfo.valid ? qsTr("No luminance metadata in the source")
+                            : !veyra.hdrPeakWarning.valid ? qsTr("Curve is off")
+                            : veyra.hdrPeakWarning.capNits === 0 ? qsTr("No hard cap is set on the curve")
+                            : qsTr("Declared source peak %1 nit, curve cap %2 nit: %3")
                                 .arg(veyra.hdrPeakWarning.sourcePeakNits)
                                 .arg(veyra.hdrPeakWarning.capNits)
                                 .arg(veyra.hdrPeakWarning.clipped
-                                     ? qsTr("超过上限的亮度需要压缩；是否触及硬上限以抽样读数为准")
-                                     : qsTr("上限覆盖片源标注峰值；处理后的画面以抽样读数为准"))
+                                     ? qsTr("Brightness beyond the cap needs compression; use the sample reading to check hard clipping")
+                                     : qsTr("The cap covers the declared source peak; check the sample reading for the processed image"))
                         value: !veyra.hdrSourceInfo.valid || !veyra.hdrPeakWarning.valid ? qsTr("—")
-                            : veyra.hdrPeakWarning.clipped ? qsTr("会压缩") : qsTr("安全")
+                            : veyra.hdrPeakWarning.clipped ? qsTr("Compression needed") : qsTr("Within range")
                     }
                     Canvas {
                         id: hdrCurveCanvas
@@ -155,12 +155,12 @@ ColumnLayout {
                                 var v = Math.max(n, minN) / minN;
                                 return Math.log(v) / Math.log(maxN / minN);
                             }
-                            // 参考线：未启用任何调整时曲线与它重合
+                            // The reference line: when nothing is adjusted the curve overlaps it
                             ctx.strokeStyle = Theme.t3;
                             ctx.lineWidth = 1;
                             ctx.beginPath();
                             ctx.moveTo(0, h); ctx.lineTo(w, 0); ctx.stroke();
-                            // 当前曲线
+                            // The current curve
                             ctx.strokeStyle = g.enabled ? "#F5C84B" : Theme.t3;
                             ctx.lineWidth = 2;
                             ctx.beginPath();
@@ -172,11 +172,11 @@ ColumnLayout {
                             ctx.stroke();
                         }
                     }
-                    // 一键按片源选档（自定义）：用片源自带的峰值 / 平均亮度
-                    // 决定档位与强度，界面只解释理由，不做测量。
+                    // One-click preset from the source (custom): the source's own peak / average
+                    // brightness picks the step and strength; the interface only explains the reason.
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("曲线作用于 HDR10 或 scRGB 输出，也适用于 RTX Video HDR 转换后的画面。低亮度画面可能不会触及高光阈值。")
+                        text: qsTr("Applies to HDR10 or scRGB output, including RTX Video HDR conversion. Dim images may not reach the highlight thresholds.")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -190,40 +190,40 @@ ColumnLayout {
                         Layout.topMargin: 8
                         enabledSwitch: false
                         open: true
-                        title: qsTr("一键选档")
-                        summary: qsTr("4 项")
-                    // 选档方式（自定义）：整档预设 / 自由组合。两套写的是同一条曲线，
-                    // 所以切换只影响界面，不影响存档或画面。
+                        title: qsTr("Quick presets")
+                        summary: qsTr("4 items")
+                    // How the preset is chosen (custom): whole preset vs. free combination. Both write the same curve,
+                    // so switching changes the interface only, never the saved data or the picture.
                     VRow {
                         hintBelow: true
-                        label: qsTr("按片源自动选档")
+                        label: qsTr("Select from source")
                         hint: {
                             if (!veyra.hdrRecommendation.available)
                                 return veyra.sourceIsSdr
-                                    ? qsTr("SDR 片源没有 HDR 亮度元数据；可手动选档，HDR 输出时生效。")
-                                    : qsTr("片源没有携带亮度信息（抓屏 / 串流），无法自动选档");
+                                    ? qsTr("SDR sources have no HDR luminance metadata. Choose a preset manually; it applies to HDR output.")
+                                    : qsTr("No luminance metadata (capture/stream); automatic selection is unavailable");
                             var r = veyra.hdrRecommendation.reason;
-                            var why = r === "dark-content" ? qsTr("整片偏暗、只有少量亮点")
-                                : r === "bright-content" ? qsTr("高光又亮又多")
-                                : r === "narrow-range" ? qsTr("母版峰值偏低（老片 / 转制片）")
-                                : r === "beyond-display" ? qsTr("内容亮度远超显示设备能力")
-                                : r === "dark-and-bright" ? qsTr("整片偏暗，且超出显示设备能力")
-                                : qsTr("亮度分布均衡");
+                            var why = r === "dark-content" ? qsTr("Mostly dark with a few bright highlights")
+                                : r === "bright-content" ? qsTr("Many strong highlights")
+                                : r === "narrow-range" ? qsTr("Low mastering peak (older or converted title)")
+                                : r === "beyond-display" ? qsTr("Content brightness far exceeds the display capability")
+                                : r === "dark-and-bright" ? qsTr("Mostly dark with highlights beyond the display capability")
+                                : qsTr("Balanced brightness");
                             var axes = veyra.hdrPresetMode === "axes";
                             var pick = axes
-                                ? (r === "dark-content" ? qsTr("内容：暗场多")
-                                    : r === "bright-content" ? qsTr("内容：高光强")
-                                    : r === "beyond-display" ? qsTr("内容：高光强")
-                                    : r === "dark-and-bright" ? qsTr("内容：两头极端")
-                                    : r === "narrow-range" ? qsTr("内容：老片平淡")
-                                    : qsTr("内容：标准"))
-                                : (r === "dark-content" ? qsTr("暗场提亮")
-                                    : r === "bright-content" ? qsTr("高光保护")
-                                    : r === "beyond-display" ? qsTr("高光保护")
-                                    : r === "dark-and-bright" ? qsTr("暗亮双修")
-                                    : r === "narrow-range" ? qsTr("强化冲击") : qsTr("标准"));
-                            return why + qsTr(" → 建议 ") + pick
-                                + qsTr("（片源最亮 %1 nit、最亮帧平均 %2 nit）")
+                                ? (r === "dark-content" ? qsTr("Content: mostly dark")
+                                    : r === "bright-content" ? qsTr("Content: strong highlights")
+                                    : r === "beyond-display" ? qsTr("Content: strong highlights")
+                                    : r === "dark-and-bright" ? qsTr("Content: dark and bright")
+                                    : r === "narrow-range" ? qsTr("Content: flat older transfer")
+                                    : qsTr("Content: standard"))
+                                : (r === "dark-content" ? qsTr("Lift dark scenes")
+                                    : r === "bright-content" ? qsTr("Highlight protection")
+                                    : r === "beyond-display" ? qsTr("Highlight protection")
+                                    : r === "dark-and-bright" ? qsTr("Shadows and highlights")
+                                    : r === "narrow-range" ? qsTr("Punch") : qsTr("Standard"));
+                            return why + qsTr(" → Suggested: ") + pick
+                                + qsTr("(Source peak %1 nit, maximum frame average %2 nit)")
                                     .arg(veyra.hdrRecommendation.cllNits)
                                     .arg(veyra.hdrRecommendation.fallNits);
                         }
@@ -231,7 +231,7 @@ ColumnLayout {
 
 
                             objectName: "list-hdrcurve-auto"
-                            text: qsTr("一键推荐")
+                            text: qsTr("Recommend")
                             ghost: true
                             enabled: veyra.hdrRecommendation.available
                             onClicked: veyra.applyRecommendedHdrTuning()
@@ -241,7 +241,7 @@ ColumnLayout {
                     Text {
                         Layout.fillWidth: true
                         visible: true
-                        text: qsTr("选档方式：两种选法写的是同一条曲线，切换只影响界面上怎么叫它")
+                        text: qsTr("Both selection modes edit the same curve; switching changes only how it is shown")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -253,7 +253,7 @@ ColumnLayout {
                         Layout.preferredHeight: implicitHeight
                         spacing: 6
                         Repeater {
-                            model: [{id:"legacy",label:qsTr("整档预设")}, {id:"axes",label:qsTr("自由组合")}]
+                            model: [{id:"legacy",label:qsTr("Full presets")}, {id:"axes",label:qsTr("Combine content and room")}]
                             delegate: VButton {
                                 required property var modelData
                                 text: modelData.label
@@ -271,19 +271,19 @@ ColumnLayout {
                         Layout.preferredHeight: implicitHeight
                         spacing: 6
                         Repeater {
-                            model: [{id:"standard",label:qsTr("标准")},
-                                    {id:"darkLift",label:qsTr("暗场提亮")},
-                                    {id:"highlightGuard",label:qsTr("高光保护")},
-                                    {id:"darkAndBright",label:qsTr("暗亮双修")},
-                                    {id:"brightRoom",label:qsTr("明亮环境")},
-                                    {id:"darkRoom",label:qsTr("暗室观影")},
-                                    {id:"punch",label:qsTr("强化冲击")}]
+                            model: [{id:"standard",label:qsTr("Standard")},
+                                    {id:"darkLift",label:qsTr("Lift dark scenes")},
+                                    {id:"highlightGuard",label:qsTr("Highlight protection")},
+                                    {id:"darkAndBright",label:qsTr("Shadows and highlights")},
+                                    {id:"brightRoom",label:qsTr("Bright room")},
+                                    {id:"darkRoom",label:qsTr("Dark room")},
+                                    {id:"punch",label:qsTr("Punch")}]
                             delegate: VButton {
                                 required property var modelData
                                 text: modelData.label
                                 ghost: true
-                                // 两套预设写的是同一条曲线，所以数值上可能同时匹配（「不补偿」时自由组合就等于整档预设）。
-                                // 只让当前模式那一行点亮，免得看起来像两个模式同时生效。
+                                // Both presets write the same curve, so the values can both match (with "no compensation" the free combination equals the preset).
+                                // Only the current mode's row is lit, so it cannot look like two modes at once.
                                 primary: veyra.hdrAppliedFrom !== "axes" && veyra.hdrTuningPreset === modelData.id
                                 onClicked: { veyra.hdrPresetMode = "legacy"; veyra.applyHdrTuningPreset(modelData.id) }
                             }
@@ -292,14 +292,14 @@ ColumnLayout {
                     Text {
                         visible: veyra.hdrPresetMode === "legacy"
                         Layout.fillWidth: true
-                        text: veyra.hdrTuningPreset === "darkLift" ? qsTr("提亮暗部与中间调，保留高光峰值。")
-                            : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("高光很亮的片子（雪景/爆炸/演唱会）：压住顶部，暗部不动。")
-                            : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("暗场很暗、亮场又很亮的片子：两头都照顾。")
-                            : veyra.hdrTuningPreset === "brightRoom" ? qsTr("白天或亮环境看片：整体提亮一些。")
-                            : veyra.hdrTuningPreset === "darkRoom" ? qsTr("夜里关灯看：柔和一点，同时保留暗部细节。")
-                            : veyra.hdrTuningPreset === "punch" ? qsTr("画面偏灰、平淡的老片或转制片：提高对比观感。")
-                            : veyra.hdrTuningPreset === "standard" ? qsTr("曲线保持原样，HDR10 元数据跟随片源。")
-                            : qsTr("自定义：已用下面的滑块微调过。")
+                        text: veyra.hdrTuningPreset === "darkLift" ? qsTr("Lifts shadows and midtones while keeping the highlight peak.")
+                            : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("Films with very bright highlights (snow, explosions, concerts): rolls off the top end and leaves the shadows alone.")
+                            : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("For content with deep shadows and bright highlights.")
+                            : veyra.hdrTuningPreset === "brightRoom" ? qsTr("Raises overall brightness for a bright viewing environment.")
+                            : veyra.hdrTuningPreset === "darkRoom" ? qsTr("Softer viewing in a dark room while retaining shadow detail.")
+                            : veyra.hdrTuningPreset === "punch" ? qsTr("Adds contrast to flat or faded transfers.")
+                            : veyra.hdrTuningPreset === "standard" ? qsTr("Keeps the original curve and follows source HDR10 metadata.")
+                            : qsTr("Custom: adjusted with the sliders below.")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -307,7 +307,7 @@ ColumnLayout {
                     Text {
                         Layout.fillWidth: true
                         visible: veyra.hdrPresetMode === "axes"
-                        text: qsTr("内容：这部片子属于哪一类")
+                        text: qsTr("Content: what kind of film is this?")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -319,13 +319,13 @@ ColumnLayout {
                         Layout.preferredHeight: implicitHeight
                         spacing: 6
                         Repeater {
-                            model: [{id:"standard",label:qsTr("标准")}, {id:"dark",label:qsTr("暗场多")}, {id:"highlight",label:qsTr("高光强")}, {id:"darkAndBright",label:qsTr("两头极端")}, {id:"punch",label:qsTr("老片平淡")}]
+                            model: [{id:"standard",label:qsTr("Standard")}, {id:"dark",label:qsTr("Mostly dark")}, {id:"highlight",label:qsTr("Strong highlights")}, {id:"darkAndBright",label:qsTr("Dark and bright")}, {id:"punch",label:qsTr("Flat older transfer")}]
                             delegate: VButton {
                                 required property var modelData
                                 text: modelData.label
                                 ghost: true
-                                // 只按曲线实际等于哪个组合点亮：当前是整档预设（或手动微调过）时不亮任何一项，
-    // 与整档预设显示"自定义"的行为一致。
+                                // Lit only by the combination the curve actually equals: a whole preset (or a
+    // hand-tuned curve) lights nothing, matching the whole-preset "custom" behaviour.
     primary: veyra.hdrAppliedFrom === "axes" && veyra.hdrAxesMatch.content === modelData.id
                                 onClicked: { veyra.hdrPresetMode = "axes"; veyra.applyHdrAxesPreset(modelData.id, veyra.hdrAxes.environment !== "" ? veyra.hdrAxes.environment : "compensate"); }
                             }
@@ -334,7 +334,7 @@ ColumnLayout {
                     Text {
                         Layout.fillWidth: true
                         visible: veyra.hdrPresetMode === "axes"
-                        text: qsTr("环境光补偿：屋里亮（开灯/白天）就补偿一点，屋里暗（关灯）就不补偿")
+                        text: qsTr("Ambient compensation: add some in a bright room; use none in a dark room")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -346,7 +346,7 @@ ColumnLayout {
                         Layout.preferredHeight: implicitHeight
                         spacing: 6
                         Repeater {
-                            model: [{id:"compensate",label:qsTr("提亮补偿")}, {id:"plain",label:qsTr("不补偿")}]
+                            model: [{id:"compensate",label:qsTr("Bright-room compensation")}, {id:"plain",label:qsTr("No compensation")}]
                             delegate: VButton {
                                 required property var modelData
                                 text: modelData.label
@@ -356,58 +356,58 @@ ColumnLayout {
                             }
                         }
                     }
-                    // 当前生效状态（自定义）：整档预设模式下说明当前是哪一档；手动微调过
-                    // （不匹配任何整档预设）时明确说"自定义"，免得看起来像没生效。
+                    // Current status (custom): in the whole-preset mode it names the current step; after a hand
+                    // tune (matches no whole preset) it says "custom" explicitly.
                     Text {
                         Layout.fillWidth: true
                         visible: veyra.hdrPresetMode !== "axes"
                         objectName: "list-hdrcurve-active-preset"
                         text: veyra.hdrTuningPreset !== "custom"
-                            ? qsTr("当前生效：整档预设「%1」").arg(
-                                veyra.hdrTuningPreset === "darkLift" ? qsTr("暗场提亮")
-                                : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("高光保护")
-                                : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("暗亮双修")
-                                : veyra.hdrTuningPreset === "brightRoom" ? qsTr("明亮环境")
-                                : veyra.hdrTuningPreset === "darkRoom" ? qsTr("暗室观影")
-                                : veyra.hdrTuningPreset === "punch" ? qsTr("强化冲击")
-                                : qsTr("标准"))
-                            : qsTr("当前生效：自定义微调（未匹配任何整档预设）")
+                            ? qsTr("Active preset: %1").arg(
+                                veyra.hdrTuningPreset === "darkLift" ? qsTr("Lift dark scenes")
+                                : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("Highlight protection")
+                                : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("Shadows and highlights")
+                                : veyra.hdrTuningPreset === "brightRoom" ? qsTr("Bright room")
+                                : veyra.hdrTuningPreset === "darkRoom" ? qsTr("Dark room")
+                                : veyra.hdrTuningPreset === "punch" ? qsTr("Punch")
+                                : qsTr("Standard"))
+                            : qsTr("Active: custom adjustments (no matching preset)")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
                     }
-                    // 当前组合（自定义）：自由组合模式下说清楚现在选的是哪两项 —— 手动微调
-                    // 过参数后没有匹配项，这一行仍然在，不会看起来像"没生效"。
+                    // Current combination (custom): in the free-combination mode it names the two items now
+                    // selected. After a hand tune matches nothing, this line stays visible.
                     Text {
                         Layout.fillWidth: true
                         visible: veyra.hdrPresetMode === "axes"
-                        text: qsTr("当前组合：内容 %1 · 环境 %2").arg(
-                                veyra.hdrAxes.content === "dark" ? qsTr("暗场多")
-                                : veyra.hdrAxes.content === "highlight" ? qsTr("高光强")
-                                : veyra.hdrAxes.content === "darkAndBright" ? qsTr("两头极端")
-                                : veyra.hdrAxes.content === "punch" ? qsTr("老片平淡")
-                                : qsTr("标准")).arg(
-                                veyra.hdrAxes.environment === "compensate" ? qsTr("提亮补偿")
-                                : qsTr("不补偿"))
+                        text: qsTr("Current combination: content %1 · environment %2").arg(
+                                veyra.hdrAxes.content === "dark" ? qsTr("Mostly dark")
+                                : veyra.hdrAxes.content === "highlight" ? qsTr("Strong highlights")
+                                : veyra.hdrAxes.content === "darkAndBright" ? qsTr("Dark and bright")
+                                : veyra.hdrAxes.content === "punch" ? qsTr("Flat older transfer")
+                                : qsTr("Standard")).arg(
+                                veyra.hdrAxes.environment === "compensate" ? qsTr("Bright-room compensation")
+                                : qsTr("No compensation"))
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
                     }
-                    // 等价说明（自定义）：两套预设写的是同一条曲线，「不补偿」时两轴组合与
-                    // 整档预设数值完全相同，所以这里把等价关系直接说出来，省得看起来像两个模式
-                    // 同时生效。手动微调过的曲线不匹配任何整档预设，这句话自然消失。
+                    // Equivalence note (custom): both presets write the same curve, and "no compensation" makes the free
+                    // combination numerically identical to the whole preset, so the equivalence is stated directly.
+                    // A hand-tuned curve matches nothing, and this sentence disappears on its own.
                     Text {
                         Layout.fillWidth: true
                         objectName: "list-hdrcurve-equivalent"
                         visible: veyra.hdrPresetMode === "axes" && veyra.hdrTuningPreset !== "custom"
-                        text: qsTr("这条曲线目前也等同于整档预设「%1」").arg(
-                            veyra.hdrTuningPreset === "darkLift" ? qsTr("暗场提亮")
-                            : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("高光保护")
-                            : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("暗亮双修")
-                            : veyra.hdrTuningPreset === "brightRoom" ? qsTr("明亮环境")
-                            : veyra.hdrTuningPreset === "darkRoom" ? qsTr("暗室观影")
-                            : veyra.hdrTuningPreset === "punch" ? qsTr("强化冲击")
-                            : qsTr("标准"))
+                        text: qsTr("This curve also matches the full preset %1").arg(
+                            veyra.hdrTuningPreset === "darkLift" ? qsTr("Lift dark scenes")
+                            : veyra.hdrTuningPreset === "highlightGuard" ? qsTr("Highlight protection")
+                            : veyra.hdrTuningPreset === "darkAndBright" ? qsTr("Shadows and highlights")
+                            : veyra.hdrTuningPreset === "brightRoom" ? qsTr("Bright room")
+                            : veyra.hdrTuningPreset === "darkRoom" ? qsTr("Dark room")
+                            : veyra.hdrTuningPreset === "punch" ? qsTr("Punch")
+                            : qsTr("Standard"))
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
@@ -421,12 +421,12 @@ ColumnLayout {
                                 Layout.topMargin: 8
                                 enabledSwitch: false
                                 open: true
-                                title: qsTr("基础设置")
-                                summary: qsTr("5 项")
+                                title: qsTr("Basic controls")
+                                summary: qsTr("5 items")
                     VRow {
                         hintBelow: true
-                        label: qsTr("总体强度")
-                        hint: qsTr("调整力度；0% 关闭曲线")
+                        label: qsTr("Overall strength")
+                        hint: qsTr("Adjustment amount; 0% disables the curve")
                         value: veyra.hdrCurveStrength + "%"
                         VSlider {
                             objectName: "list-hdrcurve-strength"
@@ -439,13 +439,13 @@ ColumnLayout {
                         }
                     }
 
-                    // 人话滑杆（自定义）：技术参数翻译成三根好懂的滑杆，
-                    // 精确参数仍在下面的「高级」里。
+                    // Plain sliders (custom): the technical parameters translated into three understandable sliders;
+                    // the exact parameters stay in the "Advanced" section below.
                     VRow {
                         hintBelow: true
-                        label: qsTr("暗部提亮")
-                        hint: qsTr("拉亮暗部")
-                        // 档位只是快捷方式：同时给出真实参数，避免"碰一下跳值"的困惑。
+                        label: qsTr("Shadow brightness")
+                        hint: qsTr("Lift shadows")
+                        // The steps are only shortcuts: real parameters are given alongside, avoiding "a touch jumps the value" confusion.
                         value: (Number(veyra.hdrCurveParams.shadowLiftEv100 ?? 0) / 100).toFixed(2) + " EV"
                         VSlider {
                             objectName: "list-hdrcurve-dial-lift"
@@ -459,8 +459,8 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("整体观感")
-                        hint: qsTr("整体亮暗")
+                        label: qsTr("Brightness balance")
+                        hint: qsTr("Overall brightness")
                         value: (veyra.hdrCurveParams.midGrayNits ?? "—") + " nit"
                         VSlider {
                             objectName: "list-hdrcurve-dial-brightness"
@@ -474,9 +474,9 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("高光保护")
-                        hint: qsTr("压住高光")
-                        value: [qsTr("关"),qsTr("弱"),qsTr("中"),qsTr("强")][Math.max(0,Math.min(3,veyra.hdrDials.highlight))]
+                        label: qsTr("Highlight protection")
+                        hint: qsTr("Protect highlights")
+                        value: [qsTr("Off"),qsTr("Weak"),qsTr("Medium"),qsTr("Strong")][Math.max(0,Math.min(3,veyra.hdrDials.highlight))]
                         VSlider {
                             objectName: "list-hdrcurve-dial-highlight"
                             implicitWidth: 120
@@ -489,10 +489,10 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("显示峰值")
-                        hint: qsTr("我的屏能到多少 nit；0 = 自动")
+                        label: qsTr("Display peak")
+                        hint: qsTr("Display peak in nits; 0 = automatic")
                         value: veyra.hdrDisplayPeakNits > 0
-                            ? (veyra.hdrDisplayPeakNits + " nit") : qsTr("自动")
+                            ? (veyra.hdrDisplayPeakNits + " nit") : qsTr("Auto")
                         VSlider {
                             objectName: "list-hdrcurve-displaypeak"
                             implicitWidth: 120
@@ -508,11 +508,11 @@ ColumnLayout {
                                 Text {
                                     Layout.fillWidth: true
                                     visible: veyra.hdrDisplayInfo.valid
-                                    text: qsTr("系统报告：峰值 %1、全屏 %2、黑位 %3 nit")
+                                    text: qsTr("System report: peak %1, full frame %2, black %3 nit")
                                             .arg(veyra.hdrDisplayInfo.peakNits)
                                             .arg(veyra.hdrDisplayInfo.fullFrameNits)
                                             .arg(Number(veyra.hdrDisplayInfo.minNits).toFixed(3))
-                                        + " · " + qsTr("系统数值不是实测；不符时可手动填写峰值")
+                                        + " · " + qsTr("System values are not measurements; enter a peak manually if needed")
                                     wrapMode: Text.WordWrap
                                     color: Theme.t3
                                     font.family: Theme.fontUi; font.pixelSize: 11
@@ -520,7 +520,7 @@ ColumnLayout {
                                 Text {
                                     Layout.fillWidth: true
                                     visible: veyra.hdrDisplayInfo.valid && !veyra.hdrDisplayInfo.plausible
-                                    text: qsTr("这个数值是显示器的上限声明，不是实测，因此曲线未按它缩放。")
+                                    text: qsTr("This figure is the display's ceiling declaration, not a measurement, so the curve is not scaled by it.")
                                     wrapMode: Text.WordWrap
                                     color: Theme.t3
                                     font.family: Theme.fontUi; font.pixelSize: 11
@@ -529,7 +529,7 @@ ColumnLayout {
 
                     // The two dials. Both scale the baseline the sliders below
                     // edit, which is why moving either of them keeps the preset
-                    // above selected instead of falling back to "自定义".
+                    // above selected instead of falling back to "custom".
                     // Advanced technical parameters (custom): the exact values behind the three
                     // dials above. Collapsed by default so the panel stays readable.
                     // Advanced parameters (custom): the exact values behind the three dials above,
@@ -542,22 +542,22 @@ ColumnLayout {
                         Layout.topMargin: 8
                         enabledSwitch: false
                         open: false
-                        title: qsTr("高级设置：技术参数")
-                        summary: qsTr("6 项")
+                        title: qsTr("Advanced: precise parameters")
+                        summary: qsTr("6 items")
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("这里是「基础设置」里 暗部提亮、整体观感、高光保护 这三项的精确数值版（强度与显示峰值不在此列，它们本身就是直接调节）。")
+                            text: qsTr("Exact values for the three basic controls: shadows, brightness balance and highlight protection. Overall strength and display peak are already direct controls.")
                             wrapMode: Text.WordWrap
                             color: Theme.t3
                             font.family: Theme.fontUi; font.pixelSize: 11
                         }
                                                     Repeater {
-                                                        model: [{key:"shadowLiftEv100",label:qsTr("暗部抬升"),from:-200,to:200,def:0,hint:qsTr("单位 0.01 EV：正值提亮暗部，负值压暗")},
-                                                                {key:"shadowRangeNits",label:qsTr("抬升范围 (nit)"),from:1,to:100,def:10,hint:qsTr("只在这个亮度以下的暗部生效")},
-                                                                {key:"midGrayNits",label:qsTr("中灰 (nit)"),from:100,to:500,def:203,hint:qsTr("203 = 中性；调高整体变亮，峰值不变")},
-                                                                {key:"highlightStartNits",label:qsTr("高光起点 (nit)"),from:0,to:2000,def:0,hint:qsTr("0 = 不做高光滚降")},
-                                                                {key:"rollOffPercent",label:qsTr("滚降强度 (%)"),from:10,to:200,def:100,hint:qsTr("数值越大，高光过渡越平缓")},
-                                                                {key:"peakCapNits",label:qsTr("峰值上限 (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = 不限制")}]
+                                                        model: [{key:"shadowLiftEv100",label:qsTr("Shadow lift"),from:-200,to:200,def:0,hint:qsTr("Units of 0.01 EV: positive lifts shadows, negative darkens them")},
+                                                                {key:"shadowRangeNits",label:qsTr("Lift range (nit)"),from:1,to:100,def:10,hint:qsTr("Only shadows below this level are lifted")},
+                                                                {key:"midGrayNits",label:qsTr("Mid-gray (nit)"),from:100,to:500,def:203,hint:qsTr("203 = neutral; higher brightens the picture with the peak unchanged")},
+                                                                {key:"highlightStartNits",label:qsTr("Highlight start (nit)"),from:0,to:2000,def:0,hint:qsTr("0 = no highlight roll-off")},
+                                                                {key:"rollOffPercent",label:qsTr("Roll-off strength (%)"),from:10,to:200,def:100,hint:qsTr("Higher values give a gentler highlight transition")},
+                                                                {key:"peakCapNits",label:qsTr("Peak cap (nit)"),from:0,to:4000,def:0,hint:qsTr("0 = no limit")}]
                                                         delegate: VRow {
                                                             hintBelow: true
                                                             required property var modelData
@@ -584,22 +584,22 @@ ColumnLayout {
                         Layout.topMargin: 8
                         enabledSwitch: false
                         open: false
-                        title: qsTr("记忆与自动化")
-                        summary: qsTr("4 项")
-                    // 记忆与自动化（自定义）
-                    // 每台显示设备一套配置（自定义）：按显示器身份记住曲线，
-                    // 换设备（投影仪 / 电视）时自动套用那台设备上的设置。
+                        title: qsTr("Memory and automation")
+                        summary: qsTr("4 items")
+                    // Memory and automation (custom)
+                    // One configuration per display device: the curve is remembered by display identity,
+                    // and applied automatically to that device (projector / TV) on swap.
                     VRow {
                         hintBelow: true
-                        label: qsTr("按显示设备记忆")
+                        label: qsTr("Remember per display")
                         hint: veyra.hdrDisplayProfileCount > 0
-                            ? qsTr("已记住 %1 台显示设备的曲线配置，切换显示器时自动套用")
+                            ? qsTr("Curves saved for %1 displays; restored when switching displays")
                                 .arg(veyra.hdrDisplayProfileCount)
-                            : qsTr("改动曲线后会按当前显示器记住，换设备时自动套用")
-                        value: veyra.hdrDisplayProfileCount > 0 ? qsTr("已启用") : qsTr("—")
+                            : qsTr("Curve edits are saved for this display and restored when you switch back")
+                        value: veyra.hdrDisplayProfileCount > 0 ? qsTr("Enabled") : qsTr("—")
                         VButton {
                             objectName: "list-hdrcurve-forget"
-                            text: qsTr("清除记忆")
+                            text: qsTr("Clear memory")
                             ghost: true
                             enabled: veyra.hdrDisplayProfileCount > 0
                             onClicked: veyra.forgetHdrDisplayProfiles()
@@ -607,11 +607,11 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("记住每部影片")
+                        label: qsTr("Remember each film")
                         hint: veyra.hdrTitleCount > 0
-                            ? qsTr("已记住 %1 部影片，下次播放自动套用").arg(veyra.hdrTitleCount)
-                            : qsTr("改动曲线后按影片记住，下次自动套用")
-                        value: veyra.hdrTitleMemory ? qsTr("已开启") : qsTr("已关闭")
+                            ? qsTr("Curves saved for %1 films; restored on next playback").arg(veyra.hdrTitleCount)
+                            : qsTr("Curve edits are saved for the film and restored next time")
+                        value: veyra.hdrTitleMemory ? qsTr("On") : qsTr("Off")
                         VSwitch {
                             objectName: "list-hdrcurve-titlememory"
                             checked: veyra.hdrTitleMemory
@@ -620,9 +620,9 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("开播自动选档")
-                        hint: qsTr("打开片子时按片源自动选一次；有影片记忆时以记忆为准")
-                        value: veyra.hdrAutoRecommend ? qsTr("已开启") : qsTr("已关闭")
+                        label: qsTr("Auto-select on playback")
+                        hint: qsTr("Select once when a film opens; remembered film settings take priority")
+                        value: veyra.hdrAutoRecommend ? qsTr("On") : qsTr("Off")
                         VSwitch {
                             objectName: "list-hdrcurve-autorecommend"
                             checked: veyra.hdrAutoRecommend
@@ -631,11 +631,11 @@ ColumnLayout {
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("清除影片记忆")
-                        hint: qsTr("只清影片记忆，不动显示设备记忆")
+                        label: qsTr("Clear film memory")
+                        hint: qsTr("Clear film memory; keep display memory")
                         VButton {
                             objectName: "list-hdrcurve-forget-titles"
-                            text: qsTr("清除")
+                            text: qsTr("Clear")
                             ghost: true
                             enabled: veyra.hdrTitleCount > 0
                             onClicked: veyra.forgetHdrTitles()
@@ -644,34 +644,34 @@ ColumnLayout {
                     }
                 }
 
-                // 杜比视界：独立一张卡，不混进 HDR 曲线的基础设置里。
+                // Dolby Vision: its own card, not mixed into the HDR curve's basic settings.
                 VAccordion {
                     objectName: "list-hdr-dovi"
                     Layout.fillWidth: true
                     Layout.topMargin: 12
                     glyph: "sun"
                     hue: "#A88BF0"
-                    title: qsTr("杜比视界 / HDR10+ 设置")
+                    title: qsTr("Dolby Vision / HDR10+ settings")
                     summary: {
                         const d = veyra.hdrSourceInfo;
                         // The follow switch below serves HDR10+ as well, so a
                         // Dolby-only summary said "no Dolby Vision source" on a
                         // stream that does have dynamic metadata.
-                        if(d && d.hdr10Plus) return qsTr("HDR10+ 片源（逐帧跟随可用）");
-                        if(!d || !d.doviProfile) return qsTr("未检测到动态元数据片源");
-                        const kind = d.doviProfile === 5 ? qsTr("单层")
-                            : d.doviProfile === 7 ? qsTr("双层")
-                            : d.doviProfile === 8 ? qsTr("兼容层") : qsTr("其他");
+                        if(d && d.hdr10Plus) return qsTr("HDR10+ source (per-frame following available)");
+                        if(!d || !d.doviProfile) return qsTr("No source with dynamic metadata detected");
+                        const kind = d.doviProfile === 5 ? qsTr("Single layer")
+                            : d.doviProfile === 7 ? qsTr("Dual layer")
+                            : d.doviProfile === 8 ? qsTr("Compatible layer") : qsTr("Other");
                         const peak = d.doviMaxNits > 0
-                            ? qsTr(" · 最亮 %1 nit").arg(d.doviMaxNits) : "";
-                        return qsTr("Profile %1（%2）%3").arg(d.doviProfile).arg(kind).arg(peak);
+                            ? qsTr(" · peak %1 nit").arg(d.doviMaxNits) : "";
+                        return qsTr("Profile %1 (%2) %3").arg(d.doviProfile).arg(kind).arg(peak);
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("当前片源的推荐")
+                        label: qsTr("Recommendation for this source")
                         hint: {
                             if (!(veyra.hdrSourceInfo && veyra.hdrSourceInfo.doviProfile > 0))
-                                return qsTr("当前片源不是杜比视界，推荐请用上面「一键选档」里的按钮");
+                                return qsTr("this source is not Dolby Vision; use the recommendation button under the curve settings");
                             if (!veyra.hdrRecommendation.available) {
                                 // Profile 5 keeps its brightness inside the RPU, so the
                                 // HDR10 static-metadata recommendation cannot run even
@@ -680,29 +680,29 @@ ColumnLayout {
                                 const prof = veyra.hdrSourceInfo
                                     ? veyra.hdrSourceInfo.doviProfile : 0;
                                 if (veyra.sourceIsSdr)
-                                    return qsTr("SDR 片源没有 HDR 亮度元数据，可手动选档");
+                                    return qsTr("SDR sources carry no HDR brightness metadata; pick a preset manually");
                                 if (prof === 5)
-                                    return qsTr("Profile 5 的亮度信息在 RPU 里（不是 HDR10 元数据），推荐无法自动选档；下面的「跟随动态元数据」仍然可用");
-                                return qsTr("片源未携带亮度信息，无法自动选档");
+                                    return qsTr("Profile 5 brightness is in the RPU, not HDR10 metadata; automatic preset recommendations are unavailable. Dynamic metadata following below still works");
+                                return qsTr("no brightness metadata in this source; cannot pick automatically");
                             }
                             var r = veyra.hdrRecommendation.reason;
-                            var why = r === "dark-content" ? qsTr("整片偏暗")
-                                : r === "bright-content" ? qsTr("高光又亮又多")
-                                : r === "narrow-range" ? qsTr("母版峰值偏低（老片）")
-                                : r === "beyond-display" ? qsTr("内容亮度超出屏幕能力")
-                                : r === "dark-and-bright" ? qsTr("偏暗且超出屏幕能力")
-                                : qsTr("亮度分布均衡");
-                            var pick = r === "dark-content" ? qsTr("暗场提亮")
-                                : r === "bright-content" ? qsTr("高光保护")
-                                : r === "beyond-display" ? qsTr("高光保护")
-                                : r === "dark-and-bright" ? qsTr("暗亮双修")
-                                : r === "narrow-range" ? qsTr("强化冲击") : qsTr("标准");
-                            return why + qsTr(" → 建议 ") + pick
-                                + qsTr("（片源最亮 %1 nit）").arg(veyra.hdrRecommendation.cllNits);
+                            var why = r === "dark-content" ? qsTr("the film is mostly dark")
+                                : r === "bright-content" ? qsTr("Many strong highlights")
+                                : r === "narrow-range" ? qsTr("low mastering peak (older transfer)")
+                                : r === "beyond-display" ? qsTr("Source brightness exceeds display capability")
+                                : r === "dark-and-bright" ? qsTr("dim, and brighter than the screen can show")
+                                : qsTr("Balanced brightness");
+                            var pick = r === "dark-content" ? qsTr("Lift dark scenes")
+                                : r === "bright-content" ? qsTr("Highlight protection")
+                                : r === "beyond-display" ? qsTr("Highlight protection")
+                                : r === "dark-and-bright" ? qsTr("Shadows and highlights")
+                                : r === "narrow-range" ? qsTr("Punch") : qsTr("Standard");
+                            return why + qsTr(" → Suggested: ") + pick
+                                + qsTr("(source peak %1 nit)").arg(veyra.hdrRecommendation.cllNits);
                         }
                         VButton {
                             objectName: "list-hdr-dovi-recommend"
-                            text: qsTr("应用推荐")
+                            text: qsTr("Apply recommendation")
                             ghost: true
                             enabled: veyra.hdrRecommendation.available
                                 && veyra.hdrSourceInfo
@@ -716,11 +716,11 @@ ColumnLayout {
                         // so with the curve off there is nothing for it to move.
                         enabled: veyra.hdrCurve
                         opacity: enabled ? 1 : 0.5
-                        label: qsTr("跟随动态元数据")
+                        label: qsTr("Follow dynamic metadata")
                         hint: veyra.hdrCurve
-                            ? qsTr("杜比视界（L1）和 HDR10+ 的逐场景元数据都走这里：只按每帧亮度压低高光，暗部和中间调保持你设定的样子")
-                            : qsTr("需要先打开上面的 HDR 曲线，否则没有可移动的滚降")
-                        value: veyra.doviFollow ? qsTr("已开启") : qsTr("已关闭")
+                            ? qsTr("Dolby Vision L1 and HDR10+ scene metadata both use this path: highlights follow each frame's brightness; shadows and midtones retain your settings")
+                            : qsTr("Turn the HDR curve on first; without it there is no roll-off to move")
+                        value: veyra.doviFollow ? qsTr("On") : qsTr("Off")
                         VSwitch {
                             objectName: "list-hdr-dovi-follow"
                             checked: veyra.doviFollow
@@ -732,8 +732,8 @@ ColumnLayout {
                         visible: veyra.doviFollow
                         enabled: veyra.hdrCurve
                         opacity: enabled ? 1 : 0.5
-                        label: qsTr("参考平均亮度")
-                        hint: qsTr("勾选后，高光起点同时参考每帧的平均亮度：暗场多的片子压得更积极，亮场多的保留更多高光；取消则只看峰值")
+                        label: qsTr("Use average brightness")
+                        hint: qsTr("When on, the highlight start also considers each frame’s average brightness: dark films compress earlier, bright ones keep more highlights. Off uses the peak only.")
                         VSwitch {
                             objectName: "list-hdr-dovi-follow-average"
                             checked: veyra.doviFollowAverage
@@ -743,19 +743,19 @@ ColumnLayout {
                     Text {
                         Layout.fillWidth: true
                         visible: veyra.doviFollow && !veyra.hdrCurve
-                        text: qsTr("曲线当前是关闭的，跟随暂时不会改变画面。")
+                        text: qsTr("The curve is off, so following does not change the picture yet.")
                         wrapMode: Text.WordWrap
                         color: Theme.t3
                         font.family: Theme.fontUi; font.pixelSize: 11
                     }
                     VRow {
                         hintBelow: true
-                        label: qsTr("合并增强层（实验性）")
-                        hint: qsTr("实验性：只对 Profile 7 双层片源生效，且多数帧因增强层解码失败会退回基础层；关闭则强制只用基础层（重新打开文件后应用）")
+                        label: qsTr("Merge enhancement layer (experimental)")
+                        hint: qsTr("Experimental: applies to Profile 7 dual-layer sources only, and most frames fall back to the base layer because the enhancement layer fails to decode. Turning it off forces base-layer-only playback (applies after reopening the file).")
                         value: {
                             const d = veyra.hdrSourceInfo;
-                            if(!d || !d.doviEnhancement) return qsTr("无增强层");
-                            return veyra.doviP7Compose ? qsTr("已开启") : qsTr("已关闭");
+                            if(!d || !d.doviEnhancement) return qsTr("No enhancement layer");
+                            return veyra.doviP7Compose ? qsTr("On") : qsTr("Off");
                         }
                         VSwitch {
                             objectName: "list-hdr-dovi-p7"
@@ -767,20 +767,20 @@ ColumnLayout {
                 }
     VGroup {
         VRow {
-            label: qsTr("提交帧率")
-            value: veyra.submitFpsKnown ? veyra.submitFps.toFixed(2) : qsTr("未测量")
+            label: qsTr("Submit rate")
+            value: veyra.submitFpsKnown ? veyra.submitFps.toFixed(2) : qsTr("Not measured")
         }
         VRow {
             label: qsTr("1% low")
-            hint: qsTr("最近 10 秒里最慢的 1% 提交间隔折算的帧率，和 RTSS 等叠加工具的算法相同")
+            hint: qsTr("The frame rate of the slowest 1% of submit intervals in the last 10 s, computed the same way as overlays such as RTSS")
             value: veyra.submitLowFpsKnown ? veyra.submitLowFps.toFixed(2) : "—"
         }
         VRow {
-            label: qsTr("晚点 P95")
+            label: qsTr("Late P95")
             value: veyra.lateP95Ms.toFixed(2) + " ms"
         }
         VRow {
-            label: qsTr("调度等待 P95")
+            label: qsTr("Scheduling wait P95")
             value: veyra.scheduleP95Ms.toFixed(2) + " ms"
         }
     }

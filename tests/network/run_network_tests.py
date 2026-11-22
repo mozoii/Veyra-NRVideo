@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from netlib import APP, BASE, FFMPEG, MEDIA, TASK, Server, run_exe  # noqa: E402
 
-REASON = '服务器速度'            # the bandwidth sentence of the paused-buffering message
+REASON = 'Server speed'            # the bandwidth sentence of the paused-buffering message
 RESULTS = {}
 
 
@@ -225,7 +225,7 @@ def vod_reconnect_off(out, a):
     data.update(result=res)
     check(checks, 'stops with a reason instead of freezing', res is not None and res['failed'], f"rc={rc}")
     if res:
-        check(checks, 'the reason says auto-reconnect is off', '自动重连已关闭' in res['failure'], res['failure'])
+        check(checks, 'the reason says auto-reconnect is off', 'auto-reconnect is off' in res['failure'], res['failure'])
         check(checks, 'no reconnect attempted', res['reconnects'] == 0 and res['connections'] == 1, f"reconnects={res['reconnects']} connections={res['connections']}")
     return finish('vod-reconnect-off', out, checks, data)
 

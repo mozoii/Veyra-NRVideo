@@ -86,10 +86,10 @@ void protocolTests() {
     check(r[30] == 1 && r[31] == 0 && r[32] == 0 && r[33] == 0 && r[34] == 0 && r[35] == 0 && r[36] == 0 && r[37] == 1,
           "physicality LE 1 then virtual physicality written big-endian, as the reference client");
 
-    veyra::remoteplay::ControllerState s;
+    veyra::input::ControllerState s;
     s.inputActive = true;
-    s.buttons = veyra::remoteplay::ControllerState::Cross | veyra::remoteplay::ControllerState::Options |
-                veyra::remoteplay::ControllerState::Share | veyra::remoteplay::ControllerState::PS | veyra::remoteplay::ControllerState::Down;
+    s.buttons = veyra::input::ControllerState::Cross | veyra::input::ControllerState::Options |
+                veyra::input::ControllerState::Share | veyra::input::ControllerState::PS | veyra::input::ControllerState::Down;
     s.leftY = 32767; s.rightY = -32768; s.leftX = -32768; s.l2 = 255; s.r2 = 1;
     const GamepadFrame f = gamepadFromController(s);
     check(f.buttons == (BtnA | BtnMenu | BtnView | BtnNexus | BtnDown), "SDL buttons map positionally; Guide is Nexus");
@@ -199,6 +199,73 @@ void apiTests() {
     } catch (const std::exception&) { check(false, "null ICE metadata and end markers do not abort the connection after SDP succeeds"); }
 }
 
+// ---------------------------------------------------------------- resolution tiers
+
+void resolutionTests() {
+    check(resolutionModeFromName("p1440") == ResolutionMode::P1440 && resolutionModeFromName("p720hq") == ResolutionMode::P720HQ &&
+          resolutionModeFromName("p1080hq") == ResolutionMode::P1080HQ && resolutionModeFromName("auto") == ResolutionMode::Auto,
+          "mode names parse");
+    check(resolutionModeFromName("bogus") == ResolutionMode::Auto && resolutionModeFromName("") == ResolutionMode::Auto,
+          "an unknown mode falls back to Auto");
+    check(resolutionModeName(ResolutionMode::P1440) == "p1440" && resolutionModeName(ResolutionMode::Auto) == "auto",
+          "mode names round-trip");
+
+    // Device info: exact JSON fields per tier. Width/height and the spoofed OS name are the
+    // tier-controlled parts; the app profile is unchanged from the Greenlight-derived one.
+    for (const auto mode : {ResolutionMode::Auto, ResolutionMode::P720, ResolutionMode::P720HQ,
+                            ResolutionMode::P1080, ResolutionMode::P1080HQ, ResolutionMode::P1440}) {
+        const auto& profile = resolutionDesc(mode);
+        const json j = json::parse(StreamApi::deviceInfo(profile));
+        check(j["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == profile.width &&
+              j["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == profile.height,
+              (std::string("device info dimensions per tier: ") + profile.name).c_str());
+        check(j["dev"]["os"]["name"] == profile.osName,
+              (std::string("device info OS name per tier: ") + profile.name).c_str());
+    }
+    const auto info = json::parse(StreamApi::deviceInfo(resolutionDesc(ResolutionMode::P1440)));
+    check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 2560 &&
+          info["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 1440 &&
+          info["dev"]["os"]["name"] == "windows",
+          "the 1440p tier advertises 2560x1440");
+
+    // play(): the settings block and the device info header come from the tier.
+    auto http = std::make_shared<FakeTransport>();
+    const std::string host = "uks.core.gssv-play-prodxhome.xboxlive.com";
+    StreamApi api(http, host, "GS");
+    api.setRetryDelayMs(1);
+    http->add(host, "/v5/sessions/home/play", 200, R"({"sessionPath":"v5/sessions/home/TIER-1","state":"Provisioning"})");
+    check(api.play("F1", "de-DE", ResolutionMode::P1440) == "TIER-1", "play returns the session id for a tier");
+    {
+        const json body = json::parse(http->seen.back().body);
+        check(body["settings"]["osName"] == "windows", "the 1440p tier sends osName from the profile (provisional)");
+        check(body["settings"]["locale"] == "de-DE", "the play body carries the requested locale");
+        check(body["settings"]["timezoneOffsetMinutes"] == 480, "the timezone offset is unchanged");
+        check(body["settings"]["sdkType"] == "web" && body["serverId"] == "F1", "the settings block keeps the Greenlight-derived fields");
+        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 2560 &&
+              info["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 1440,
+              "the device info header carries the 1440p dimensions");
+    }
+    http->add(host, "/v5/sessions/home/play", 200, R"({"sessionPath":"v5/sessions/home/TIER-2","state":"Provisioning"})");
+    check(api.play("F1", "en-US", ResolutionMode::P720HQ) == "TIER-2", "720p HQ plays (provisional tier)");
+    {
+        const json body = json::parse(http->seen.back().body);
+        check(body["settings"]["osName"] == "android", "the 720p HQ tier sends the provisional android profile");
+        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1280 &&
+              info["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 720,
+              "the 720p HQ device info advertises 1280x720");
+    }
+    http->add(host, "/v5/sessions/home/play", 200, R"({"sessionPath":"v5/sessions/home/TIER-3","state":"Provisioning"})");
+    check(api.play("F1") == "TIER-3", "Auto is the default tier");
+    {
+        const json body = json::parse(http->seen.back().body);
+        check(body["settings"]["osName"] == "windows", "Auto keeps the current windows profile (provisional)");
+        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1920, "Auto keeps the 1080p advertisement");
+    }
+}
+
 // ---------------------------------------------------------------- sign-in
 
 void accountTests() {
@@ -267,7 +334,7 @@ void accountTests() {
         try { account.transferToken(); } catch (const ServiceError& e) { expired = e.status == 400; }
         check(expired && !account.signedIn() && !std::filesystem::exists(file), "a refused refresh signs out and deletes the saved sign-in");
     }
-    check(describeXboxError(R"({"Identity":"0","XErr":2148916233,"Message":""})").find(L"Xbox 档案") != std::wstring::npos, "XErr: no Xbox profile");
+    check(describeXboxError(R"({"Identity":"0","XErr":2148916233,"Message":""})").find(L"Xbox profile") != std::wstring::npos, "XErr: no Xbox profile");
     check(describeXboxError("not json").empty(), "an unknown error has no sentence");
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
@@ -316,6 +383,7 @@ public:
                     const json j = json::parse(text);
                     std::lock_guard l(mutex);
                     messages.push_back(j.value("type", "") + " " + j.value("target", ""));
+                    rawMessages.push_back(text);
                     if (j.value("type", "") == "Handshake") {
                         const std::string ack = json{{"type", "HandshakeAck"}, {"id", j.value("id", "")}, {"cv", ""}}.dump();
                         message->send(ack);
@@ -328,7 +396,7 @@ public:
                     if (auto* b = std::get_if<rtc::binary>(&data)) text.assign(reinterpret_cast<const char*>(b->data()), b->size());
                     else text = std::get<std::string>(data);
                     std::lock_guard l(mutex);
-                    control.push_back(json::parse(text).value("message", ""));
+                    control.push_back(text);
                     cv.notify_all();
                 });
             } else if (dc->label() == "input") {
@@ -381,7 +449,7 @@ public:
     std::vector<std::shared_ptr<rtc::DataChannel>> channels;
     std::mutex mutex;
     std::condition_variable cv;
-    std::vector<std::string> labels, messages, control;
+    std::vector<std::string> labels, messages, control, rawMessages;
     std::vector<std::vector<uint8_t>> reports;
     std::string offerSdp;
 };
@@ -428,7 +496,9 @@ void webrtcTests() {
     check(console.waitFor([&] { return console.control.size() >= 4; }), "control messages arrive");
     {
         std::lock_guard l(console.mutex);
-        check(console.control.size() >= 2 && console.control[0] == "authorizationRequest" && console.control[1] == "gamepadChanged", "control: authorization, then the pad");
+        check(console.control.size() >= 2 && json::parse(console.control[0]).value("message", "") == "authorizationRequest" &&
+              json::parse(console.control[1]).value("message", "") == "VideoPreference",
+              "control: authorization, then the video preference");
     }
     check(console.waitFor([&] { return !console.reports.empty(); }), "the input channel receives the client metadata report");
     {
@@ -498,7 +568,7 @@ void webrtcTests() {
         check(serverW == 1920 && serverH == 1080, "server video size reaches the callback");
     }
     session.requestKeyframe();
-    check(console.waitFor([&] { for (const auto& c : console.control) if (c == "videoKeyframeRequested") return true; return false; }), "a keyframe request goes out on the control channel");
+    check(console.waitFor([&] { for (const auto& c : console.control) if (json::parse(c).value("message", "") == "videoKeyframeRequested") return true; return false; }), "a keyframe request goes out on the control channel");
     const auto stats = session.stats();
     if (!(stats.videoUnits >= 2 && stats.audioPackets >= 2 && stats.handshakeDone && stats.videoBytes > 5000))
         std::printf("stats: units=%llu audio=%llu handshake=%d bytes=%llu\n", (unsigned long long)stats.videoUnits, (unsigned long long)stats.audioPackets, int(stats.handshakeDone), (unsigned long long)stats.bytesReceived);
@@ -535,6 +605,79 @@ void webrtcTests() {
     session.close();stopped=true;sender.join();
     session.sendGamepad(pad);session.requestKeyframe();session.close();
     check(!session.ready(), "remote/local close with active sends is contained and clears readiness");
+}
+
+
+// A full WebRTC loopback on the 1440p tier: the control-channel sequence, the rich capability block
+// and the dimensions are all asserted against the profile, not a fixed 1080p.
+void resolutionProfileTests() {
+    FakeConsole console;
+    WebRtcSession session;
+    session.setBindAddress("127.0.0.1");
+    session.setResolutionProfile(ResolutionMode::P1440);
+    std::string error;
+    const bool started = session.start(console, &error, std::chrono::seconds(15));
+    check(started, ("the 1440p tier connects to a local peer: " + error).c_str());
+    if (!started) return;
+    check(console.waitFor([&] { return console.control.size() >= 6; }), "16 control messages arrive (authorize, preference, pad, resolution)");
+    {
+        std::lock_guard l(console.mutex);
+        check(json::parse(console.control[0]).value("message", "") == "authorizationRequest", "control[0] is authorizationRequest");
+        const auto preference = json::parse(console.control[1]);
+        check(preference.value("message", "") == "VideoPreference" && preference.value("type", "") == "VideoPreference",
+              "control[1] is VideoPreference");
+        check(preference["resolution"]["width"] == 2560 && preference["resolution"]["height"] == 1440,
+              "VideoPreference advertises 2560x1440");
+        check(preference["dimensions"]["width"] == 2560 && preference["dimensions"]["height"] == 1440,
+              "VideoPreference dimensions match");
+        check(preference["maxFPS"] == 60, "VideoPreference carries the tier fps");
+        const auto resolution = json::parse(console.control[5]);
+        check(resolution.value("message", "") == "userRequestedResolutionUpdate" &&
+              resolution.value("resolutionAlias", "") == "1440",
+              "userRequestedResolutionUpdate carries the 1440p alias");
+        // the pad attach sequence stays between VideoPreference and the resolution request
+        int gamepadCount = 0;
+        for (const auto& c : console.control) if (json::parse(c).value("message", "") == "gamepadChanged") ++gamepadCount;
+        check(gamepadCount == 3, "pad 0 is announced add/remove/add");
+    }
+    check(console.waitFor([&] {
+        for (const auto& raw : console.rawMessages) {
+            if (raw.find("clientdevicecapabilities") != std::string::npos) return true;
+        }
+        return false;
+    }), "the rich capability block arrives");
+    {
+        std::lock_guard l(console.mutex);
+        bool found = false;
+        for (const auto& raw : console.rawMessages) {
+            const auto env = json::parse(raw);
+            if (env.value("target", "") != "/streaming/characteristics/clientdevicecapabilities") continue;
+            const auto content = json::parse(env.value("content", "{}"));
+            found = content.value("maxWidth", 0) == 2560 && content.value("maxHeight", 0) == 1440 &&
+                    content.value("maxBitrateKbps", 0) == 30000 && content.value("supportsFps", 0) == 60 &&
+                    content.value("supportsCustomResolution", false) == true &&
+                    content["video"]["maxWidth"] == 2560 && content["video"]["maxHeight"] == 1440 &&
+                    content["video"]["maxBitrateKbps"] == 30000;
+            break;
+        }
+        check(found, "clientdevicecapabilities carries the 1440p tier (provisional)");
+    }
+    {
+        std::lock_guard l(console.mutex);
+        bool found = false;
+        for (const auto& raw : console.rawMessages) {
+            const auto env = json::parse(raw);
+            if (env.value("target", "") != "/streaming/characteristics/dimensionschanged") continue;
+            const auto content = json::parse(env.value("content", "{}"));
+            found = content.value("horizontal", 0) == 2560 && content.value("vertical", 0) == 1440 &&
+                    content.value("preferredWidth", 0) == 2560 && content.value("preferredHeight", 0) == 1440 &&
+                    content.value("safeAreaRight", 0) == 2560 && content.value("safeAreaBottom", 0) == 1440;
+            break;
+        }
+        check(found, "dimensionschanged carries the 1440p dimensions");
+    }
+    session.close();
+    console.pc->close();
 }
 
 } // namespace
@@ -598,8 +741,10 @@ int main(int argc, char** argv) {
     }
     protocolTests();
     apiTests();
+    resolutionTests();
     accountTests();
     webrtcTests();
+    resolutionProfileTests();
     std::printf("xbox tests: %d checks, %d failures\n", g_checks, g_failures);
     rtc::Cleanup();
     return g_failures == 0 ? 0 : 1;

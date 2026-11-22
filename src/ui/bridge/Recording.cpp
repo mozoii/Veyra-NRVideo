@@ -29,7 +29,7 @@ bool QmlPlayerBridge::replayEnabled() const { return impl_->prefBool("replayEnab
 int QmlPlayerBridge::replaySeconds() const { return std::clamp(impl_->prefInt("replaySeconds", 60), 15, 600); }
 QVariantMap QmlPlayerBridge::replayState() const { return impl_->replayState; }
 
-// 设置 → 录制: what a recording and the replay buffer both follow.
+// Settings -> Recording: what a recording and the replay buffer both follow.
 engine::RecordingSettings QmlPlayerBridge::recordingOptions() const {
     engine::RecordingSettings options;
     options.directory = wideOf(recordingDirectory());
@@ -42,7 +42,7 @@ engine::RecordingSettings QmlPlayerBridge::recordingOptions() const {
     options.microphoneTrack = recordingMicrophoneTrack();
     options.splitSeconds = uint32_t(std::clamp(impl_->prefInt("recordSplitSeconds", 0), 0, 86400));
     options.splitBytes = uint64_t(std::clamp(impl_->prefInt("recordSplitMiB", 0), 0, 1048576)) << 20;
-    // NVENC tuning (设置 → 录制): two-pass and psycho-visual AQ, both off by default.
+    // NVENC tuning (Settings -> Recording): two-pass and psycho-visual AQ, both off by default.
     options.multipass = uint32_t(std::clamp(impl_->prefInt("recordMultipass", 0), 0, 2));
     options.psychoAq = impl_->prefBool("recordPsychoAq", false);
     options.replaySeconds = uint32_t(replaySeconds());
@@ -54,7 +54,7 @@ engine::RecordingSettings QmlPlayerBridge::recordingOptions() const {
 // Every start and stop names its trigger, and a shortcut also the key the
 // shortcut map was offered just before (field report 2026-11-08: recording
 // toggled on and off around clicks and window activation, and the log could not
-// tell a key from the 专业 button).
+// tell a key from the Professional button).
 // (A template so the private Impl's key record is passed without naming it.)
 template <class Key>
 static void logRecordingRequest(const char* what, const QString& source, const QString& binding, const Key& k, const char* outcome) {
@@ -72,8 +72,8 @@ static void logRecordingRequest(const char* what, const QString& source, const Q
 }
 void QmlPlayerBridge::startRecording(const QString& source) {
     const QString binding=source==QLatin1String("shortcut")?shortcuts().value("record").toString():QString();
-    if (recording()) { logRecordingRequest("start", source, binding, impl_->lastShortcutKey, "refused=already-recording"); emit notice(tr("录制已在进行中"), true); return; }
-    if (!hasSource()) { logRecordingRequest("start", source, binding, impl_->lastShortcutKey, "refused=no-source"); emit notice(tr("没有正在播放的画面，无法录制"), true); return; }
+    if (recording()) { logRecordingRequest("start", source, binding, impl_->lastShortcutKey, "refused=already-recording"); emit notice(tr("A recording is already running"), true); return; }
+    if (!hasSource()) { logRecordingRequest("start", source, binding, impl_->lastShortcutKey, "refused=no-source"); emit notice(tr("Nothing is playing, so there is nothing to record"), true); return; }
     logRecordingRequest("start", source, binding, impl_->lastShortcutKey, "requested");
     std::wstring error;
     if (!impl_->engine.requestRecording(recordingOptions(), error)) { emit notice(uiText(error), true); return; }
@@ -92,7 +92,7 @@ void QmlPlayerBridge::stopRecording(const QString& source) {
 }
 void QmlPlayerBridge::toggleRecording(const QString& source) { if (recording()) stopRecording(source); else startRecording(source); }
 // --- instant replay (#103) -----------------------------------------------------
-// The buffer follows 设置 → 即时回放 and the recording settings; armed from
+// The buffer follows Settings -> Instant replay and the recording settings; armed from
 // startup, it takes frames only while something is presented.
 void QmlPlayerBridge::syncReplay() {
     std::wstring error;
@@ -106,7 +106,7 @@ void QmlPlayerBridge::saveReplay(const QString& source) {
     const QString binding = source.startsWith(QStringLiteral("shortcut")) ? shortcuts().value("replay").toString() : QString();
     if (!replayEnabled()) {
         logRecordingRequest("replay-save", source, binding, impl_->lastShortcutKey, "refused=off");
-        emit notice(tr("即时回放未开启：设置 → 播放 → 即时回放"), true);
+        emit notice(tr("Instant replay is off: Settings → Playback → Instant replay"), true);
         return;
     }
     std::wstring error;
@@ -142,7 +142,7 @@ void QmlPlayerBridge::pollReplay() {
     emit replayChanged();
     if (live.saved != impl_->replaySaved) {
         impl_->replaySaved = live.saved;
-        emit notice(tr("即时回放已保存：%1").arg(state.value("path").toString()), false);
+        emit notice(tr("Instant replay saved: %1").arg(state.value("path").toString()), false);
     }
     const QString error = state.value("error").toString();
     if (live.failed && !error.isEmpty() && error != previous.value("error").toString()) emit notice(error, true);
@@ -157,21 +157,21 @@ void QmlPlayerBridge::refreshMicrophones() {
 }
 
 void QmlPlayerBridge::chooseRecordingDirectory() {
-    const QString dir = QFileDialog::getExistingDirectory(nullptr, tr("选择录制保存位置"), recordingDirectory());
+    const QString dir = QFileDialog::getExistingDirectory(nullptr, tr("Choose the recording folder"), recordingDirectory());
     if (!dir.isEmpty()) setPreference(QStringLiteral("recordDir"), dir);
 }
 void QmlPlayerBridge::openRecordingDirectory() {
     const QString dir = recordingDirectory();
     QDir().mkpath(dir);
-    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("无法打开目录：%1").arg(dir), true);
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("Could not open the folder: %1").arg(dir), true);
 }
 
 void QmlPlayerBridge::chooseExportPath() {
     if (impl_->chain.mode == engine::ChainMode::Node) {
-        emit notice(tr("节点链尚未接入导出执行器，请切换列表模式后导出"), true);
+        emit notice(tr("The node chain is not wired to the export executor yet; switch to list mode to export"), true);
         return;
     }
-    const QString path = QFileDialog::getExistingDirectory(nullptr,tr("选择导出目录"),exportTarget());
+    const QString path = QFileDialog::getExistingDirectory(nullptr,tr("Choose export folder"),exportTarget());
     setExportPath(path);
 }
 
@@ -186,7 +186,7 @@ void QmlPlayerBridge::startExport() {
     QString error;auto settings=impl_->exportSettings(error);
     if(!settings){emit notice(error,true);return;}
     if(impl_->exportQueue.count()==0){
-        if(!QFileInfo(utf8Of(impl_->sourceLabel)).isFile()){emit notice(tr("请先添加要导出的文件"),true);return;}
+        if(!QFileInfo(utf8Of(impl_->sourceLabel)).isFile()){emit notice(tr("Add the files to export first"),true);return;}
         const QString target=exportTarget();
         const bool fileTarget=!target.isEmpty()&&!QFileInfo(target).isDir();
         const auto id=impl_->exportQueue.addFile(utf8Of(impl_->sourceLabel),fileTarget?target:QString());
@@ -205,10 +205,10 @@ void QmlPlayerBridge::startExport() {
         settings->exportBitrateMbps,int(impl_->exportRateControl),impl_->exportHevc,int(settings->srTarget),uint32_t(settings->srPrescale),uint32_t(settings->srOutput)));
     impl_->exportQueue.refresh();pollExport();emit navigate(QStringLiteral("exp"));
     // Leave the GPU to the export (field request 2026-10-02): whatever plays is closed,
-    // unless 导出页 → 导出时关闭正在播放的内容 is off.
+    // unless Export page -> stop playback when export starts is off.
     if(impl_->prefBool("exportStopsPlayback",true)&&(hasSource()||impl_->openingSource)){
         veyra::log::info("qml-export","export started: closing the playing source");
-        stopPlayback();emit notice(tr("已关闭正在播放的内容，显卡全部留给导出"),false);
+        stopPlayback();emit notice(tr("Closed what was playing; the whole GPU goes to the export"),false);
     }
 }
 void QmlPlayerBridge::cancelExport() {
@@ -223,7 +223,7 @@ void QmlPlayerBridge::restartForOverlayCompatibility() {
 }
 void QmlPlayerBridge::requestApplicationRestart(bool overlayCompatibility) {
     if (exportRunning()) {
-        emit notice(tr("设置已保存，请等待导出结束后重启软件"), true);
+        emit notice(tr("Settings saved. Restart after the export finishes."), true);
         return;
     }
     rememberPosition(true);
@@ -238,7 +238,6 @@ void QmlPlayerBridge::quit() {
 }
 
 void QmlPlayerBridge::openCaptureDialog() { emit navigate(QStringLiteral("capture")); }
-void QmlPlayerBridge::openPs5Dialog() { emit navigate(QStringLiteral("ps5")); }
 void QmlPlayerBridge::openScreenCaptureDialog() { emit navigate(QStringLiteral("screen")); }
 void QmlPlayerBridge::openAudioDialog() { emit navigate(QStringLiteral("audio")); }
 void QmlPlayerBridge::openSubtitleDialog() { emit navigate(QStringLiteral("subtitle")); }

@@ -119,7 +119,7 @@ void PlaylistModel::addUrls(const QList<QUrl>& urls) {
 void PlaylistModel::addPaths(const QStringList& paths) {
     if (paths.isEmpty()) return;
     if (pending_ >= maxJobs || count() >= maxEntries) {
-        emit error(tr("列表或导入任务已达上限，请稍后重试或移除部分条目")); return;
+        emit error(tr("Playlist or import queue is full. Try later or remove some items.")); return;
     }
     // No directory/file existence checks here: a network folder can be slow.
     Job job; job.generation = generation_.load();
@@ -130,7 +130,7 @@ void PlaylistModel::addPaths(const QStringList& paths) {
     const bool wasBusy = busy(); ++pending_;
     { std::lock_guard lock(mutex_); jobs_.push_back(std::move(job)); }
     if (!wasBusy) emit busyChanged();
-    setStatus(tr("正在扫描文件夹…"));
+    setStatus(tr("Scanning folders…"));
     wake_.notify_one();
 }
 void PlaylistModel::order(std::vector<Entry>& entries, int mode) {
@@ -214,10 +214,10 @@ void PlaylistModel::accept(Result result, uint64_t generation) {
         saveTimer_.start();
     }
     if (!busy()) emit busyChanged();
-    setStatus(busy() ? tr("正在扫描文件夹…")
-                    : tr("已添加 %1 项 · 列表共 %2 项").arg(added.size()).arg(count()));
-    if (result.limited) emit error(tr("已达到导入上限（最多10000项），其余文件未添加"));
-    else if (added.empty() && !busy()) setStatus(tr("未添加新条目：文件已在列表中，或没有支持的媒体文件"));
+    setStatus(busy() ? tr("Scanning folders…")
+                    : tr("Added %1 items · %2 total").arg(added.size()).arg(count()));
+    if (result.limited) emit error(tr("Import limit reached (10,000 items). Remaining files were not added."));
+    else if (added.empty() && !busy()) setStatus(tr("No new items: files are already listed or no supported media was found."));
 }
 QString PlaylistModel::pathAt(int row) const { return row >= 0 && row < count() ? entries_[row].path : QString(); }
 int PlaylistModel::indexOfPath(const QString& path) const {
@@ -228,7 +228,7 @@ int PlaylistModel::indexOfPath(const QString& path) const {
 bool PlaylistModel::play(int row) {
     if (row < 0 || row >= count()) return false;
     const QString path = entries_[row].path;
-    if (!QFileInfo(path).isFile()) { emit error(tr("文件不存在或已移动：%1").arg(QDir::toNativeSeparators(path))); return false; }
+    if (!QFileInfo(path).isFile()) { emit error(tr("File missing or moved: %1").arg(QDir::toNativeSeparators(path))); return false; }
     emit playRequested(QDir::toNativeSeparators(path)); return true;
 }
 bool PlaylistModel::playFrom(int row, int direction) {
@@ -290,7 +290,7 @@ bool PlaylistModel::save() {
     QSaveFile file(storage_);
     const auto bytes = QJsonDocument(QJsonObject{{"version", 1}, {"sort", sort_}, {"autoAdvance", autoAdvance_}, {"entries", array}}).toJson(QJsonDocument::Compact);
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        emit error(tr("播放列表保存失败：%1").arg(file.errorString())); return false;
+        emit error(tr("Could not save playlist: %1").arg(file.errorString())); return false;
     }
     return true;
 }
@@ -299,13 +299,13 @@ void PlaylistModel::load() {
     QFile file(storage_);
     if (!file.exists()) return;
     if (!file.open(QIODevice::ReadOnly) || file.size() > 16 * 1024 * 1024) {
-        unreadable_ = true; status_ = tr("播放列表文件无法读取，已使用空列表"); return;
+        unreadable_ = true; status_ = tr("Could not read playlist; using an empty list."); return;
     }
     QJsonParseError error;
     const auto doc = QJsonDocument::fromJson(file.readAll(), &error);
     const auto object = doc.object();
     if (error.error != QJsonParseError::NoError || object.value("version").toInt() != 1 || !object.value("entries").isArray()) {
-        unreadable_ = true; status_ = tr("播放列表文件损坏，已使用空列表"); return;
+        unreadable_ = true; status_ = tr("Playlist file is damaged; using an empty list."); return;
     }
     sort_ = std::clamp(object.value("sort").toInt(), int(Manual), int(SmallestFirst));
     autoAdvance_ = object.value("autoAdvance").toBool(true);

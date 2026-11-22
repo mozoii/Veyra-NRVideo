@@ -28,7 +28,7 @@ template<class Check>void run(Check check){
         check(syncNvidiaLowLatencyQueue(kept,true)&&kept.enabled,"back on NVIDIA the retained On owns the low queue again");
         PresentationSettings plain;plain.enabled=true;
         check(!syncNvidiaLowLatencyQueue(plain,false)&&plain.enabled,"another adapter keeps its plain low queue on");
-        check(syncNvidiaLowLatencyQueue(plain,true)&&!plain.enabled,"NVIDIA 关 never leaves a hidden low queue running");
+        check(syncNvidiaLowLatencyQueue(plain,true)&&!plain.enabled,"NVIDIA Low latency off never leaves a hidden low queue running");
     }
     modes.clear();events.clear();sleeps=0;failSleep=failQueue=failDisable=failNotify=false;
     auto* device=reinterpret_cast<ID3D12Device*>(uintptr_t(1));auto* queue=reinterpret_cast<ID3D12CommandQueue*>(uintptr_t(2));

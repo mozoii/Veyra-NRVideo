@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
-// The "Xbox 串流" side of the UI (unofficial): Microsoft device-code sign-in, the consoles on the account,
+// The "Xbox stream" side of the UI (unofficial): Microsoft device-code sign-in, the consoles on the account,
 // and starting a stream. Network work runs on worker threads and reports back on the UI thread.
 #include <QObject>
 #include <QVariantList>
@@ -67,6 +67,7 @@ private:
     QString selected_, status_, code_, verificationUri_, lastId_, lastName_;
     bool busy_ = false, gamepad_ = true, softwareDecode_ = false, loaded_ = false, streamActive_ = false, signingIn_ = false;
     QVariantMap stream_;
+    std::string resolutionMode_ = "auto";
     std::atomic<bool> cancel_{false};
     std::jthread worker_;
 };

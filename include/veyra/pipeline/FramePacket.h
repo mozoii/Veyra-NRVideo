@@ -44,7 +44,6 @@ enum class SourceKind : uint8_t {
     Unknown = 0,
     File,         // FFmpeg demux/decode (player, export)
     CaptureCard,  // physical DirectShow/UVC capture
-    RemotePlay,   // PS5 Remote Play stream (Chiaki transport)
     Image,        // WIC single image
     TestPattern,  // synthetic harness input
     ScreenCapture,
@@ -56,7 +55,6 @@ inline const char* sourceKindName(SourceKind k) {
     switch (k) {
     case SourceKind::File: return "File";
     case SourceKind::CaptureCard: return "CaptureCard";
-    case SourceKind::RemotePlay: return "RemotePlay";
     case SourceKind::Image: return "Image";
     case SourceKind::TestPattern: return "TestPattern";
     case SourceKind::ScreenCapture: return "ScreenCapture";
@@ -158,7 +156,7 @@ struct ColorDescription {
     bool matrixAssumed = false;
     bool transferAssumed = false;
     bool primariesAssumed = false;
-    // PS5 opt-in reconstruction; legacy file/capture/export sampling is unchanged.
+    // opt-in stream reconstruction; legacy file/capture/export sampling is unchanged.
     ChromaLocation chromaLocation = ChromaLocation::Unknown;
     bool reconstructChroma = false;
     // Static HDR metadata in cd/m2; zero means absent/unspecified. These are

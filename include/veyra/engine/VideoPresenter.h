@@ -98,15 +98,15 @@ public:
     // per-frame history reset, never a per-frame toggle.
     void setXessGenerationSuppressed(bool v){xessGenerationSuppressed_=v;}
     bool xessGenerationSuppressed() const {return xessGenerationSuppressed_;}
-    // Monitor refresh for the live output budget and 跟随显示器, from the shared
+    // Monitor refresh for the live output budget and follow-display, from the shared
     // DisplayStateService. It is read again only on events: a new presentation
     // chain, the window moving to another monitor, a display change or
-    // 重新检测, and one VRR confirmation (vrrConfirmAt_); never on a timer.
+    // a re-detection, and one VRR confirmation (vrrConfirmAt_); never on a timer.
     // This accessor never waits on QueryDisplayConfig or NVIDIA's driver calls.
     double displayRefreshHz();
     // Variable refresh state of that monitor (NVIDIA only), read with it.
     gfx::VrrState displayVrr()const{return vrr_;}
-    // The 可变刷新 rule: the switch is on, Automatic is selected and VRR is
+    // The variable refresh rule: the switch is on, Automatic is selected and VRR is
     // possible on the monitor, so Automatic presents like explicit Vsync.
     // vrrSync() is what the last configurePresentation applied.
     static bool vrrSyncWanted(const PresentationSettings& requested,const gfx::VrrState& vrr){

@@ -109,7 +109,7 @@ def refresh(flavor):
         if (ROOT/name).is_file():atomic(ROOT/name,app/name)
     docs={r['path'] for r in json.loads((DONORS[flavor]/'package-manifest.json').read_text('utf8'))['files'] if r['path'].startswith('docs/')}
     docs|={'docs/'+n for n in ('BUILD_2.0.8_TEST.md','AUDIT_2.0.8_2026-10-15.md','FIELD_FIXES_2026-10-15.md','FG_GPU_HOME_2026-10-14.md','PC_GAME_MODE_2026-10-14.md',
-        'PS5_CAPTURE_CONTROL_2026-10-14.md','ISSUES_36_37_BMD_REPORT_2026-10-13.md','UPDATE_CHECK_PLAN_2026-10-13.md','LATENCY_MIN_PLAN_2026-10-13.md','LATENCY_CHAIN_AUDIT_REPORT_2026-10-13.md')}
+        'ISSUES_36_37_BMD_REPORT_2026-10-13.md','UPDATE_CHECK_PLAN_2026-10-13.md','LATENCY_MIN_PLAN_2026-10-13.md','LATENCY_CHAIN_AUDIT_REPORT_2026-10-13.md')}
     docs|={VALIDATION,'docs/BUILD_DEINTERLACE_2026-10-16.md','docs/ISSUES_41_45_REPORT_2026-10-16.md'}
     for n in docs:
         if (ROOT/n).is_file():atomic(ROOT/n,app/n)
@@ -129,24 +129,24 @@ def refresh(flavor):
     write(app/'GPU-PACKAGE.txt',f'Veyra {LABEL} / {flavor}\nLocal test build. Extract the entire package to a new directory and run veyra_qml_ui.exe. Unsupported features remain disabled. No drivers or SDK development files are bundled.\n'.encode('utf8'))
     notes=f'''# Veyra {LABEL} · {flavor}
 
-完整解压到新目录，运行 veyra_qml_ui.exe，不要只替换旧包里的 EXE。这是本地测试版，还没有发布 GitHub 正式版。
+Extract the package to a new directory and run veyra_qml_ui.exe; do not just replace the old package's EXE. This is a local test build, not a GitHub release.
 
 本版修复（请优先测试）：
-- 抖音直播伴侣：直播伴侣运行时，GPU 优先级从“实时”暂时降为“高”，退出后自动恢复；启动时检测到它，界面改用软件绘制（和小飞机、NVIDIA 信息浮窗、游戏加加相同）。请开着直播伴侣用采集卡 + NR 测试；如果仍然卡死，日志会记下同时运行的软件和注入模块。
-- 圆刚 GC550 等采集卡勾选音频监听后无画面、反复“采集信号中断/重新连接”（GitHub #38）：音频来自采集卡自身时不再强制系统时钟；仍然只有声音没画面时，下一次重连自动换另一种时钟方式。
-- 拖动 NR、RTX Video HDR、调色、保护区域、HDR 曲线等滑块改为局部更新，减少界面卡顿；移动节点的结构性重建仍有成本。
-- 窗口捕获连续改尺寸时保留旧尺寸画面，稳定约 0.3 秒后再重建；最终切换仍有一次初始化耗时。
-- 开关点过一次后不再跟丢设置，例如应用预设或在另一页修改同一设置（GitHub #29）。
-- 日志不再无限增长：超过 16 MB 时，启动时把旧内容移到 veyra-qml.old.log；单次运行超过 64 MB 时轮换一次。
+- Douyin live companion: while the live companion runs, GPU priority temporarily drops from "real-time" to "high" and restores automatically when it exits; at launch, if it is detected, the UI switches to software rendering (same as the airplane, NVIDIA floating window and game jiajia). Test with the live companion open, capture card + NR; if it still freezes, the log records the concurrently running software and injected modules.
+- Capture cards like the GC550 (GitHub #38) that showed no picture and repeated "capture signal interrupted / reconnecting" when audio monitoring was checked: when audio comes from the capture card itself, the system clock is no longer forced; if there is still only sound and no picture, the next reconnect automatically tries a different clock method.
+- Dragging sliders such as NR, RTX Video HDR, colour, protective areas and HDR curves now updates locally, reducing UI stutter; moving nodes still carries a structural rebuild cost.
+- When the window capture is resized repeatedly, the old-size picture is kept and the rebuild happens after it stabilizes for about 0.3 seconds; the final switch still has one initialization cost.
+- After a toggle is clicked once, settings are no longer lost, e.g. after applying a preset or changing the same setting on another page (GitHub #29).
+- Logs no longer grow without bound: once over 16 MB, the old content is moved to veyra-qml.old.log at launch; once a run exceeds 64 MB, it rotates once.
 
-本版合入：DLSS 帧生成性能模式（RTX 50，运行库 310.9.16 在 runtime/experimental/dlssg-lite，默认关闭）；设置里“同时用这块显卡运算”（双卡）；全屏 Home 呼出专业/节点面板；屏幕捕获“游戏模式”；PS5 手柄控制（画面走采集卡）；显示同步“自动”低延迟、补帧帧率提示、可变刷新开关；启动检查更新；竖屏旋转、节点模式画面遮挡、BMD 输入记忆；采集格式过多导致的卡死；GPU 重置后图标消失与自动重连；帧率菜单只列常用帧率（可勾选显示全部）；原尺寸 RTX Video SR 只处理压缩视频。
+Merged in this build: DLSS frame-generation performance mode (RTX 50, runtime 310.9.16 in runtime/experimental/dlssg-lite, off by default); "use this GPU for computation at the same time" in settings (dual GPU); fullscreen Home opens the pro/node panels; screen capture "game mode"; display sync "auto" low latency, frame-generation frame-rate hint, variable refresh toggle; startup update check; portrait rotation, node-mode picture masking, BMD input memory; capture-format overload freeze; icon loss and auto-reconnect after GPU reset; frame-rate menu shows only common rates (can show all); native-resolution RTX Video SR only processes compressed video.
 
-本次构建与回归见 {VALIDATION}。AMD 包只做了内容与启动检查，不代表 AMD 实卡增强验证。VFG 合成校验有一次间歇失败，独立完整复测通过，原因未定，不能据此声称已经修复；本地测试包保留这项限制。
+Build and regression for this build: {VALIDATION}. The AMD package only passed content and launch checks; that does not mean AMD hardware enhancement validation. VFG synthetic validation failed once intermittently, then passed a separate full rerun; the cause is unresolved, so it cannot be claimed fixed; this local test package keeps this restriction.
 
-对应源码在上一级目录 Veyra-{LABEL}-source.zip；依赖源码 Veyra-2.0.6-dependency-source.zip 和字幕 FFmpeg 源码 FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip 不变。构建方法见 docs/BUILD_2.0.8_TEST.md。
-运行库清单记录原版和社区版的身份；社区版 HashMismatch/NotSigned 按实际记录，不锁定用户自行替换的兼容 DLL。运行库、SDK、模型和私有素材没有混入应用源码。
+Corresponding source: Veyra-{LABEL}-source.zip in the parent directory; dependency source Veyra-2.0.6-dependency-source.zip and subtitle FFmpeg source FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip unchanged. Build method: docs/BUILD_2.0.8_TEST.md.
+The runtime manifest records author-original and community identities; community HashMismatch/NotSigned is recorded as-is, without locking user-replaced compatibility DLLs. No runtime libraries, SDKs, models or private media are bundled into the application source.
 '''
-    write(app/'README-TEST.zh-CN.md',notes.encode('utf8'))
+    write(app/'README-TEST.en.md',notes.encode('utf8'))
 def manifest(flavor,source=False):
     app=stagepath(flavor);build=json.loads(Path(json.loads((REPORT/'build.json').read_text('utf8'))['receipt']).read_text('utf8'))
     data=dict(schema=3,version='2.0.8',candidate=LABEL,displayVersion=LABEL,gpuPackage=flavor,localOnly=True,releaseReady=False,

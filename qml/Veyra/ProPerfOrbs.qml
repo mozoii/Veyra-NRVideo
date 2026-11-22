@@ -15,8 +15,8 @@ RowLayout {
         known: veyra.chainTotalMsKnown && veyra.stageBudgetMs > 0
         fraction: known ? veyra.chainTotalMs / veyra.stageBudgetMs : 0
         value: veyra.chainTotalMsKnown ? veyra.chainTotalMs.toFixed(1) + "ms" : "—"
-        label: qsTr("处理耗时")
-        tip: qsTr("增强链总耗时（最近一秒平均，与 1.4.4 相同口径），环 = 占源帧预算") + (veyra.stageBudgetMs > 0 ? " " + veyra.stageBudgetMs.toFixed(1) + " ms" : "") + qsTr(" 的比例")
+        label: qsTr("Processing time")
+        tip: qsTr("Total enhancement chain time (last-second average, measured as in 1.4.4); the ring = share of the source frame budget") + (veyra.stageBudgetMs > 0 ? " " + veyra.stageBudgetMs.toFixed(1) + " ms" : "") + qsTr(" share")
     }
     ProPerfOrb {
         size: parent.size
@@ -24,11 +24,11 @@ RowLayout {
         known: veyra.gpuUtilizationKnown
         fraction: veyra.gpuUtilization / 100
         value: known ? Math.round(veyra.gpuUtilization) + "%" : "—"
-        label: qsTr("GPU 占用")
-        tip: qsTr("Windows GPU 引擎占用率（") + (veyra.gpuMonitorName || qsTr("全部显卡")) + qsTr("，最忙的引擎类型，全系统），每秒采样；在 设置 → 通用与外观 中更换监控的显卡")
+        label: qsTr("GPU usage")
+        tip: qsTr("Windows GPU engine usage (") + (veyra.gpuMonitorName || qsTr("All GPUs")) + qsTr(", busiest engine type, whole system), sampled every second; change the monitored GPU under Settings → General and appearance")
     }
     // How much of one source frame's time the enhancement chain uses (the plan's
-    // "负载预算 = 耗时 / 预算"). It used to show output fps / target fps, which
+    // "load budget = time / budget"). It used to show output fps / target fps, which
     // reads 100% whenever the output keeps up, however light the load.
     ProPerfOrb {
         size: parent.size
@@ -36,8 +36,8 @@ RowLayout {
         known: veyra.chainTotalMsKnown && veyra.stageBudgetMs > 0
         fraction: known ? veyra.chainTotalMs / veyra.stageBudgetMs : 0
         value: known ? Math.round(veyra.chainTotalMs / veyra.stageBudgetMs * 100) + "%" : "—"
-        label: qsTr("负载预算")
-        tip: qsTr("增强链 GPU 耗时（最近一秒平均）占一个源帧时间（") + veyra.stageBudgetMs.toFixed(1)
-             + qsTr(" ms）的比例；超过 100% 就跟不上源帧率。当前状态：") + veyra.runStatus
+        label: qsTr("Load budget")
+        tip: qsTr("Enhancement chain GPU time (last-second average) as a share of one source frame (") + veyra.stageBudgetMs.toFixed(1)
+             + qsTr(" ms); above 100% it cannot keep up with the source frame rate. Current state: ") + veyra.runStatus
     }
 }

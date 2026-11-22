@@ -78,24 +78,24 @@ def refresh():
     runtime.update(package='2.0.6',candidate=LABEL,localOnly=True)
     for name in ('release-runtime-manifest.json','runtime/experimental/release-runtime-manifest.json'):
         document(STAGE/name,runtime)
-    notes='''# Veyra 2.0.6-fixes-20261010 本地测试版（NVIDIA）
+    notes='''# Veyra 2.0.6-fixes-20261010 local test build (NVIDIA)
 
-完整解压到新目录，运行 veyra_qml_ui.exe；不要只复制 EXE 覆盖旧版。
-本包为本地测试候选，未发布正式新版。优先复测：播放中切换设置后的软件错误、手动输入数字后快捷键、关闭效果器时编辑参数的卡顿、长文字菜单和窄窗口布局。
+Extract the package to a new directory and run veyra_qml_ui.exe; do not just copy the EXE over the old version.
+This package is a local test candidate, not a published release. Priority re-tests: software errors after changing settings while playing, shortcut keys after manually typing numbers, stutter when editing parameters with the effector closed, long-text menus and narrow-window layout.
 
-包含已完成的播放列表/文件夹导入、PGS/SUP 等字幕、Blackmagic 原生采集开关和 HDR 补帧兼容开关。两个兼容开关默认关闭；Blackmagic 开关在采集设置，美乐威开关旁。BMD 原生驱动由 Desktop Video 提供，包内不安装驱动。显存持续增长的问题仍未根治。
+Includes the completed playback-list/folder import, PGS/SUP subtitles, the native Blackmagic capture switch and the HDR frame-generation compatibility switch. Both compatibility switches are off by default; the Blackmagic switch sits in capture settings, next to the Magewell switch. The BMD native driver is provided by Desktop Video; the package does not install any driver. The sustained VRAM growth issue is still unresolved.
 
-超分保留此前实现：原尺寸 RTX Video SR 的执行门控及 FSR 首帧修复仍在。此次画质实验全部撤回，没有新增锐化、局部静态检测、整帧检测或额外 SR GPU pass，不宣称全面画质提升。实际开启/切换效果时仍有必要的初始化。
+Super-resolution keeps the previous implementation: the full-size RTX Video SR execution gate and the FSR first-frame fix are still in. All of this time's quality experiments are withdrawn; no new sharpening, local static detection, whole-frame detection or extra SR GPU pass; no claim of broad quality improvement. Actual enabling/switching of effects still needs the necessary initialization.
 
-本机 RTX 5070 回归通过；这不是 AMD、BMD 实卡或所有用户环境通过的证明。
-已批准的 NVIDIA/Intel/AMD 运行组件原样沿用，社区 NR 的 HashMismatch/NotSigned 身份保留在 release-runtime-manifest.json，软件不以清单锁定用户自行替换的 DLL。
+Regression passed on this machine's RTX 5070; this is not proof that the AMD, BMD or all user environments pass.
+The approved NVIDIA/Intel/AMD runtime components are reused as-is; the community NR's HashMismatch/NotSigned identity is kept in release-runtime-manifest.json, and the software does not lock the user-replaced DLL by manifest.
 
-应用源码：同目录上一级 Veyra-2.0.6-fixes-20261010-source.zip。
-本次 FFmpeg/dav1d/zlib 对应源码：同目录上一级 FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip；保留 PS5 H.264 slices256 补丁。
-其余未变依赖源码： https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.6/Veyra-2.0.6-dependency-source.zip
-构建方法见 docs/BUILD_2.0.6.md；本测试版增加 -DVEYRA_DISPLAY_VERSION=2.0.6-fixes-20261010，并明确配置 DeckLink SDK。源码包不含 SDK、运行库、模型、凭据或测试视频。
+Application source: Veyra-2.0.6-fixes-20261010-source.zip in the parent directory.
+The FFmpeg/dav1d/zlib corresponding source this time: FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip in the parent directory; retains the H.264 slices256 patch.
+Unchanged remaining dependency sources: https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.6/Veyra-2.0.6-dependency-source.zip
+Build method: docs/BUILD_2.0.6.md; this test build adds -DVEYRA_DISPLAY_VERSION=2.0.6-fixes-20261010 and configures the DeckLink SDK explicitly. The source package contains no SDK, runtime, model, credentials or test video.
 '''
-    write(STAGE/'README-TEST.zh-CN.md',notes.encode('utf8'))
+    write(STAGE/'README-TEST.en.md',notes.encode('utf8'))
 
 def manifest(source=None):
     data={k:v for k,v in donor.items() if k!='files'}

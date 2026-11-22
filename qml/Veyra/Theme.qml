@@ -4,7 +4,7 @@
 // is the point of this file: the interface has to match the approved design, so
 // the numbers live in one place that can be diffed against app.css.
 //
-// 设置 → 外观 → 界面配色 adds a second palette, 日落 (dusk, the default since
+// Settings → Appearance → Interface colour adds a second palette, dusk (the default since
 // 2026-11-14): the same depths tinted indigo-violet, a sunset accent that fills
 // switches, sliders, primary buttons and seek bars as a peach -> pink gradient
 // (VAccentFill.qml), and a twilight backdrop (tools/qt_probe/make-backdrop-dusk.py).
@@ -47,7 +47,7 @@ QtObject {
     readonly property color t3: dusk ? Qt.rgba(0.969, 0.957, 0.988, 0.40) : Qt.rgba(0.953, 0.953, 0.961, 0.38)
 
     // --- accent and state -------------------------------------------------
-    // 设置 → 强调色: orange (default; the sunset accent in the dusk palette) or
+    // Settings → Accent colour: orange (default; the sunset accent in the dusk palette) or
     // the design's .accent-white variant (a neon white with a pink glow in dusk).
     property string accentName: "orange"
     readonly property bool accentWhite: accentName === "white"
@@ -63,7 +63,7 @@ QtObject {
     readonly property color accentFrom: "#F0B17B"
     readonly property color accentTo: "#EF6FA3"
     readonly property color accentFar: "#BB96F3"
-    // 设置 → 背景渐变强度: 0 none, 1 light (the design default), 2 medium.
+    // Settings → Background gradient strength: 0 none, 1 light (the design default), 2 medium.
     property int backdropLevel: 1
     readonly property string backdropImage: (dusk ? "backdrop-dusk" : "backdrop") + (backdropLevel === 2 ? "-strong" : "") + ".png"
     // The logo: the neon gradient gamepad in the dusk palette (tools/qt_probe/make-logo-dusk.py,

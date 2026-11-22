@@ -81,42 +81,42 @@ static QVariantMap scanEffectCapabilities() {
     QVariantMap out;
     auto add = [&](const QString& id, H hardware, bool files, const QString& requirement) {
         const bool supported = ui::hardwareSupports(hardware, gpu);
-        out[id] = QVariantMap{{"available", supported && files}, {"reason", !supported ? requirement : !files ? QObject::tr("当前包缺少此功能的运行组件") : QString{}}};
+        out[id] = QVariantMap{{"available", supported && files}, {"reason", !supported ? requirement : !files ? QObject::tr("This package lacks the runtime components for this feature") : QString{}}};
     };
-    add("nr2", H::NvidiaNrSf, exists(nr / "nr-ampere/nvngx_dlssnr.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
+    add("nr2", H::NvidiaNrSf, exists(nr / "nr-ampere/nvngx_dlssnr.dll"), QObject::tr("Requires an NVIDIA RTX GPU"));
     out["nr0"]=out["nr2"]; // Retired preset ID; no retired runtime is loaded.
     out["nrAuto"]=QVariantMap{{"available",gpu.vendor==0x10DE&&gpu.deviceId==0x2f04&&out.value("nr0").toMap().value("available").toBool()},
-        {"reason",gpu.deviceId!=0x2f04?QObject::tr("自动 NR 当前仅验证 RTX 5070"):!out.value("nr0").toMap().value("available").toBool()?QObject::tr("当前包缺少此功能的运行组件"):QString{}}};
-    add("nr3", H::NvidiaNr50, exists(nr / "nr-original/nvngx_dlssnr.dll"), QObject::tr("需要 NVIDIA RTX 50 / Blackwell"));
+        {"reason",gpu.deviceId!=0x2f04?QObject::tr("Auto NR is currently verified only on RTX 5070"):!out.value("nr0").toMap().value("available").toBool()?QObject::tr("This package lacks the runtime components for this feature"):QString{}}};
+    add("nr3", H::NvidiaNr50, exists(nr / "nr-original/nvngx_dlssnr.dll"), QObject::tr("Requires NVIDIA RTX 50 / Blackwell"));
     const auto rdna3Directory=(nr/"../amd-nr-rdna3").lexically_normal();
     const bool amdNrFiles=gpu.rx7000?pipeline::Rdna3NrBackend::runtimeAvailable(rdna3Directory):exists(nr / "../amd-nr/LmxxfNrRuntime.dll");
-    add("nr4", H::AmdNr, amdNrFiles, QObject::tr("需要 AMD RX 7000 / 9000"));
-    if(gpu.rx7000&&!amdNrFiles){auto cap=out.value("nr4").toMap();cap["reason"]=QObject::tr("当前包缺少 RX 7000 NR 运行组件");out["nr4"]=cap;}
+    add("nr4", H::AmdNr, amdNrFiles, QObject::tr("Requires AMD RX 7000 / 9000"));
+    if(gpu.rx7000&&!amdNrFiles){auto cap=out.value("nr4").toMap();cap["reason"]=QObject::tr("This package is missing the RX 7000 NR runtime components");out["nr4"]=cap;}
     wchar_t systemDir[MAX_PATH]{};
     const bool hipMissing=gpu.rx7000?!pipeline::Rdna3NrBackend::hipRuntimeAvailable():
         GetSystemDirectoryW(systemDir, MAX_PATH)&&!exists(std::filesystem::path(systemDir)/"amdhip64_7.dll")&&!GetModuleHandleW(L"amdhip64_7.dll");
     if (hipMissing) {
         auto cap = out.value("nr4").toMap();
-        if (cap.value("available").toBool()) { cap["available"] = false; cap["reason"] = QObject::tr("需要 AMD HIP 7 驱动运行组件"); out["nr4"] = cap; }
+        if (cap.value("available").toBool()) { cap["available"] = false; cap["reason"] = QObject::tr("Requires the AMD HIP 7 driver runtime"); out["nr4"] = cap; }
     }
-    add("sr0", H::Nvidia, exists(nr / "nvngx_dlss.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
-    for (int i = 1; i <= 4; ++i) add("sr" + QString::number(i), H::Nvidia, exists(nr / "nvngx_vsr.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
+    add("sr0", H::Nvidia, exists(nr / "nvngx_dlss.dll"), QObject::tr("Requires an NVIDIA RTX GPU"));
+    for (int i = 1; i <= 4; ++i) add("sr" + QString::number(i), H::Nvidia, exists(nr / "nvngx_vsr.dll"), QObject::tr("Requires an NVIDIA RTX GPU"));
     // RTX Video SR high bitrate / streaming: Video Effects VideoSuperRes, from the VFG runtime directory.
     const bool vfxSr = pipeline::VfxSrBackend::runtimeAvailable(nr.wstring());
-    for (int q : {16, 17, 18, 19}) add("sr" + QString::number(q), H::Nvidia, vfxSr, QObject::tr("需要 NVIDIA RTX 显卡"));
-    for (int q : {21, 23}) add("sr" + QString::number(q), H::NvidiaAmpere, vfxSr, QObject::tr("需要 NVIDIA RTX 30 及更新显卡"));
-    add("sr5", H::CrossVendor, fsrLoader && exists(fsr / "amd_fidelityfx_upscaler_dx12.dll"), QObject::tr("需要支持 DirectX 12 的硬件显卡"));
-    add("anr", H::CrossVendor, ngx::AnrProvider::available(nr.wstring()), QObject::tr("需要支持 DirectX 12 的硬件显卡"));
-    add("dlss", H::Nvidia, exists(nr / "nvngx_dlssg.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
-    add("vfg", H::Vfg, pipeline::VfgBackend::runtimeAvailable(nr.wstring()), QObject::tr("需要 NVIDIA RTX 30 / 40 / 50（30 系为实验兼容）"));
-    add("xess", H::CrossVendor, exists(data / "intel/experimental/libxess_fg.dll") && exists(data / "intel/experimental/libxell.dll"), QObject::tr("需要支持 DirectX 12 的硬件显卡"));
-    add("fsr3", H::CrossVendor, fsrLoader && exists(fsr / "amd_fidelityfx_framegeneration_dx12.dll"), QObject::tr("需要支持 DirectX 12 的硬件显卡"));
-    add("fsr4", H::Fsr4, fsrLoader && exists(fsr / "amd_fidelityfx_framegeneration_dx12.dll"), QObject::tr("需要 AMD RX 9000"));
+    for (int q : {16, 17, 18, 19}) add("sr" + QString::number(q), H::Nvidia, vfxSr, QObject::tr("Requires an NVIDIA RTX GPU"));
+    for (int q : {21, 23}) add("sr" + QString::number(q), H::NvidiaAmpere, vfxSr, QObject::tr("Requires an NVIDIA RTX 30-series or newer GPU"));
+    add("sr5", H::CrossVendor, fsrLoader && exists(fsr / "amd_fidelityfx_upscaler_dx12.dll"), QObject::tr("Requires a hardware GPU with DirectX 12 support"));
+    add("anr", H::CrossVendor, ngx::AnrProvider::available(nr.wstring()), QObject::tr("Requires a hardware GPU with DirectX 12 support"));
+    add("dlss", H::Nvidia, exists(nr / "nvngx_dlssg.dll"), QObject::tr("Requires an NVIDIA RTX GPU"));
+    add("vfg", H::Vfg, pipeline::VfgBackend::runtimeAvailable(nr.wstring()), QObject::tr("Requires NVIDIA RTX 30 / 40 / 50 (RTX 30 compatibility is experimental)"));
+    add("xess", H::CrossVendor, exists(data / "intel/experimental/libxess_fg.dll") && exists(data / "intel/experimental/libxell.dll"), QObject::tr("Requires a hardware GPU with DirectX 12 support"));
+    add("fsr3", H::CrossVendor, fsrLoader && exists(fsr / "amd_fidelityfx_framegeneration_dx12.dll"), QObject::tr("Requires a hardware GPU with DirectX 12 support"));
+    add("fsr4", H::Fsr4, fsrLoader && exists(fsr / "amd_fidelityfx_framegeneration_dx12.dll"), QObject::tr("Requires AMD RX 9000"));
     // AMD FRC uses the AMF runtime the AMD driver installs; nothing ships with Veyra.
-    add("amdfrc", H::AmdFrc, gfx::AmfFrcBackend::runtimeInstalled(), QObject::tr("需要 AMD 显卡（驱动自带 AMF 运行库）"));
-    add("hdr", H::Nvidia, exists(nr / "nvngx_truehdr.dll"), QObject::tr("需要 NVIDIA RTX 显卡"));
-    add("flow0", H::Nvidia, true, QObject::tr("需要 NVIDIA RTX 显卡及 NVOF 驱动"));
-    add("flow1", H::CrossVendor, true, QObject::tr("需要支持 DirectX 12 的硬件显卡"));
+    add("amdfrc", H::AmdFrc, gfx::AmfFrcBackend::runtimeInstalled(), QObject::tr("Requires an AMD GPU (AMF runtime from the AMD driver)"));
+    add("hdr", H::Nvidia, exists(nr / "nvngx_truehdr.dll"), QObject::tr("Requires an NVIDIA RTX GPU"));
+    add("flow0", H::Nvidia, true, QObject::tr("Requires an NVIDIA RTX GPU and the NVOF driver"));
+    add("flow1", H::CrossVendor, true, QObject::tr("Requires a hardware GPU with DirectX 12 support"));
     return out;
 }
 // All callers are on the bridge/UI thread. Snapshot reads must not perform
@@ -233,7 +233,7 @@ QVariantMap QmlPlayerBridge::effectAvailability(const QString& id) const {
 QVariantList QmlPlayerBridge::nrRuntimeChoices() const {
     QVariantList choices;
     const auto caps = effectCapabilities();
-    for (const auto& entry : std::initializer_list<std::pair<int, QString>>{{2, "RTX 20–50 · SF 310.9.16"}, {3, tr("RTX 50 · NVIDIA 原版")}, {4, effectGpu().rx7000?tr("RX 7000 · RedDuke（实验）"):tr("RX 9000 · lmxxf（实验）")}}) {
+    for (const auto& entry : std::initializer_list<std::pair<int, QString>>{{2, "RTX 20–50 · SF 310.9.16"}, {3, tr("RTX 50 · NVIDIA original")}, {4, effectGpu().rx7000?tr("RX 7000 · RedDuke (experimental)"):tr("RX 9000 · lmxxf (experimental)")}}) {
         const auto cap = caps.value("nr" + QString::number(entry.first)).toMap();
         choices << QVariantMap{{"id", QString::number(entry.first)}, {"label", entry.second}, {"disabled", !cap.value("available").toBool()}, {"note", cap.value("reason")}};
     }
@@ -245,9 +245,9 @@ QVariantList QmlPlayerBridge::srBackendChoices() const {
     // RTX Video SR families take string ids (srAlgorithmOf); the tier is chosen
     // separately. Availability follows each family's runtime.
     struct Entry { QString id; int capability; QString label; };
-    for (const auto& entry : std::initializer_list<Entry>{{"0", 0, "DLSS SR"}, {"rtx", 4, tr("RTX 视频超分 · 标准")},
-            {"rtx-hb", 16, tr("RTX 视频超分 · 高码率")}, {"rtx-st", 21, tr("RTX 视频超分 · 流媒体")},
-            {"5", 5, effectGpu().vendor == 0x1002 ? tr("FSR 3.1 / 4 · 自动兼容") : QString("FSR 3.1")}}) {
+    for (const auto& entry : std::initializer_list<Entry>{{"0", 0, "DLSS SR"}, {"rtx", 4, tr("RTX Video SR · Standard")},
+            {"rtx-hb", 16, tr("RTX Video SR · High bitrate")}, {"rtx-st", 21, tr("RTX Video SR · Streaming")},
+            {"5", 5, effectGpu().vendor == 0x1002 ? tr("FSR 3.1 / 4 · Automatic compatibility") : QString("FSR 3.1")}}) {
         const auto cap = caps.value("sr" + QString::number(entry.capability)).toMap();
         choices << QVariantMap{{"id", entry.id}, {"label", entry.label}, {"disabled", !cap.value("available").toBool()}, {"note", cap.value("reason")}};
     }

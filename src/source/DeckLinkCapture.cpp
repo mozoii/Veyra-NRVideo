@@ -41,7 +41,7 @@ void Capture::formatChanged(const Signal& signal){
     {std::lock_guard lock(p_->mutex);
         const bool rgb=p_->pixel==Pixel::Bgra8||p_->pixel==Pixel::Rgb10xLE;
         if(signal.mode.id==p_->mode.id&&signal.rgb==rgb)return; // StartStreams may repeat the current detection.
-        if(p_->running){p_->reopen=true;p_->error=L"BMD 输入制式/颜色格式已变化，正在重新检测信号";}
+        if(p_->running){p_->reopen=true;p_->error=L"BMD input mode/color format changed; detecting the signal again.";}
         else if(p_->probing&&p_->automatic){p_->pending=signal;p_->valid=false;}
     }
     p_->changed.notify_all();
@@ -52,25 +52,25 @@ void Capture::video(const Frame& frame){
         std::lock_guard lock(p_->mutex);
         if(!p_->running&&!p_->probing)return;
         if(frame.noInput){
-            if(p_->running){p_->error=L"BMD 输入信号丢失，正在等待 HDMI/SDI 信号锁定";p_->reopen=true;}
+            if(p_->running){p_->error=L"BMD input signal lost; waiting for HDMI/SDI signal lock.";p_->reopen=true;}
             p_->changed.notify_all();return;
         }
         if(p_->reopen||p_->pending)return;
         if(frame.width!=p_->mode.width||frame.height!=p_->mode.height||frame.pixel!=p_->pixel){
-            if(p_->running){p_->error=L"BMD 帧布局已改变，正在重新协商采集";p_->reopen=true;}
+            if(p_->running){p_->error=L"BMD frame layout changed; renegotiating capture.";p_->reopen=true;}
             return; // Frames queued before Pause/Flush are never published.
         }
         const bool ten=frame.pixel==Pixel::V210||frame.pixel==Pixel::Rgb10xLE;
         if(!frame.data||frame.width<2||frame.width>3840||!frame.height||frame.height>2160||
             frame.stride<rowBytes(frame.pixel,frame.width)||frame.stride>frame.width*8+16384||frame.bytes<size_t(frame.stride)*frame.height||frame.duration100ns<=0||
             (frame.color.isHdrPath()&&!ten)){
-            p_->error=L"BMD 返回无效帧布局、时间戳或不受支持的 HDR 位深";p_->reopen=true;p_->changed.notify_all();return;
+            p_->error=L"BMD returned an invalid frame layout, timestamp or unsupported HDR bit depth.";p_->reopen=true;p_->changed.notify_all();return;
         }
         if(p_->probing){
             p_->contract=frame;p_->contract.data=nullptr;p_->contract.bytes=0;p_->valid=true;p_->changed.notify_all();return;
         }
         if(frame.stride!=p_->contract.stride||frame.bottomUp!=p_->contract.bottomUp||!sameColor(frame.color,p_->contract.color)){
-            p_->error=L"BMD 输入颜色/行距合同已变化，正在重建处理链";p_->reopen=true;return;
+            p_->error=L"BMD input color/stride changed; rebuilding the processing chain.";p_->reopen=true;return;
         }
         callback=p_->onVideo;
     }
@@ -87,15 +87,15 @@ bool Capture::configure(std::wstring_view path,std::wstring_view key,bool audio,
     stop();auto& p=*p_;std::wstring why;
     {std::lock_guard lock(p.mutex);p.error.clear();p.reopen=false;p.valid=false;p.contract={};p.pending.reset();p.embeddedAudio=audio;}
     auto failed=[&](std::wstring message){p.driver->stop();std::lock_guard lock(p.mutex);p.probing=false;if(!message.empty())p.error=std::move(message);return false;};
-    if(!isPath(path)||!p.driver){failure(L"BMD 原生接口不可用，请安装 Desktop Video 驱动或使用 DirectShow 入口");return false;}
+    if(!isPath(path)||!p.driver){failure(L"Native BMD capture is unavailable. Install Desktop Video or use DirectShow.");return false;}
     if(!p.driver->open(path,*this,why))return failed(why);
     const auto available=p.driver->modes();
     const bool automatic=key==L"decklink:auto"||key.empty();
     {std::lock_guard lock(p.mutex);p.automatic=automatic;}
-    if(automatic&&!p.driver->autoDetection())return failed(L"这张 BMD 卡不支持自动检测，请选择与信号一致的手动制式");
+    if(automatic&&!p.driver->autoDetection())return failed(L"This BMD card does not support automatic detection. Select the manual format matching the signal.");
     const auto chosen=std::find_if(available.begin(),available.end(),[&](const Mode& m){return automatic?(m.width<=3840&&m.height<=2160):modeKey(m.id)==key;});
-    if(chosen==available.end())return failed(L"保存的 BMD 制式不可用，请重新选择");
-    if(chosen->width>3840||chosen->height>2160)return failed(L"设备提供此制式，但当前播放器的 BMD 采集最高支持 3840×2160");
+    if(chosen==available.end())return failed(L"Saved BMD format is unavailable. Select a format again.");
+    if(chosen->width>3840||chosen->height>2160)return failed(L"The device offers this mode, but BMD capture in this player supports up to 3840×2160");
     auto enable=[&](const Mode& mode,Pixel pixel){
         {std::lock_guard lock(p.mutex);p.mode=mode;p.pixel=pixel;p.valid=false;}
         const bool ok=p.driver->enable(mode,pixel,automatic,audio,why);if(ok)why.clear();return ok;
@@ -134,7 +134,7 @@ bool Capture::configure(std::wstring_view path,std::wstring_view key,bool audio,
     {std::lock_guard lock(p.mutex);p.probing=false;if(p.reopen||p.pending)ok=false;}
     if(!ok){
         {std::lock_guard lock(p.mutex);if(why.empty())why=p.error;}
-        if(why.empty())why=std::format(L"BMD 未在 {} 输入检测到有效信号。请在设备列表选择与 OBS 一致的 HDMI/SDI 输入口，并选择自动检测或匹配实际信号的手动制式。",inputConnectionName(inputConnectionSelection(path).connection));
+        if(why.empty())why=std::format(L"BMD detected no valid signal on the {} input. Select the same HDMI/SDI connector as OBS, then choose automatic detection or the matching manual signal mode.",inputConnectionName(inputConnectionSelection(path).connection));
         return failed(why);
     }
     if(!p.driver->flush(why))return failed(why);

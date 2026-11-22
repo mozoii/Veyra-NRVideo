@@ -33,7 +33,7 @@ void stopPreview(){if(preview){preview.reset();preview=std::make_unique<engine::
 // A window on another virtual desktop (Win+Ctrl+D) is captured without switching to it.
 std::wstring label(const source::ScreenCaptureTarget& t){
     if(!t.otherDesktop)return t.name;
-    const std::wstring desktop=!t.desktopNumber?std::wstring(L"其他桌面"):t.desktopName.empty()?std::format(L"桌面 {}",t.desktopNumber):std::format(L"桌面 {} · {}",t.desktopNumber,t.desktopName);
+    const std::wstring desktop=!t.desktopNumber?std::wstring(L"Other desktops"):t.desktopName.empty()?std::format(L"Desktop {}",t.desktopNumber):std::format(L"Desktop {} · {}",t.desktopNumber,t.desktopName);
     return L"["+desktop+L"] "+t.name;
 }
 void resetCrop(){for(int id=Left;id<=Bottom;++id)SetDlgItemInt(panelWindow,id,0,FALSE);if(outline)ShowWindow(outline,SW_HIDE);}
@@ -43,13 +43,13 @@ void enumerate(){
     SendMessageW(child(Target),CB_RESETCONTENT,0,0);int selected=0;
     for(size_t i=0;i<targets.size();++i){add(child(Target),label(targets[i]).c_str());if(targets[i].handle==handle)selected=int(i);}
     SendMessageW(child(Target),CB_SETCURSEL,selected,0);EnableWindow(child(Start),!targets.empty());EnableWindow(child(PreviewStart),!targets.empty());methods();
-    if(targets.empty())SetWindowTextW(child(State),L"没有可采集的目标");
+    if(targets.empty())SetWindowTextW(child(State),L"No capturable target");
 }
 bool options(source::ScreenCaptureOptions& value,bool cropped){
     const auto index=selection(Target);if(index<0||size_t(index)>=targets.size())return false;
     value.kind=targets[index].kind;value.target=targets[index].handle;value.method=source::ScreenCaptureMethod(selection(Method));
     constexpr unsigned rates[]={0,30,60,120,144,240};value.fps=rates[std::clamp(selection(Fps),0,5)];value.cursor=SendMessageW(child(Cursor),BM_GETCHECK,0,0)==BST_CHECKED;
-    if(cropped){unsigned* margins[]={&value.left,&value.top,&value.right,&value.bottom};for(int i=0;i<4;++i){BOOL valid=FALSE;*margins[i]=GetDlgItemInt(panelWindow,Left+i,&valid,FALSE);if(!valid||*margins[i]>16384){validationError=L"裁剪值须为 0 到 16384 的整数";SetWindowTextW(child(State),validationError.c_str());return false;}}}
+    if(cropped){unsigned* margins[]={&value.left,&value.top,&value.right,&value.bottom};for(int i=0;i<4;++i){BOOL valid=FALSE;*margins[i]=GetDlgItemInt(panelWindow,Left+i,&valid,FALSE);if(!valid||*margins[i]>16384){validationError=L"Crop value must be an integer from 0 to 16384";SetWindowTextW(child(State),validationError.c_str());return false;}}}
     return true;
 }
 std::pair<float,float> point(HWND window,POINT p){RECT rect{};GetClientRect(window,&rect);return engine::PreviewView{}.sourcePoint(float(p.x),float(p.y),float(rect.right),float(rect.bottom),float(previewWidth),float(previewHeight));}
@@ -73,27 +73,27 @@ HWND make(const wchar_t* cls,const wchar_t* label,int id,DWORD style,int x,int y
 LRESULT CALLBACK proc(HWND window,UINT message,WPARAM wp,LPARAM lp){
     switch(message){
     case WM_CREATE:{panelWindow=window;placements.clear();validationError.clear();font=makeFont(window);titleTheme(window);preview=std::make_unique<engine::EngineController>();
-        auto kind=make(L"COMBOBOX",L"",Kind,CBS_DROPDOWNLIST|WS_TABSTOP,20,16,126,160);add(kind,L"窗口");add(kind,L"显示器");
-        make(L"COMBOBOX",L"",Target,CBS_DROPDOWNLIST|WS_TABSTOP|WS_VSCROLL,158,16,330,400);make(L"BUTTON",L"刷新",Refresh,BS_PUSHBUTTON|WS_TABSTOP,500,16,80,32);
+        auto kind=make(L"COMBOBOX",L"",Kind,CBS_DROPDOWNLIST|WS_TABSTOP,20,16,126,160);add(kind,L"Window");add(kind,L"Display");
+        make(L"COMBOBOX",L"",Target,CBS_DROPDOWNLIST|WS_TABSTOP|WS_VSCROLL,158,16,330,400);make(L"BUTTON",L"Refresh",Refresh,BS_PUSHBUTTON|WS_TABSTOP,500,16,80,32);
         auto viewport=make(L"STATIC",L"",Preview,SS_NOTIFY,20,60,560,208);SetWindowSubclass(viewport,previewProc,1,0);
-        make(L"BUTTON",L"预览",PreviewStart,BS_PUSHBUTTON|WS_TABSTOP,20,278,110,32);icon(child(PreviewStart),Icon::Play,true);
-        make(L"BUTTON",L"重置裁剪",ResetCrop,BS_PUSHBUTTON|WS_TABSTOP,142,278,120,32);
-        auto fit=make(L"COMBOBOX",L"",Fit,CBS_DROPDOWNLIST|WS_TABSTOP,390,278,190,160);add(fit,L"适应窗口");add(fit,L"填满窗口");
-        make(L"STATIC",L"采集方式",0,0,20,330,100,26);auto method=make(L"COMBOBOX",L"",Method,CBS_DROPDOWNLIST|WS_TABSTOP,140,326,440,180);add(method,L"Windows Graphics Capture");add(method,L"DXGI 显示器兼容（无指针）");
-        make(L"STATIC",L"帧率上限",0,0,20,374,100,26);auto fps=make(L"COMBOBOX",L"",Fps,CBS_DROPDOWNLIST|WS_TABSTOP,140,370,230,220);for(auto value:{L"跟随显示器刷新率",L"30",L"60",L"120",L"144",L"240"})add(fps,value);
-        make(L"BUTTON",L"显示鼠标指针",Cursor,BS_AUTOCHECKBOX|WS_TABSTOP,386,370,194,28);
-        make(L"STATIC",L"裁剪 / 像素",0,0,20,420,180,24);const wchar_t* labels[]={L"左",L"上",L"右",L"下"};for(int i=0;i<4;++i){make(L"STATIC",labels[i],0,0,20+i*140,462,30,24);make(L"EDIT",L"0",Left+i,WS_BORDER|ES_NUMBER|WS_TABSTOP,52+i*140,458,84,30);}
-        make(L"STATIC",L"",State,0,20,504,560,68);make(L"BUTTON",L"开始 / 切换",Start,BS_DEFPUSHBUTTON|WS_TABSTOP,300,582,160,38);icon(child(Start),Icon::Play,true);
-        make(L"BUTTON",L"停止",Stop,BS_PUSHBUTTON|WS_TABSTOP,474,582,106,38);icon(child(Stop),Icon::Stop,true);
+        make(L"BUTTON",L"Preview",PreviewStart,BS_PUSHBUTTON|WS_TABSTOP,20,278,110,32);icon(child(PreviewStart),Icon::Play,true);
+        make(L"BUTTON",L"Reset crop",ResetCrop,BS_PUSHBUTTON|WS_TABSTOP,142,278,120,32);
+        auto fit=make(L"COMBOBOX",L"",Fit,CBS_DROPDOWNLIST|WS_TABSTOP,390,278,190,160);add(fit,L"Fit window");add(fit,L"Fill window");
+        make(L"STATIC",L"Capture method",0,0,20,330,100,26);auto method=make(L"COMBOBOX",L"",Method,CBS_DROPDOWNLIST|WS_TABSTOP,140,326,440,180);add(method,L"Windows Graphics Capture");add(method,L"DXGI display compatibility (no pointer)");
+        make(L"STATIC",L"Frame rate cap",0,0,20,374,100,26);auto fps=make(L"COMBOBOX",L"",Fps,CBS_DROPDOWNLIST|WS_TABSTOP,140,370,230,220);for(auto value:{L"Follow display refresh rate",L"30",L"60",L"120",L"144",L"240"})add(fps,value);
+        make(L"BUTTON",L"Show mouse pointer",Cursor,BS_AUTOCHECKBOX|WS_TABSTOP,386,370,194,28);
+        make(L"STATIC",L"Crop / pixels",0,0,20,420,180,24);const wchar_t* labels[]={L"Left",L"Up",L"Right",L"Down"};for(int i=0;i<4;++i){make(L"STATIC",labels[i],0,0,20+i*140,462,30,24);make(L"EDIT",L"0",Left+i,WS_BORDER|ES_NUMBER|WS_TABSTOP,52+i*140,458,84,30);}
+        make(L"STATIC",L"",State,0,20,504,560,68);make(L"BUTTON",L"Start / toggle",Start,BS_DEFPUSHBUTTON|WS_TABSTOP,300,582,160,38);icon(child(Start),Icon::Play,true);
+        make(L"BUTTON",L"Stop",Stop,BS_PUSHBUTTON|WS_TABSTOP,474,582,106,38);icon(child(Stop),Icon::Stop,true);
         for(auto [id,key]:{std::pair{Kind,L"Kind"},{Method,L"Method"},{Fps,L"RateMode"},{Fit,L"Fit"}}){auto value=GetPrivateProfileIntW(L"ScreenCapture",key,0,ini().c_str());auto count=SendMessageW(child(id),CB_GETCOUNT,0,0);SendMessageW(child(id),CB_SETCURSEL,value<unsigned(count)?value:0,0);}
         SendMessageW(child(Cursor),BM_SETCHECK,GetPrivateProfileIntW(L"ScreenCapture",L"Cursor",1,ini().c_str())?BST_CHECKED:BST_UNCHECKED,0);enumerate();SetTimer(window,1,250,nullptr);return 0;}
     case WM_TIMER:{
         if(!validationError.empty())return 0;
         auto p=preview->snapshot();if(p.running&&p.frames){previewWidth=p.metrics.resolution.source.width;previewHeight=p.metrics.resolution.source.height;}
         auto s=active&&state?state():p;std::wstring text;
-        if(s.failed)text=s.status;else if(s.transport==engine::TransportState::Opening)text=L"正在打开目标";
-        else if(s.running){text=!s.sourceNotice.empty()?s.sourceNotice:std::format(L"{}  {} x {}  {:.1f} FPS",active?L"采集中":L"预览",s.metrics.resolution.source.width,s.metrics.resolution.source.height,s.fps);}
-        else text=L"已停止";
+        if(s.failed)text=s.status;else if(s.transport==engine::TransportState::Opening)text=L"Opening target";
+        else if(s.running){text=!s.sourceNotice.empty()?s.sourceNotice:std::format(L"{}  {} x {}  {:.1f} FPS",active?L"Capturing":L"Preview",s.metrics.resolution.source.width,s.metrics.resolution.source.height,s.fps);}
+        else text=L"Stopped";
         SetWindowTextW(child(State),text.c_str());return 0;}
     case WM_COMMAND:{const int id=LOWORD(wp);validationError.clear();
         if(id==Refresh||(id==Kind&&HIWORD(wp)==CBN_SELCHANGE)){stopPreview();resetCrop();enumerate();return 0;}
@@ -120,7 +120,7 @@ void showScreenCapturePanel(HWND parent,std::function<void(const std::wstring&)>
     WNDCLASSW wc{};wc.lpfnWndProc=proc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"VeyraScreenCapture";wc.hbrBackground=panelBrush();wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);RegisterClassW(&wc);
     MONITORINFO monitor{sizeof(monitor)};GetMonitorInfoW(MonitorFromWindow(parent,MONITOR_DEFAULTTONEAREST),&monitor);
     const int width=dip(parent,618),height=std::min(dip(parent,674),int(monitor.rcWork.bottom-monitor.rcWork.top));
-    CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_CONTROLPARENT,wc.lpszClassName,L"屏幕采集",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_VISIBLE,monitor.rcWork.left+(monitor.rcWork.right-monitor.rcWork.left-width)/2,monitor.rcWork.top+(monitor.rcWork.bottom-monitor.rcWork.top-height)/2,width,height,parent,nullptr,wc.hInstance,nullptr);
+    CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_CONTROLPARENT,wc.lpszClassName,L"Screen capture",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_VISIBLE,monitor.rcWork.left+(monitor.rcWork.right-monitor.rcWork.left-width)/2,monitor.rcWork.top+(monitor.rcWork.bottom-monitor.rcWork.top-height)/2,width,height,parent,nullptr,wc.hInstance,nullptr);
 }
 bool screenCaptureDialogMessage(MSG& message){return panelWindow&&IsDialogMessageW(panelWindow,&message);}
 }

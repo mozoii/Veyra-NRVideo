@@ -357,7 +357,7 @@ bool EnhanceGraph::createAdditionalColorResources(){
             engine::ColorLutData lut;
             const engine::ColorLutStore store(runtime::userDataDirectory());
             if(mismatch||!store.resolve(settings.lutNameString(),lut)||!lut.valid()||!instance->setLut(context_.device(),lut.rgb.data(),unsigned(lut.size))){
-                colorLutNotice_+=std::format(L" 调色实例 {} LUT 未加载：{}；其他调色继续。",i+2,mismatch?L"输入空间不匹配":L"资源不可用");
+                colorLutNotice_+=std::format(L" color instance {} LUT not loaded: {}; the other color adjustments continue.",i+2,mismatch?L"Input space mismatch":L"Resource unavailable");
                 veyra::log::warn("color-grade",std::format("instance={} lut rejected mismatch={} name={}",i+1,mismatch,utf8Of(settings.lutNameString())));
             }else{
                 veyra::log::info("color-grade",std::format("instance={} independent LUT size={} name={}",i+1,lut.size,utf8Of(settings.lutNameString())));
@@ -416,7 +416,7 @@ bool EnhanceGraph::createNodeColorResources(){
                 engine::ColorLutData lut;
                 const engine::ColorLutStore store(runtime::userDataDirectory());
                 if(mismatch||!store.resolve(settings.lutNameString(),lut)||!lut.valid()||!instance->setLut(context_.device(),lut.rgb.data(),unsigned(lut.size))){
-                    colorLutNotice_+=std::format(L" 调色实例 {} LUT 未加载：{}；其他调色继续。",parameter+1,mismatch?L"输入空间不匹配":L"资源不可用");
+                    colorLutNotice_+=std::format(L" color instance {} LUT not loaded: {}; the other color adjustments continue.",parameter+1,mismatch?L"Input space mismatch":L"Resource unavailable");
                     veyra::log::warn("color-grade",std::format("node instance={} lut rejected mismatch={} name={}",parameter,mismatch,utf8Of(settings.lutNameString())));
                 }
             }
@@ -460,9 +460,9 @@ bool EnhanceGraph::createAntiAlias(uint32_t parameter,uint32_t width,uint32_t he
         antiAliasOutputs_[parameter]=makeTexture(context_.device(),width,height,DXGI_FORMAT_R16G16B16A16_FLOAT,true);
         // DLSS is temporal and NVIDIA RTX only: a still image or another adapter
         // passes the picture through, and the status says why.
-        const wchar_t* why=desc_.stillImage?L"图片不支持 DLAA":!context_.adapter().isNvidia?L"需要 NVIDIA RTX 显卡":
-            (desc_.noFeatures||desc_.noNgx)?L"增强功能已关闭":nullptr;
-        if(why){d.copy=true;antiAliasNotice_+=std::format(L"抗锯齿实例 {} DLAA 未运行（{}），画面原样通过。",parameter+1,why);}
+        const wchar_t* why=desc_.stillImage?L"DLAA does not run on images":!context_.adapter().isNvidia?L"Requires an NVIDIA RTX GPU":
+            (desc_.noFeatures||desc_.noNgx)?L"enhancements are off":nullptr;
+        if(why){d.copy=true;antiAliasNotice_+=std::format(L"Anti-aliasing instance {}: DLAA is not running ({}); the picture passes through unchanged.",parameter+1,why);}
         bool created=antiAliasOutputs_[parameter]!=nullptr;
         if(created&&!d.copy){
             d.zeroMotion=makeTexture(context_.device(),width,height,DXGI_FORMAT_R16G16_FLOAT,false);
@@ -603,11 +603,11 @@ bool EnhanceGraph::createBeautyShared(){
         veyra::log::error("beauty-detect",std::format("face detector unavailable ({}); beauty nodes see no faces",error));
         faceTracker_.reset();
         if(desc_.beautyRequireDetector)return false;
-        beautyNotice_=model.empty()?L"美颜：人脸模型文件缺失，人脸原画保护与人脸区域美颜暂不生效"
-                                   :L"美颜：人脸识别初始化失败，人脸原画保护与人脸区域美颜暂不生效";
+        beautyNotice_=model.empty()?L"Beauty: the face model file is missing; original face restore and face-area beauty are not applied"
+                                   :L"Beauty: face detection failed to start; original face restore and face-area beauty are not applied";
     }else{
         faceTracker_->configure(desc_.beautyDetection,beautyMinConfidence());
-        if(!faceTracker_->meshReady())beautyNotice_=L"美颜：人脸网格模型缺失，人脸区域按椭圆近似，五官不单独排除";
+        if(!faceTracker_->meshReady())beautyNotice_=L"Beauty: the face mesh model is missing; face areas are approximated by ovals and the eyes, brows and lips are not left out";
     }
     if(!faceTracker_){
         // Zeroed stand-ins: no faces, no outlines.
@@ -1060,8 +1060,8 @@ bool EnhanceGraph::createResources()
             const int space=desc_.color.lutInputSpace;
             const bool mismatch=hdrContent?(space==engine::ColorSettings::kLutInputSrgb):(space==engine::ColorSettings::kLutInputPq);
             if(mismatch){
-                colorLutNotice_=hdrContent?L"LUT 已禁用：HDR 内容不能使用 sRGB 显示参考输入空间（改选 Cineon Log 或 PQ）"
-                                        :L"LUT 已禁用：SDR 内容不能使用 PQ 输入空间（改选 Cineon Log 或 sRGB 显示参考）";
+                colorLutNotice_=hdrContent?L"LUT disabled: HDR content cannot use the sRGB display-referred input space (choose Cineon Log or PQ)"
+                                        :L"LUT disabled: SDR content cannot use the PQ input space (choose Cineon Log or sRGB display-referred)";
                 desc_.color.lutStrength=0.0f;
                 refreshColorTables();
                 veyra::log::warn("color-grade",std::format("lut input space rejected space={} hdrContent={} name bytes={} (grade continues without the lookup)",space,hdrContent?1:0,desc_.color.lutNameString().size()));
@@ -1711,7 +1711,7 @@ bool EnhanceGraph::initNgxFeatures()
     fgInitResult_=uint64_t(fgCaps.featureInitResult);
     driverRequirementNotice_.clear();
     if(fgCaps.needsUpdatedDriver&&fgCaps.minDriverVersionMajor>0)
-        driverRequirementNotice_=std::format(L"当前 DLSS 补帧运行库要求至少 {}.{:02} 驱动（NGX 能力查询）",fgCaps.minDriverVersionMajor,fgCaps.minDriverVersionMinor);
+        driverRequirementNotice_=std::format(L"The current DLSS frame generation runtime needs driver {}.{:02} or newer (NGX capability query)",fgCaps.minDriverVersionMajor,fgCaps.minDriverVersionMinor);
     if (!fgAvailable) {
         veyra::log::error("graph", "FG capability startup failed; see native results and compatibility stage above");
         return false;
@@ -1939,7 +1939,7 @@ bool EnhanceGraph::initNgxFeatures()
         if(!ring_.submitAndSignal(0)||!ring_.waitIdle())return false;
         if(!created){
             d.backend.reset();d.copy=true;st=Status::Ok;
-            antiAliasNotice_+=std::format(L"抗锯齿实例 {} DLAA 创建失败，画面原样通过。",i+1);
+            antiAliasNotice_+=std::format(L"Anti-aliasing instance {}: DLAA could not be created; the picture passes through unchanged.",i+1);
             veyra::log::error("anti-alias",std::format("instance={} DLAA create failed; the instance passes the picture through",i));
             continue;
         }
@@ -4318,7 +4318,7 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
             continue;
         }
         auto* flist=ring_.acquireNext(slot,st); if(!flist)return false;
-        // 边缘神盾: the refined vectors, same current->previous work-pixel units as baseFlow_.
+        // Edge Aegis: the refined vectors, same current->previous work-pixel units as baseFlow_.
         auto* motion=desc_.fgMotionProbe?desc_.fgMotionProbe:(haveFlow&&desc_.fgUsesFlow()?(flowRefine_?fgBaseFlow_.Get():baseFlow_.Get()):nrZeroMotion_.Get());
         tracker_.transition(flist,videoFrame_[parity].Get(),D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         if(!desc_.fgMotionProbe)tracker_.transition(flist,motion,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);

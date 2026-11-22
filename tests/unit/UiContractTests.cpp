@@ -34,7 +34,7 @@ void outputRateContracts(){
     DashboardHistory h;auto s=live();
     s.applied.content=engine::ContentRate::Auto;s.contentFps=30;s.metrics.flow.presentSubmitFps=30;
     settle(h,s,30);
-    require(std::abs(h.output.targetFps-30)<.01&&!h.overloaded&&std::wstring(h.rateStatus(s))==L"正常","60Hz transport with 30 unique frames is healthy at 30fps");
+    require(std::abs(h.output.targetFps-30)<.01&&!h.overloaded&&std::wstring(h.rateStatus(s))==L"Normal","60Hz transport with 30 unique frames is healthy at 30fps");
     require(h.output.deduplicating,"dedup reason requires observed intentional skips");
     s.metrics.flow.presentSubmitFps=15;settle(h,s,30);
     require(h.overloaded,"real output deficit remains visible after dedup");
@@ -51,14 +51,14 @@ void outputRateContracts(){
     require(h.output.targetFps==30&&!h.overloaded,"60-to-30 and its skip counter are counted once");
     h={};s=live();s.captureFps=40;s.applied.content=engine::ContentRate::Auto;s.contentFps=20;
     s.metrics.flow.presentSubmitFps=20;settle(h,s,20);
-    require(!h.overloaded&&h.inputLimited&&std::wstring(h.rateStatus(s))==L"输入帧率不足","dedup never hides a deficient input");
+    require(!h.overloaded&&h.inputLimited&&std::wstring(h.rateStatus(s))==L"Input frame rate too low","dedup never hides a deficient input");
     h={};s=live();s.applied.multiplier=4;s.presentationEffective.display=engine::DisplaySync::Vsync;
     s.metrics.flow.presentSubmitFps=60;settle(h,s,0,{60});
     require(h.output.targetFps==60&&h.output.displayLimited&&!h.overloaded,"VSync target is bounded by the actual display");
     s.fgBudgetLimited=true;settle(h,s,0,{60});
-    require(std::wstring(h.rateStatus(s))==L"正常","meeting a display-limited target is normal despite redundant FG admission being reduced");
+    require(std::wstring(h.rateStatus(s))==L"Normal","meeting a display-limited target is normal despite redundant FG admission being reduced");
     s.metrics.flow.presentSubmitFps=45;settle(h,s,0,{60});
-    require(h.overloaded&&std::wstring(h.rateStatus(s))!=L"正常","VSync cannot hide output below its effective target");
+    require(h.overloaded&&std::wstring(h.rateStatus(s))!=L"Normal","VSync cannot hide output below its effective target");
     h={};s=live();s.applied.multiplier=4;s.presentationEffective.display=engine::DisplaySync::Automatic;
     s.metrics.flow.presentSubmitFps=60;settle(h,s,0,{60});
     require(h.overloaded&&h.output.targetFps==240&&!h.output.displayLimited,"Automatic replaces unshown frames instead of waiting, so the refresh rate is not its submission target");
@@ -98,10 +98,10 @@ void outputRateContracts(){
     settle(h,s,30);s.applied.content=engine::ContentRate::Transport;++s.applied.revision;
     h.sample(s,{0,false,6});require(h.skipped.empty()&&!h.output.deduplicating&&h.output.targetFps==60,"source-timestamp mode revokes dedup history");
     s.applied.multiplier=2;s.fgBudgetLimited=true;settle(h,s,0);
-    require(std::wstring(h.rateStatus(s))==L"补帧调度降档","uncapped FG admission shortfall retains its own warning");
+    require(std::wstring(h.rateStatus(s))==L"Frame generation stepped down","uncapped FG admission shortfall retains its own warning");
     std::cout<<"PASS output-rate policy: dedup, static, half-rate, display sync, caps, provider, speed, comparison, real deficits and resets\n";
 }
-// 设置 → 界面绘制 (2026-10-26): software unless GPU is chosen; the OBS and 监控软件兼容
+// Settings → interface rendering (2026-10-26): software unless GPU is chosen; the OBS and overlay-compat
 // rules and VEYRA_UI_RHI keep the meaning they had before the default changed.
 static void interfaceRendererContracts(){
     using namespace veyra::ui;
@@ -114,9 +114,9 @@ static void interfaceRendererContracts(){
     d=decide(true,false,true,false,false,false);
     require(!d.software&&d.reason==R::Gpu,"GPU chosen and nothing to stay compatible with: GPU interface");
     d=decide(true,false,true,true,false,false);
-    require(d.software&&d.reason==R::OverlayCompat&&d.overlayCompat,"GPU chosen, an overlay at start and 监控软件兼容 auto: software as before");
+    require(d.software&&d.reason==R::OverlayCompat&&d.overlayCompat,"GPU chosen, an overlay at start and overlay compatibility auto: software as before");
     d=decide(true,false,false,true,false,false);
-    require(!d.software&&!d.overlayCompat,"GPU chosen with 监控软件兼容 off stays GPU next to an overlay, as before");
+    require(!d.software&&!d.overlayCompat,"GPU chosen with overlay compatibility off stays GPU next to an overlay, as before");
     d=decide(true,false,true,false,true,false);
     require(d.software&&d.reason==R::OverlayCompat,"an accepted compatibility restart draws in software");
     for(bool gpu:{false,true})for(bool forced:{false,true}){
@@ -176,7 +176,7 @@ int wmain(int argc,wchar_t** argv){try{
         for(int i=0;i<9;++i)history.sample(s);
         require(history.overloaded&&!history.inputLimited,"actual output deficit remains visible");
         s.applied.multiplier=1;s.fgBudgetLimited=true;
-        require(std::wstring(history.rateStatus(s))!=L"补帧调度降档","disabled FG cannot report FG throttling");
+        require(std::wstring(history.rateStatus(s))!=L"Frame generation stepped down","disabled FG cannot report FG throttling");
         for(int i=1;i<8;++i){s.metrics.flow.reset.epoch=i*10;history.sample(s);}
         require(history.resetSamples>=3,"continuous reset storm is identified separately");
         s.applied.revision=2;history.sample(s);require(!history.overloaded&&!history.inputLimited&&!history.resetSamples,"revision invalidates stale warnings");
@@ -268,11 +268,10 @@ int wmain(int argc,wchar_t** argv){try{
         // window title again (it made the live window unrecognisable).
         const std::wstring encoded=L"capture2:005C005C003F005C0075007300620023007600690064005F003300340035006600:0:0:005C005C003F005C0061007500640069006F:0";
         require(ui::isCaptureCardSource(encoded)&&ui::isCaptureCardSource(L"capture:0:1:-1:0"),"capture connection strings detected");
-        require(ui::windowTitleForSource(encoded)==L"Veyra — 采集卡 · LIVE","capture2 connection string never becomes the window title");
-        require(ui::windowTitleForSource(L"capture:0:1:-1:0")==L"Veyra — 采集卡 · LIVE","legacy capture connection string never becomes the window title");
-        require(ui::windowTitleForSource(L"remoteplay:")==L"Veyra — PS5 Remote Play","remote play keeps its readable title");
+        require(ui::windowTitleForSource(encoded)==L"Veyra — capture card · LIVE","capture2 connection string never becomes the window title");
+        require(ui::windowTitleForSource(L"capture:0:1:-1:0")==L"Veyra — capture card · LIVE","legacy capture connection string never becomes the window title");
         require(ui::windowTitleForSource(L"D:\\media\\clip.mp4")==L"Veyra — clip.mp4","file title keeps the file name");
-        require(ui::windowTitleForSource(L"")==L"Veyra — 本地实验版","empty source restores the default title");
+        require(ui::windowTitleForSource(L"")==L"Veyra — local experimental build","empty source restores the default title");
         for(const auto& title:{ui::windowTitleForSource(encoded),ui::windowTitleForSource(L"capture:0:1:-1:0")})
             require(title.find(L"capture2:")==std::wstring::npos&&title.find(L"capture:")==std::wstring::npos&&title.find(L'\\')==std::wstring::npos&&title.size()<64,"exposed window title stays short and path free");
     }

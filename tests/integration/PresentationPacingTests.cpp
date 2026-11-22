@@ -47,7 +47,7 @@ int wmain(int argc,wchar_t** argv){
     // latency-screen[-sr|-vfg]: a live window capture, 60 fps unless
     // VEYRA_TEST_SCREEN_FPS says otherwise (near-refresh A/B: 53 fps x 6 = 318
     // on 320 Hz), for capture-to-present A/B runs. mode -1 off, 0 low queue
-    // only, 1 NVIDIA 开.
+    // only, 1 = NVIDIA Low Latency on.
     const bool latency=scenario.starts_with(L"latency-");
     if((latency||scenario.starts_with(L"native-"))&&mode>1)return 2;
     const bool screen=scenario==L"screen-xess"||scenario==L"screen-dlss"||scenario==L"screen-vfg"||latency;

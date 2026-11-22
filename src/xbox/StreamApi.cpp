@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "veyra/xbox/StreamApi.h"
+#include "veyra/xbox/ResolutionMode.h"
 #include "veyra/Log.h"
 
 #include <winsock2.h>
@@ -7,6 +8,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <format>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <thread>
@@ -15,9 +17,6 @@ namespace veyra::xbox {
 namespace {
 
 using json = nlohmann::json;
-
-// What the session API expects to hear about the client (Greenlight sends the same).
-const char* kDeviceInfo = R"({"appInfo":{"env":{"clientAppId":"Microsoft.GamingApp","clientAppType":"native","clientAppVersion":"2203.1001.4.0","clientSdkVersion":"8.5.2","httpEnvironment":"prod","sdkInstallId":""}},"dev":{"hw":{"make":"Microsoft","model":"Surface Pro","sdktype":"native"},"os":{"name":"Windows 11","ver":"22631.2715","platform":"desktop"},"displayInfo":{"dimensions":{"widthInPixels":1920,"heightInPixels":1080},"pixelDensity":{"dpiX":1,"dpiY":1}}}})";
 
 json parse(const HttpsResponse& response, const std::string& what) {
     try {
@@ -51,6 +50,16 @@ std::string serviceError(const json& response) {
 }
 
 } // namespace
+
+// What the session API expects to hear about the client (Greenlight sends the same).
+// Only the display dimensions and the spoofed OS name come from the selected tier; the
+// app profile is unchanged. The spoofed OS name and display dimensions are provisional:
+// the capture in docs/xbox-1440p-negotiation.md is the acceptance gate.
+std::string StreamApi::deviceInfo(const ResolutionDesc& profile) {
+    const std::string dims = std::format(R"("widthInPixels":{},"heightInPixels":{})", profile.width, profile.height);
+    return std::format(R"({{"appInfo":{{"env":{{"clientAppId":"Microsoft.GamingApp","clientAppType":"native","clientAppVersion":"2203.1001.4.0","clientSdkVersion":"8.5.2","httpEnvironment":"prod","sdkInstallId":""}}}},"dev":{{"hw":{{"make":"Microsoft","model":"Surface Pro","sdktype":"native"}},"os":{{"name":"{}","ver":"22631.2715","platform":"desktop"}},"displayInfo":{{"dimensions":{{{}}},"pixelDensity":{{"dpiX":1,"dpiY":1}}}}}}}})",
+                     profile.osName, dims);
+}
 
 StreamApi::StreamApi(std::shared_ptr<HttpsTransport> transport, std::string host, std::string gsToken)
     : http_(std::move(transport)), host_(std::move(host)), token_(std::move(gsToken)) {}
@@ -95,15 +104,16 @@ std::vector<Console> StreamApi::consoles() {
     }
 }
 
-std::string StreamApi::play(const std::string& serverId, const std::string& locale) {
+std::string StreamApi::play(const std::string& serverId, const std::string& locale, ResolutionMode mode) {
+    const ResolutionDesc& profile = resolutionDesc(mode);
     const json body = {
         {"titleId", ""}, {"systemUpdateGroup", ""}, {"clientSessionId", ""},
         {"settings", {{"nanoVersion", "V3;WebrtcTransport.dll"}, {"enableTextToSpeech", false}, {"highContrast", 0},
                       {"locale", locale}, {"useIceConnection", false}, {"timezoneOffsetMinutes", 480},
-                      {"sdkType", "web"}, {"osName", "windows"}}},
+                      {"sdkType", "web"}, {"osName", profile.osName}}},
         {"serverId", serverId}, {"fallbackRegionNames", json::array()},
     };
-    const json j = parse(call("POST", "/v5/sessions/home/play", body.dump(), {{"X-MS-Device-Info", kDeviceInfo}}), "play");
+    const json j = parse(call("POST", "/v5/sessions/home/play", body.dump(), {{"X-MS-Device-Info", StreamApi::deviceInfo(profile)}}), "play");
     const std::string path = j.value("sessionPath", "");
     // "v5/sessions/home/<id>"
     const auto slash = path.find_last_of('/');

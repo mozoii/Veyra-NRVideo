@@ -399,7 +399,7 @@ __declspec(noinline) int testExistingPresets() {
         check(original.multiplier == 1 && !original.nr && !original.sr,
               "original built-in disables frame generation and enhancement");
         check(!library.erase(0), "a built-in cannot be erased");
-        check(!library.rename(0, L"改个名"), "a built-in cannot be renamed");
+        check(!library.rename(0, L"Rename me"), "a built-in cannot be renamed");
         check(library.duplicate(0), "a built-in can be duplicated");
         check(library.entries().size() == 5 && !library.entries()[1].builtin, "the copy is a normal preset");
     }
@@ -411,7 +411,7 @@ __declspec(noinline) int testExistingPresets() {
         library.load();
         auto settings = sample();
         PresetEntry chainOnly;
-        chainOnly.name = L"只存链路";
+        chainOnly.name = L"Chain only";
         chainOnly.contents = presetContentMask(PresetContent::Chain);
         chainOnly.chain = toChain(settings);
         check(library.put(chainOnly), "saving a chain-only preset succeeds");
@@ -438,8 +438,8 @@ __declspec(noinline) int testExistingPresets() {
         library.load();
         auto settings = sample();
         PresetEntry entry;
-        entry.name = L"全部";
-        entry.note = L"测试";
+        entry.name = L"All";
+        entry.note = L"Test";
         entry.kind = ChainMode::Node;
         entry.contents = kPresetLegacyContent;
         entry.chain = toChain(settings);
@@ -454,7 +454,7 @@ __declspec(noinline) int testExistingPresets() {
         check(library.put(entry), "saving a full preset succeeds");
         check(library.load(), "reload succeeds");
         const auto& loaded = library.entries().back();
-        check(loaded.name == L"全部" && loaded.note == L"测试", "name and note survive");
+        check(loaded.name == L"All" && loaded.note == L"Test", "name and note survive");
         check(loaded.kind == ChainMode::Node && loaded.chain.mode == ChainMode::Node, "the kind survives");
         check(loaded.contents == kPresetLegacyContent, "the content mask survives");
         check(loaded.chain.nodeCount == entry.chain.nodeCount, "the node count survives");
@@ -481,7 +481,7 @@ __declspec(noinline) int testExistingPresets() {
             color.exposure = float(i) * 0.25f;
             color.setLutName(L"independent-" + std::to_wstring(i) + L".cube");
         }
-        PresetEntry entry; entry.name = L"六调色";
+        PresetEntry entry; entry.name = L"Six colours";
         entry.chain = toChain(settings); entry.color = settings.color;
         check(library.put(entry) && library.load(), "six-colour preset reloads");
         const auto& loaded = library.entries().back();
@@ -505,7 +505,7 @@ __declspec(noinline) int testExistingPresets() {
         bool capacity = library.load();
         auto settings = sample(); settings.additionalColorCount = 5;
         auto fill = [](ColorSettings& color) {
-            color.enabled = true; color.setLutName(std::wstring(220, L'色') + L".cube");
+            color.enabled = true; color.setLutName(std::wstring(220, L'c') + L".cube");
             for (auto& curve : color.curves) {
                 curve.count = kColorCurvePoints;
                 for (int j = 0; j < kColorCurvePoints; ++j)
@@ -530,18 +530,18 @@ __declspec(noinline) int testExistingPresets() {
         const auto path = scratch(L"manage.v1");
         PresetLibrary library(path);
         library.load();
-        PresetEntry entry; entry.name = L"甲"; entry.contents = presetContentMask(PresetContent::Chain);
+        PresetEntry entry; entry.name = L"Alpha"; entry.contents = presetContentMask(PresetContent::Chain);
         entry.chain = toChain(sample());
-        check(library.put(entry), "put 甲");
-        entry.name = L"乙";
-        check(library.put(entry), "put 乙");
+        check(library.put(entry), "put Alpha");
+        entry.name = L"Beta";
+        check(library.put(entry), "put Beta");
         const auto index = library.entries().size() - 1;
-        check(library.rename(index, L"丙"), "rename 乙 to 丙");
-        check(!library.rename(index, L"甲"), "rename refuses a duplicate name");
+        check(library.rename(index, L"Gamma"), "rename Beta to Gamma");
+        check(!library.rename(index, L"Alpha"), "rename refuses a duplicate name");
         check(library.setDefault(index), "set default");
         PresetLibrary reloaded(path);
         check(reloaded.load(), "reload for management checks");
-        check(reloaded.defaultIndex().has_value() && reloaded.entries()[*reloaded.defaultIndex()].name == L"丙",
+        check(reloaded.defaultIndex().has_value() && reloaded.entries()[*reloaded.defaultIndex()].name == L"Gamma",
               "the default preset survives a save/load cycle");
         const auto before = reloaded.entries().size();
         check(reloaded.duplicate(*reloaded.defaultIndex()), "duplicate the default");
@@ -578,19 +578,19 @@ __declspec(noinline) int testExistingPresets() {
         PresetLibrary library(path);
         library.load();
         std::vector<PresetEntry> incoming;
-        PresetEntry nrOnly; nrOnly.name = L"夜间游戏"; nrOnly.contents = presetContentMask(PresetContent::Chain);
+        PresetEntry nrOnly; nrOnly.name = L"Night game"; nrOnly.contents = presetContentMask(PresetContent::Chain);
         nrOnly.chain = toChain(sample());
         incoming.push_back(nrOnly);
-        PresetEntry clashing; clashing.name = L"极致"; clashing.builtin = true;
+        PresetEntry clashing; clashing.name = L"Extreme"; clashing.builtin = true;
         clashing.contents = presetContentMask(PresetContent::Chain);
         clashing.chain = toChain(EnhancementSettings{});
         incoming.push_back(clashing);
         check(library.importLegacy(incoming), "importing legacy presets succeeds");
         const auto found = std::find_if(library.entries().begin(), library.entries().end(),
-            [](const PresetEntry& e) { return e.name == L"极致"; });
+            [](const PresetEntry& e) { return e.name == L"Extreme"; });
         check(found != library.entries().end() && found->builtin, "a name clash keeps the existing preset");
         check(std::any_of(library.entries().begin(), library.entries().end(),
-              [](const PresetEntry& e) { return e.name == L"夜间游戏"; }), "the imported preset is present");
+              [](const PresetEntry& e) { return e.name == L"Night game"; }), "the imported preset is present");
     }
 
     {
@@ -619,7 +619,7 @@ __declspec(noinline) int testExistingPresets() {
         auto s=sample();s.nrLayerCount=4;s.additionalColorCount=1;s.additionalColors[0].exposure=.7f;
         for(unsigned i=0;i<4;++i){auto& n=s.nrLayers[i];n.enabled=i!=1;
             n.sizePolicy=static_cast<veyra::pipeline::NrSizePolicy>(i);n.model.tone=.2f*float(i+1);}
-        PresetEntry entry;entry.name=L"NR四层尺寸";entry.contents=kPresetLegacyContent;entry.chain=toChain(s);entry.color=s.color;
+        PresetEntry entry;entry.name=L"4-layer NR size";entry.contents=kPresetLegacyContent;entry.chain=toChain(s);entry.color=s.color;
         PresetLibrary library(scratch(L"nr-size.v3"));
         check(library.load()&&library.put(entry)&&library.load(),"NR per-instance library v3 reloads");
         check(library.entries().back().chain==entry.chain,"v3 preserves every node including multiple grades");

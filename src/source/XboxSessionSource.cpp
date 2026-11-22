@@ -24,6 +24,7 @@ extern "C" {
 #include "veyra/sink/AudioFormat.h"
 #include "veyra/source/CaptureCompressedDecoder.h"
 #include "veyra/xbox/Account.h"
+#include "veyra/xbox/ResolutionMode.h"
 #include "veyra/xbox/StreamApi.h"
 #include "veyra/xbox/WebRtcSession.h"
 
@@ -97,12 +98,12 @@ bool startsDecoding(const std::vector<uint8_t>& unit) {
 
 std::wstring describeSessionFailure(const std::string& code, const std::string& message) {
     if (message.find("WaitingForServerToRegister") != std::string::npos)
-        return L"主机没有连上 Xbox 服务。请确认主机开着，或处于“睡眠（即时启动）”模式，并在主机的 设置 → 设备和连接 → 远程功能 里打开“启用远程功能”。";
+        return L"The console is not connected to Xbox services. Make sure it is on or in Sleep (instant-on) mode, and turn on \"Enable remote features\" under Settings → Devices & connections → Remote features on the console.";
     if (code == "ConsoleNotFound" || message.find("not found") != std::string::npos)
-        return L"找不到这台主机，可能已从账号里移除。请刷新主机列表。";
+        return L"This console cannot be found; it may have been removed from the account. Refresh the console list.";
     if (message.find("InUse") != std::string::npos || message.find("busy") != std::string::npos)
-        return L"这台主机正在被别的设备串流。请先在那边断开。";
-    return std::format(L"主机拒绝了串流（{} {}）。", widen(code), widen(message));
+        return L"This console is being streamed by another device. Disconnect there first.";
+    return std::format(L"The host refused the stream ({} {}).", widen(code), widen(message));
 }
 
 class ApiSignaling final : public xbox::Signaling {
@@ -140,7 +141,7 @@ struct XboxSessionSource::Impl {
     bool decoderOpen = false;
     std::atomic<bool> hardwareDecodeStatus{false}; // stats never inspect the worker-owned decoder
     AVFrame* dummyTarget = nullptr;
-    unsigned width = 1920, height = 1080;
+    unsigned width = 1920, height = 1080; // initial decoder hint; the decoded frames remain authoritative
     Clock::time_point lastKeyframeRequest{};
 
     struct Meta { int64_t pts,arrival; uint32_t rtp=0; int64_t submitted=0,decoded=0; };
@@ -164,7 +165,7 @@ struct XboxSessionSource::Impl {
     Clock::time_point lastPadSent{};
     bool padSent = false;
     std::mutex feedbackMutex;
-    remoteplay::ControllerFeedback feedback;
+    input::ControllerFeedback feedback;
     bool feedbackPending = false;
     Clock::time_point rumbleUntil{};
     bool rumbling = false;
@@ -222,6 +223,10 @@ bool XboxSessionSource::connect(XboxConnectDesc desc) {
 void XboxSessionSource::run(XboxConnectDesc desc) {
     auto& p = *p_;
     p.desc = std::move(desc);
+    const auto& tier = veyra::xbox::resolutionDesc(p.desc.resolutionMode);
+    p.width = tier.width;
+    p.height = tier.height;
+    p.rtc.setResolutionProfile(p.desc.resolutionMode);
     const auto fail = [&](std::wstring message) {
         log::error("xbox", "connect failed");
         std::lock_guard lock(mutex_);
@@ -234,8 +239,8 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
     const auto cancelled = [&] { return cancel_.load() || (p.desc.stopRequested && p.desc.stopRequested->load()); };
 
     try {
-        if (!p.desc.account || !p.desc.account->signedIn()) { fail(L"请先登录 Xbox 账号。"); return; }
-        setState(XboxStats::State::Starting, L"正在登录 Xbox 串流服务…");
+        if (!p.desc.account || !p.desc.account->signedIn()) { fail(L"Sign in to your Xbox account first."); return; }
+        setState(XboxStats::State::Starting, L"Signing in to the Xbox streaming service…");
         const xbox::StreamingAccess access = p.desc.account->streamingAccess();
         p.http = xbox::makeWinHttpTransport(&cancel_);
         p.api = std::make_unique<xbox::StreamApi>(p.http, access.host, access.gsToken);
@@ -243,14 +248,14 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
         p.gsToken = access.gsToken;
         log::info("xbox", "streaming region " + access.regionName + " host " + access.host);
 
-        setState(XboxStats::State::Starting, L"正在唤醒主机并准备串流…");
-        p.sessionId = p.api->play(p.desc.serverId, p.desc.locale);
+        setState(XboxStats::State::Starting, L"Waking the console and preparing the stream…");
+        p.sessionId = p.api->play(p.desc.serverId, p.desc.locale, p.desc.resolutionMode);
         log::info("xbox", "session " + p.sessionId);
         bool connectSent = false;
         const auto deadline = Clock::now() + std::chrono::seconds(120);
         for (;;) {
-            if (cancelled()) { fail(L"已取消。"); return; }
-            if (Clock::now() > deadline) { fail(L"主机长时间没有准备好串流。请确认主机开着并且网络正常。"); return; }
+            if (cancelled()) { fail(L"Cancelled."); return; }
+            if (Clock::now() > deadline) { fail(L"The host was not ready to stream for a long time. Make sure it is on and the network works."); return; }
             const xbox::SessionState state = p.api->state(p.sessionId);
             log::info("xbox", "session state " + state.state);
             if (state.state == "Provisioned") break;
@@ -268,7 +273,7 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        setState(XboxStats::State::Connecting, L"正在建立连接…");
+        setState(XboxStats::State::Connecting, L"Connecting…");
         xbox::WebRtcCallbacks callbacks;
         callbacks.video = [this](std::vector<uint8_t>&& unit, uint32_t rtp, int64_t arrival) {
             auto& q = *p_;
@@ -321,8 +326,8 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
             std::lock_guard lock(q.endMutex);
             if (q.ended.load()) return; // preserve the server's first, specific reason
             q.disconnectReason = reason;
-            q.endReason = reason == "connection lost" ? L"与主机的连接中断了。"
-                : L"Xbox 服务结束了串流（" + widen(reason) + L"）。";
+            q.endReason = reason == "connection lost" ? L"The connection to the host was lost."
+                : L"The Xbox service ended the stream (" + widen(reason) + L").";
             log::warn("xbox-disconnect", std::format("reason={} reconnectable={}", reason, xbox::reconnectableDisconnect(reason)));
             q.ended = true;
         };
@@ -349,10 +354,10 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
         if (!p.rtc.start(signaling, &error)) {
             // SDP/service failures happen before an ICE/UDP connection is attempted.
             // Keep the actual stage instead of diagnosing every failure as a firewall.
-            fail(L"Xbox 连接失败：" + widen(error));
+            fail(L"Xbox connection failed: " + widen(error));
             return;
         }
-        if (!p.rtc.waitReady(std::chrono::seconds(10))) { fail(L"主机连上了，但没有完成握手。请重试。"); return; }
+        if (!p.rtc.waitReady(std::chrono::seconds(10))) { fail(L"Connected to the host, but the handshake did not complete. Try again."); return; }
 
         // Decode and keepalive.
         p.stopDecode = false;
@@ -371,7 +376,7 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
                     if (e.status == 404) {
                         std::lock_guard lock(q.endMutex);
                         if(!q.ended.load()){
-                            q.endReason = L"串流会话已在服务器端结束。";
+                            q.endReason = L"The streaming session was ended on the server side.";
                             q.disconnectReason = "session expired"; q.ended = true;
                         }
                     }
@@ -429,20 +434,20 @@ void XboxSessionSource::run(XboxConnectDesc desc) {
         log::error("xbox", std::format("service error {} {}", e.status, e.what()));
         std::wstring message = xbox::describeXboxError(e.body);
         if (message.empty()) {
-            if (e.status == 401 || e.status == 403 || std::string(e.what()) == "sign-in expired") message = L"Xbox 登录已失效，请重新登录。";
-            else message = std::format(L"Xbox 服务返回错误（HTTP {}）。", e.status);
+            if (e.status == 401 || e.status == 403 || std::string(e.what()) == "sign-in expired") message = L"Xbox sign-in has expired; sign in again.";
+            else message = std::format(L"The Xbox service returned an error (HTTP {}).", e.status);
         }
         if (!initialized_) fail(std::move(message));
         else setState(XboxStats::State::Failed, std::move(message));
     } catch (const xbox::NetworkError& e) {
         log::error("xbox", std::string("network: ") + e.what());
-        std::wstring message = cancel_ ? L"已取消。" : L"连不上 Xbox 服务，请检查网络。（" + widen(e.what()) + L"）";
+        std::wstring message = cancel_ ? L"Cancelled." : L"Cannot reach Xbox services; check the network. (" + widen(e.what()) + L")";
         if (!initialized_) fail(std::move(message));
         else setState(XboxStats::State::Failed, std::move(message));
     } catch (const std::exception& e) {
         log::error("xbox", std::string("session failed: ") + e.what());
-        if (!initialized_) fail(L"Xbox 串流出错：" + widen(e.what()));
-        else setState(XboxStats::State::Failed, L"Xbox 串流出错：" + widen(e.what()));
+        if (!initialized_) fail(L"Xbox streaming error: " + widen(e.what()));
+        else setState(XboxStats::State::Failed, L"Xbox streaming error: " + widen(e.what()));
     }
 }
 
@@ -489,7 +494,7 @@ void XboxSessionSource::decodeLoop() {
                                 forceSoftware ? nullptr : p.desc.decodeDevice.get(),
                                 forceSoftware ? nullptr : p.desc.decodeQueue.get())) {
                 log::error("xbox", "no usable H.264 decoder");
-                setState(XboxStats::State::Failed, L"没有可用的 H.264 解码器。");
+                setState(XboxStats::State::Failed, L"No H.264 decoder available.");
                 p.ended = true;
                 break;
             }
@@ -532,7 +537,7 @@ void XboxSessionSource::decodeLoop() {
                 log::warn("xbox-decode-recovery", std::format("action={} backend={} errors={} detail={}",
                     name, p.decoder.backendName(), p.errors.load(), error));
                 if (action == xbox::VideoDecodeRecoveryAction::Stop) {
-                    setState(XboxStats::State::Failed, L"Xbox 视频解码连续失败，恢复后仍无法出画。请重连，并保留日志。");
+                    setState(XboxStats::State::Failed, L"Xbox video decoding failed repeatedly and could not recover a picture. Reconnect and keep the logs.");
                     p.ended = true;
                     break;
                 }
@@ -662,7 +667,7 @@ void XboxSessionSource::videoPresented(double ptsMs, int64_t host, bool sourceFr
     audio_.videoPresented(ptsMs, host, arrival);
 }
 
-void XboxSessionSource::controller(const remoteplay::ControllerState& state) {
+void XboxSessionSource::controller(const input::ControllerState& state) {
     if (!p_) return;
     auto& p = *p_;
     const xbox::GamepadFrame frame = xbox::gamepadFromController(state);
@@ -676,8 +681,8 @@ void XboxSessionSource::controller(const remoteplay::ControllerState& state) {
     p.padSent = true;
 }
 
-remoteplay::ControllerFeedback XboxSessionSource::takeFeedback() {
-    remoteplay::ControllerFeedback out;
+input::ControllerFeedback XboxSessionSource::takeFeedback() {
+    input::ControllerFeedback out;
     if (!p_) return out;
     auto& p = *p_;
     std::lock_guard lock(p.feedbackMutex);

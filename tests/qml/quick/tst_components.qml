@@ -56,8 +56,8 @@ Item {
     VAccordion {
         id: acc
         x: 300; y: 10; width: 320
-        title: "超分辨率"
-        summary: "测试"
+        title: "Beyond native"
+        summary: "Test"
         glyph: "sparkles"
         enabledSwitch: false
         Rectangle { implicitWidth: 100; implicitHeight: 120; color: "red" }
@@ -66,14 +66,14 @@ Item {
     Item { id: anchorItem; x: 300; y: 400; width: 120; height: 30 }
     VMenu {
         id: menu
-        title: "测试"
-        items: [{ label: "甲", checked: true }, { sep: true }, { label: "乙" }, { label: "丙", disabled: true }]
+        title: "Test"
+        items: [{ label: "Alpha", checked: true }, { sep: true }, { label: "Beta" }, { label: "Gamma", disabled: true }]
     }
     VMenu {
         id: dynamicMenu
-        title: "动态菜单"
+        title: "Dynamic menu"
         aboveLimit: 360
-        items: [{ label: "甲" }]
+        items: [{ label: "Alpha" }]
     }
     SignalSpy { id: menuSpy; target: menu; signalName: "picked" }
 
@@ -151,7 +151,7 @@ Item {
                         property bool sliderValueFromModel: true
                         required property int index
                         objectName:"test-wheel-"+index;width:150
-                        title:["阴影","中间调","高光","全局"][index]
+                        title:["Shadows","Midtones","Highlights","Global"][index]
                         onEdited:(h,s,l)=>{hue=h;saturation=s;luminance=l;++fixture.edits}
                     }
                 }
@@ -220,9 +220,9 @@ Item {
 
         function test_accordion_header_action_keeps_open_state() {
             const f=createTemporaryQmlObject(`import QtQuick; import Veyra; VAccordion {
-                id:fixture;x:700;y:10;width:330;open:true;enabledSwitch:false;title:"颜色";
+                id:fixture;x:700;y:10;width:330;open:true;enabledSwitch:false;title:"Colour";
                 property int resets:0;
-                headerActions: [VButton {objectName:"test-header-reset";text:"还原";implicitWidth:40;implicitHeight:24;onClicked:fixture.resets++}]
+                headerActions: [VButton {objectName:"test-header-reset";text:"Reset";implicitWidth:40;implicitHeight:24;onClicked:fixture.resets++}]
                 Rectangle {implicitHeight:80;implicitWidth:100}
             }`,root)
             verify(f!==null);verify(waitForPolish(root.Window.window))
@@ -234,7 +234,7 @@ Item {
 
         function test_colour_header_leading_action() {
             const f=createTemporaryQmlObject(`import QtQuick; import Veyra; VAccordion {
-                id:fixture;x:700;y:10;width:330;open:true;enabledSwitch:false;title:"颜色";
+                id:fixture;x:700;y:10;width:330;open:true;enabledSwitch:false;title:"Colour";
                 compactHeader:true;property int resets:0;
                 headerLeadingActions: [VButton {objectName:"test-header-eye";icon:true;iconName:fixture.bypassed?"eyeoff":"eye";ghost:true;implicitWidth:24;implicitHeight:24;onClicked:fixture.bypassed=!fixture.bypassed}]
                 headerActions: [VButton {objectName:"test-header-reset";icon:true;iconName:"reset";ghost:true;implicitWidth:26;implicitHeight:26;onClicked:fixture.resets++}]
@@ -403,7 +403,7 @@ Item {
             // Opens above the anchor, from its centre.
             verify(menu.y + menu.height <= anchorItem.y)
             compare(menu.checks[0], true)
-            // Pick 乙 (index 2): the tick moves at once, the signal comes 130 ms later.
+            // Pick the second item: the tick moves at once, the signal comes 130 ms later.
             const rows = findRows(menu.contentItem)
             compare(rows.length, 3)
             mouseClick(rows[1])
@@ -425,9 +425,9 @@ Item {
             dynamicMenu.openAt(anchorItem, "up")
             tryCompare(dynamicMenu, "opened", true)
             const initialHeight = dynamicMenu.height
-            dynamicMenu.items = [{ label: "甲", note: "第一项" },
-                                 { label: "乙", note: "第二项" },
-                                 { label: "丙", note: "第三项" }]
+            dynamicMenu.items = [{ label: "Alpha", note: "First item" },
+                                 { label: "Beta", note: "Second item" },
+                                 { label: "Gamma", note: "Third item" }]
             tryVerify(() => dynamicMenu.height > initialHeight)
             tryVerify(() => dynamicMenu.y + dynamicMenu.height <= dynamicMenu.aboveLimit)
             dynamicMenu.close()
@@ -464,13 +464,13 @@ Item {
             const optionIndices=[0,1,4,5]
             for(let i=0;i<4;++i) {
                 const card=findChild(fixture,"nr-card-"+(i+1))
-                // 2026-09-29 P5: the layer cards sit inside the NR stage card, titled "NR 层 N".
-                verify(card.title.includes("NR 层 "+(i+1)))
+                // 2026-09-29 P5: the layer cards sit inside the NR stage card, titled "NR layer N".
+                verify(card.title.includes("NR layer "+(i+1)))
                 compare(card.layerData.sizePolicy,0)
                 mouseClick(card,40,24)
                 tryCompare(card,"open",true)
                 const resolution=findChild(card,"nr-resolution")
-                compare(resolution.options.slice(0,6).map(o=>o.label).join(","),"480p,720p,900p,1080p · 默认,1440p,原生")
+                compare(resolution.options.slice(0,6).map(o=>o.label).join(","),"480p,720p,900p,1080p · default,1440p,Native")
                 compare(resolution.options.length,8)
                 compare(resolution.options[6].id,"6")
                 compare(resolution.options[6].disabled,true)
@@ -699,7 +699,7 @@ Item {
             const f=createTemporaryObject(colourFixture,root)
             verify(f!==null);verify(waitForPolish(root.Window.window))
             const mixer=findChild(f,"test-mixer")
-            compare(findChild(mixer,"colour-mixer-mode-row").label,"模式")
+            compare(findChild(mixer,"colour-mixer-mode-row").label,"Mode")
             const hueRow=findChild(mixer,"colour-mixer-row-mixerHue")
             const satRow=findChild(mixer,"colour-mixer-row-mixerSaturation")
             compare(satRow.y-hueRow.y,38)

@@ -1,5 +1,5 @@
 // The number beside a slider. A click turns it into a text field in place
-// (field request 2026-10-05: "所有的调整参数的滑条，要可以点击数字直接输入"):
+// (field request 2026-10-05: "every adjustable parameter slider should be clickable to edit the number directly"):
 // Enter or leaving the field applies the typed value through the slider, so the
 // range clamp, inputScale and the owner's onMoved are the slider's own; Esc cancels.
 import QtQuick

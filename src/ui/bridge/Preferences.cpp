@@ -27,10 +27,10 @@ void QmlPlayerBridge::setDefaultPage(const QString& value) {
 }
 QString QmlPlayerBridge::defaultPageLabel() const {
     const QString page = defaultPage();
-    if (page == QLatin1String("min")) return tr("极简模式");
-    if (page == QLatin1String("pro")) return tr("专业模式");
-    if (page == QLatin1String("last")) return tr("上次");
-    return tr("首页");
+    if (page == QLatin1String("min")) return tr("Minimal mode");
+    if (page == QLatin1String("pro")) return tr("Pro mode");
+    if (page == QLatin1String("last")) return tr("Last");
+    return tr("Home");
 }
 
 QString QmlPlayerBridge::initialPage() const {
@@ -56,12 +56,6 @@ void QmlPlayerBridge::setCurrentPage(const QString& value) {
         impl_->prefs["lastPage"] = value == QLatin1String("node") ? QStringLiteral("pro") : value;
         impl_->savePrefs();
     }
-}
-
-QString QmlPlayerBridge::remotePlayState() const {
-    // The engine's own remote-play state word, or empty when there is none. No
-    // invented "connected" wording.
-    return uiText(impl_->snapshot.remoteRecoveryMessage);
 }
 
 QVariantList QmlPlayerBridge::componentList() const {
@@ -126,15 +120,15 @@ QVariantList QmlPlayerBridge::readComponentList() const {
 }
 
 void QmlPlayerBridge::openProjectPage() {
-    // 关于 → 交流群: the group QR codes are kept current in the project README.
+    // About -> Community group: the group QR codes are kept current in the project README.
     if (!QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/Likely7/Veyra-NRVideo#readme"))))
-        emit notice(tr("无法打开浏览器"), true);
+        emit notice(tr("Could not open the browser"), true);
 }
 
 void QmlPlayerBridge::copyDiagnostics() {
     if (auto* clipboard = QGuiApplication::clipboard()) {
         clipboard->setText(diagnosticsReport());
-        emit notice(tr("诊断信息已复制"), false);
+        emit notice(tr("Diagnostics copied"), false);
     }
 }
 
@@ -143,12 +137,12 @@ void QmlPlayerBridge::copyDiagnostics() {
 QVariantMap QmlPlayerBridge::preferences() const { return impl_->prefs; }
 QString QmlPlayerBridge::gpuPriorityStatus() const {
     const auto status=gfx::gpuPriorityStatus();
-    const auto name=[](int priority){return priority==5?tr("实时"):priority==4?tr("高"):tr("普通");};
-    if(status.state==gfx::GpuPriorityState::Pending)return tr("创建显卡会话后生效");
-    if(status.state==gfx::GpuPriorityState::Unavailable)return tr("系统不支持调整 GPU 优先级");
-    if(status.state==gfx::GpuPriorityState::Rejected)return tr("系统未接受设置，当前：%1").arg(status.actual<0?tr("未知"):name(status.actual));
-    if(status.capped)return tr("已生效：%1（抖音直播伴侣运行中，暂不使用实时）").arg(name(status.actual));
-    return tr("已生效：%1").arg(name(status.actual));
+    const auto name=[](int priority){return priority==5?tr("Realtime"):priority==4?tr("High"):tr("Normal");};
+    if(status.state==gfx::GpuPriorityState::Pending)return tr("Applies when a GPU session is created");
+    if(status.state==gfx::GpuPriorityState::Unavailable)return tr("GPU priority adjustment is unavailable");
+    if(status.state==gfx::GpuPriorityState::Rejected)return tr("Setting was not accepted; current: %1").arg(status.actual<0?tr("Unknown"):name(status.actual));
+    if(status.capped)return tr("Active: %1 (Douyin Live Companion is running, so Realtime is not used for now)").arg(name(status.actual));
+    return tr("Active: %1").arg(name(status.actual));
 }
 bool QmlPlayerBridge::enhancementPrewarmAvailable() const {
     // PreviewGpuSession::prepare refuses RTX 30/40 (patched FG sessions keep the
@@ -167,7 +161,7 @@ void QmlPlayerBridge::scheduleEnhancementPrewarm(){
     });
 }
 void QmlPlayerBridge::rememberWindowSize(int width, int height) {
-    // Only kept when the user chose "记住上次"; the key is internal.
+    // Only kept when the user chose "Remember last"; the key is internal.
     if (width < 400 || height < 200 || width > 16384 || height > 16384) return;
     const QString v = QStringLiteral("%1x%2").arg(width).arg(height);
     if (impl_->prefs.value(QStringLiteral("lastWindow")).toString() == v) return;
@@ -186,13 +180,13 @@ QRect QmlPlayerBridge::launchScreenAvailable() const {
 
 bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     if(key==QLatin1String("blackmagicNativeCapture")){
-        if(captureQueryBusy()){emit notice(tr("请等待采集设备查询完成后再切换接口"),true);return false;}
+        if(captureQueryBusy()){emit notice(tr("Wait for device discovery to finish before switching interfaces."),true);return false;}
         if(captureBlackmagicDevice())impl_->prefs[source::decklink::isPath(impl_->captureDevice)?"blackmagicNativeLastDevice":"blackmagicDirectShowLastDevice"]=utf8Of(impl_->captureDevice);
     }
     static const QHash<QString, std::pair<int, int>> ranges{
         {"subtitleSize", {16, 56}}, {"subtitleFont", {0, 5}}, {"subtitleOutline", {0, 3}},
         {"subtitleMargin", {0, 240}}, {"subtitleLines", {0, 8}},
-        // 列表模式 parameter panel width (ProPage splitter); QML clamps it to the window.
+        // List mode parameter panel width (ProPage splitter); QML clamps it to the window.
         {"listInspectorWidth", {376, 4000}},
         // Network sources (#48): seconds to collect before the first picture; -1 follows the buffer level.
         {"networkPrebuffer", {-1, 60}},
@@ -209,7 +203,7 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     static const QStringList flags{"recordHevc", "recordAudio", "recordMic", "recordMicTrack", "replayEnabled", "subtitleEnabled", "subtitleBackground", "subtitleFit",
                                    "subtitleSecondLanguage", "audioForceStereo", "captureAudioMonitor", "holdCompare",
                                    "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
-                                   // 设置 → 外观 → 启动动画 / 启动音乐 / 剔除遮罩（2.1.9）
+                                    // Settings -> Appearance -> startup animation / startup music / cull mask (2.1.9)
                                    "introAnimation", "introMusic", "exclusionOverlay"};
     QVariant stored;
     if (ranges.contains(key)) {
@@ -225,11 +219,11 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         stored = view;
     } else if (key == QLatin1String("screenshotDir")) {
         const QString dir = value.toString();
-        if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("截图目录不存在：%1").arg(dir), true); return false; }
+        if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("Screenshot folder does not exist: %1").arg(dir), true); return false; }
         stored = dir;
     } else if (key == QLatin1String("recordDir")) {
         const QString dir = value.toString();
-        if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("录制目录不存在：%1").arg(dir), true); return false; }
+        if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("The recording folder does not exist: %1").arg(dir), true); return false; }
         stored = dir;
     } else if (key == QLatin1String("audioDevice")) {
         stored = value.toString();
@@ -239,12 +233,12 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         if (id.size() > 512) return false;
         stored = id;
     } else if (key == QLatin1String("sliderKeyStep")) {
-        // Arrow-key step of a focused slider (设置 → 通用): 1, 0.1 or 0.01.
+        // Arrow-key step of a focused slider (Settings -> General): 1, 0.1 or 0.01.
         bool ok = false; const double v = value.toDouble(&ok);
         if (!ok || !(qFuzzyCompare(v, 1.0) || qFuzzyCompare(v, 0.1) || qFuzzyCompare(v, 0.01))) return false;
         stored = v;
     } else if (key == QLatin1String("palette")) {
-        // 设置 → 外观 → 界面配色 (Theme.qml): 日落 or the original 经典 palette.
+        // Settings -> Appearance -> interface colour (Theme.qml): dusk or the original classic palette.
         const QString v = value.toString();
         if (v != QLatin1String("dusk") && v != QLatin1String("classic")) return false;
         stored = v;
@@ -261,12 +255,12 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         if (!ok || (n != 0 && n != 100 && n != 125 && n != 150)) return false;
         stored = n;
     } else if (key == QLatin1String("overlayCompat")) {
-        // 设置 → 监控软件兼容; read by main.cpp before Qt starts.
+        // Settings -> monitoring software compatibility; read by main.cpp before Qt starts.
         const QString v = value.toString();
         if (v != QLatin1String("auto") && v != QLatin1String("off")) return false;
         stored = v;
     } else if (key == QLatin1String("uiRenderer")) {
-        // 设置 → 界面绘制 (veyra/ui/InterfaceRenderer.h); read by main.cpp before Qt starts.
+        // Settings -> interface rendering (veyra/ui/InterfaceRenderer.h); read by main.cpp before Qt starts.
         const QString v = value.toString();
         if (v != QLatin1String("software") && v != QLatin1String("gpu")) return false;
         stored = v;
@@ -317,7 +311,7 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
     impl_->prefs[key] = stored;
     if (!impl_->savePrefs()) {
         impl_->prefs = previous;
-        emit notice(tr("偏好保存失败，已保留原设置"), true);
+        emit notice(tr("Could not save preferences; previous settings kept"), true);
         return false;
     }
     veyra::log::info("ui-prefs", std::format("{}={}", key.toStdString(), stored.toString().toStdString()));
@@ -362,7 +356,7 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
     else if (key == QLatin1String("blackmagicNativeCapture")) { if(impl_->captureListed)refreshCaptureDevices();emit captureChanged(); }
     else if (key == QLatin1String("language")) {
         const QString code = i18n::resolve(impl_->prefString("language"));
-        if (!i18n::apply(code)) emit notice(tr("这个语言的翻译没有找到，界面保持简体中文"), true);
+        if (!i18n::apply(code)) emit notice(tr("No translation found for this language; the interface stays in English"), true);
         if (impl_->qmlEngine) {
             impl_->qmlEngine->setUiLanguage(i18n::current());
             impl_->qmlEngine->retranslate();
@@ -436,7 +430,7 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
                     emitChainChanged(); emit settingsChanged();
                 } else veyra::log::warn("effect-availability", "compute gpu refit not accepted; chain unchanged");
                 if (!disabled.isEmpty()) {
-                    const auto message = tr("已关闭当前硬件或包不支持的效果，参数仍保留：") + disabled.join("; ");
+                    const auto message = tr("Unavailable effects have been disabled; their parameters are preserved: ") + disabled.join("; ");
                     veyra::log::warn("effect-availability", message.toStdString());
                     emit notice(message, false);
                 }
@@ -446,22 +440,22 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
             // there, the plain switch elsewhere (the NVIDIA choice is kept).
             if (engine::syncNvidiaLowLatencyQueue(impl_->presentation, nvidiaLowLatencyAvailable())) applyPresentation();
             if (impl_->snapshot.running)
-                emit notice(impl_->computeLuid ? tr("运算显卡已切换为「%1」，重新打开视频后生效").arg(impl_->computeGpuName)
-                                               : tr("运算显卡已恢复默认（性能最强的显卡），重新打开视频后生效"), false);
+                emit notice(impl_->computeLuid ? tr("Compute GPU switched to \"%1\"; it applies after reopening the video").arg(impl_->computeGpuName)
+                                               : tr("Compute GPU back to the default (the most powerful GPU); it applies after reopening the video"), false);
         }
     }
 }
 QVariantList QmlPlayerBridge::gpuMonitorChoices() const {
     QVariantList out;
-    out << QVariantMap{{"id", QString()}, {"label", tr("自动（独立显卡）")}};
+    out << QVariantMap{{"id", QString()}, {"label", tr("Auto (discrete GPU)")}};
     for (const auto& a : impl_->gpuAdapters) out << QVariantMap{{"id", a.id}, {"label", a.name}};
     return out;
 }
 QString QmlPlayerBridge::gpuMonitorName() const { return impl_->gpuMonitorName; }
 QString QmlPlayerBridge::computeGpuHint() const {
-    if (!impl_->prefBool("computeOnMonitorGpu", false)) return tr("关闭时增强、补帧和导出用性能最强的显卡");
-    if (impl_->computeLuid) return tr("增强、补帧和导出都在「%1」上运行；切换后重新打开视频生效").arg(impl_->computeGpuName);
-    return tr("上面选“自动”时仍用性能最强的显卡；选一块显卡后它也负责运算");
+    if (!impl_->prefBool("computeOnMonitorGpu", false)) return tr("When off, enhancement, frame generation and export use the most powerful GPU");
+    if (impl_->computeLuid) return tr("Enhancement, frame generation and export run on \"%1\"; reopen the video after switching").arg(impl_->computeGpuName);
+    return tr("With \"Auto\" above, the most powerful GPU is still used; pick a GPU above to compute on it too");
 }
 QString QmlPlayerBridge::uiLanguage() const { return i18n::current(); }
 void QmlPlayerBridge::setQmlEngine(QQmlEngine* engine) {
@@ -470,25 +464,25 @@ void QmlPlayerBridge::setQmlEngine(QQmlEngine* engine) {
 }
 QVariantList QmlPlayerBridge::audioDevices() const {
     QVariantList out;
-    out << QVariantMap{{"id", QString()}, {"label", tr("跟随系统默认")}, {"isDefault", false}};
+    out << QVariantMap{{"id", QString()}, {"label", tr("Follow the system default")}, {"isDefault", false}};
     const QString chosen = impl_->prefString("audioDevice");
     bool listed = chosen.isEmpty();
     for (const auto& e : impl_->audioEndpoints) {
         const QString id = QString::fromStdWString(e.id);
         listed = listed || id == chosen;
-        out << QVariantMap{{"id", id}, {"label", QString::fromStdWString(e.name) + (e.isDefault ? tr(" · 当前默认") : QString())},
+        out << QVariantMap{{"id", id}, {"label", QString::fromStdWString(e.name) + (e.isDefault ? tr(" · current default") : QString())},
                            {"isDefault", e.isDefault}};
     }
     // A saved device that is unplugged stays visible, marked, instead of vanishing.
-    if (!listed) out << QVariantMap{{"id", chosen}, {"label", tr("已保存的设备（未连接）")}, {"isDefault", false}, {"missing", true}};
+    if (!listed) out << QVariantMap{{"id", chosen}, {"label", tr("Saved device (not connected)")}, {"isDefault", false}, {"missing", true}};
     return out;
 }
 QString QmlPlayerBridge::audioOutputStatus() const {
     const auto& a = impl_->audioActive;
-    if (!a.valid) return tr("尚未打开音频输出");
-    QString text = QString::fromStdWString(a.name.empty() ? L"(未命名设备)" : a.name) + tr(" · %1 声道").arg(a.channels);
-    if (a.downmix) text += tr(" · 下混");
-    if (a.fallback) text = tr("所选设备不可用，已回落到系统默认：") + text;
+    if (!a.valid) return tr("Audio output not opened yet");
+    QString text = QString::fromStdWString(a.name.empty() ? L"(unnamed device)" : a.name) + tr(" · %1 ch").arg(a.channels);
+    if (a.downmix) text += tr(" · downmix");
+    if (a.fallback) text = tr("The selected device is unavailable; fell back to the system default: ") + text;
     return text;
 }
 bool QmlPlayerBridge::audioOutputFallback() const { return impl_->audioActive.valid && impl_->audioActive.fallback; }
@@ -542,29 +536,29 @@ void QmlPlayerBridge::applyGameHotkeys() {
 bool QmlPlayerBridge::setShortcut(const QString& action, const QString& sequence) {
     if (!shortcutDefaults().contains(action)) return false;
     const QKeySequence seq(sequence, QKeySequence::PortableText);
-    if (seq.isEmpty() || seq.count() != 1) { emit notice(tr("无效的按键"), true); return false; }
+    if (seq.isEmpty() || seq.count() != 1) { emit notice(tr("Invalid key"), true); return false; }
     const QString text = seq.toString(QKeySequence::PortableText);
     if ((action=="gamePanel"||action=="gameExit") && !ui::gameKey(seq).vk) {
-        emit notice(tr("无效的按键"),true); return false;
+        emit notice(tr("Invalid key"),true); return false;
     }
     if ((action=="gamePanel"||action=="gameExit") &&
         (text=="Ctrl+Alt+Del"||text=="Alt+Tab"||text=="Alt+F4"||text=="Ctrl+Shift+Esc"||text=="Alt+Enter")) {
-        emit notice(tr("%1 已被固定功能占用").arg(text),true); return false;
+        emit notice(tr("%1 is reserved for a fixed function").arg(text),true); return false;
     }
     // Keys the shell already owns cannot be taken over.
     static const QStringList reserved{"Esc", "F11", "Left", "Right", "Up", "Down", "Ctrl+O", "Ctrl+E",
                                       "B", "Z", "X", "T", "Y", "Shift+Z", "Shift+X", "Alt+Return"};
-    if (reserved.contains(text)) { emit notice(tr("%1 已被固定功能占用").arg(text), true); return false; }
+    if (reserved.contains(text)) { emit notice(tr("%1 is reserved for a fixed function").arg(text), true); return false; }
     const auto current = shortcuts();
     for (auto it = current.begin(); it != current.end(); ++it)
         if (it.key() != action && it.value().toString() == text) {
-            emit notice(tr("%1 已用于其他操作").arg(text), true); return false;
+            emit notice(tr("%1 is already used for another action").arg(text), true); return false;
         }
     auto custom = impl_->prefs.value("shortcuts").toMap();
     custom[action] = text;
     const auto previous = impl_->prefs;
     impl_->prefs["shortcuts"] = custom;
-    if (!impl_->savePrefs()) { impl_->prefs = previous; emit notice(tr("快捷键保存失败"), true); return false; }
+    if (!impl_->savePrefs()) { impl_->prefs = previous; emit notice(tr("Could not save the shortcut"), true); return false; }
     veyra::log::info("ui-prefs", std::format("shortcut {}={}", action.toStdString(), text.toStdString()));
     applyGameHotkeys();
     emit preferencesChanged();
@@ -584,7 +578,7 @@ bool QmlPlayerBridge::rivaTunerRunning() const { return gfx::rivaTunerRunning();
 bool QmlPlayerBridge::presentationOverlayRunning() const {
     return gfx::rivaTunerRunning() || gfx::nvidiaOverlayRunning() || gfx::gamePPRunning() || gfx::douyinLiveCompanionRunning();
 }
-// The field hangs with 抖音直播伴侣 (2026-10-15) came with this process at Realtime GPU
+// The field hangs with the Douyin live companion (2026-10-15) came with this process at Realtime GPU
 // priority. OBS itself never asks for Realtime when hardware-accelerated GPU scheduling
 // is on (High instead, libobs-d3d11 set_priority); the same class is used here while
 // the companion runs, so neither program can hold the GPU off from the other.
@@ -599,7 +593,7 @@ void QmlPlayerBridge::updateLiveCompanionCompat() {
     veyra::log::warn("overlay-hooks", std::format("Douyin live companion {}: GPU priority cap={} requested={} actual={}",
         running ? "running" : "gone", running ? "high" : "none", int(status.requested), status.actual));
     if (running && status.capped)
-        emit notice(tr("检测到抖音直播伴侣：GPU 优先级暂时从“实时”降为“高”，避免两个程序争用显卡时卡死；直播伴侣退出后自动恢复"), false);
+        emit notice(tr("Douyin Live Companion detected: GPU priority is lowered from Realtime to High for now, so the two programs do not hang while sharing the GPU; it returns when the companion exits"), false);
     emit preferencesChanged();
 }
 
@@ -607,7 +601,7 @@ int QmlPlayerBridge::uiScaleActive() const { return qApp ? qApp->property("veyra
 void QmlPlayerBridge::openFeedbackPage() {
     copyDiagnostics();
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/Likely7/Veyra-NRVideo/issues")));
-    emit notice(tr("诊断信息已复制，可直接粘贴到反馈里"), false);
+    emit notice(tr("Diagnostics copied; paste them straight into your report"), false);
 }
 void QmlPlayerBridge::openReleasesPage() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/Likely7/Veyra-NRVideo/releases")));
@@ -633,7 +627,7 @@ bool QmlPlayerBridge::openSponsorLink(const QString& id) {
             return true;
         }
         if (QDesktopServices::openUrl(QUrl(QString::fromLatin1(url)))) return true;
-        emit notice(tr("无法打开浏览器"), true);
+        emit notice(tr("Could not open the browser"), true);
         return false;
     }
     return false;
@@ -715,21 +709,21 @@ QString QmlPlayerBridge::dataDirectory() const { return QString::fromStdWString(
 // main() records the file it actually opened (it falls back to a per-process name).
 QString QmlPlayerBridge::logFile() const { return qApp ? qApp->property("veyraLogFile").toString() : QString(); }
 void QmlPlayerBridge::chooseScreenshotDirectory() {
-    const QString dir = QFileDialog::getExistingDirectory(nullptr, tr("选择截图目录"), screenshotDirectory());
+    const QString dir = QFileDialog::getExistingDirectory(nullptr, tr("Choose screenshot folder"), screenshotDirectory());
     if (!dir.isEmpty()) setPreference(QStringLiteral("screenshotDir"), dir);
 }
 void QmlPlayerBridge::openScreenshotDirectory() {
     const QString dir = screenshotDirectory();
     QDir().mkpath(dir);
-    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("无法打开目录：%1").arg(dir), true);
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("Could not open the folder: %1").arg(dir), true);
 }
 void QmlPlayerBridge::openLogFolder() {
     const QString file = logFile();
     const QString dir = file.isEmpty() ? QString() : QFileInfo(file).absolutePath();
-    if (dir.isEmpty() || !QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("日志目录不可用"), true);
+    if (dir.isEmpty() || !QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) emit notice(tr("Log folder unavailable"), true);
 }
 void QmlPlayerBridge::openDataFolder() {
-    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dataDirectory()))) emit notice(tr("无法打开数据目录"), true);
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dataDirectory()))) emit notice(tr("Could not open the data folder"), true);
 }
 
 // --- P5 (2026-09-29): headers, colour history, export rows, presets -------
@@ -737,7 +731,6 @@ QString QmlPlayerBridge::sourceKind() const {
     const auto& s = impl_->snapshot;
     if (!hasSource()) return {};
     if (s.image) return QStringLiteral("image");
-    if (s.remotePlay) return QStringLiteral("ps5");
     if (!impl_->liveKind.isEmpty()) return impl_->liveKind;
     if (s.capture) return QStringLiteral("capture");
     return QStringLiteral("file");
@@ -745,16 +738,15 @@ QString QmlPlayerBridge::sourceKind() const {
 QString QmlPlayerBridge::sourceTitle() const {
     const QString kind = sourceKind();
     if (kind.isEmpty()) return {};
-    if(kind==QLatin1String("url"))return tr("网络视频 · %1").arg(impl_->liveLabel);
+    if(kind==QLatin1String("url"))return tr("Network video · %1").arg(impl_->liveLabel);
     if (kind == QLatin1String("file") || kind == QLatin1String("image")) return sourceName();
     if (kind == QLatin1String("capture")) {
         const QString name = impl_->prefString("captureDeviceName");
-        return tr("采集卡 · %1").arg(name.isEmpty() ? impl_->liveLabel : name);
+        return tr("Capture card · %1").arg(name.isEmpty() ? impl_->liveLabel : name);
     }
-    if (kind == QLatin1String("ps5")) return tr("PS5 串流 · %1").arg(impl_->liveLabel);
-    if (kind == QLatin1String("moonlight")) return tr("PC 串流 · %1").arg(impl_->liveLabel);
-    if (kind == QLatin1String("xbox")) return tr("Xbox 串流 · %1").arg(impl_->liveLabel);
-    return tr("屏幕捕获 · %1").arg(impl_->liveLabel);
+    if (kind == QLatin1String("moonlight")) return tr("PC streaming · %1").arg(impl_->liveLabel);
+    if (kind == QLatin1String("xbox")) return tr("Xbox streaming · %1").arg(impl_->liveLabel);
+    return tr("Screen capture · %1").arg(impl_->liveLabel);
 }
 // "1080p60" / "1080p59.94": the reported height and nominal rate only.
 QString QmlPlayerBridge::sourceRateText() const {
@@ -835,11 +827,11 @@ bool QmlPlayerBridge::colourRedo() {
     return false;
 }
 void QmlPlayerBridge::colourCopy() {
-    if (impl_->colourIndex() < 0) { emit notice(tr("处理链中没有调色节点"), true); return; }
+    if (impl_->colourIndex() < 0) { emit notice(tr("The chain has no color node"), true); return; }
     impl_->colourClip = selectedColourSettings();
     veyra::log::info("ui-colour", "copy");
     emit settingsChanged();
-    emit notice(tr("已复制调色参数"), false);
+    emit notice(tr("Color settings copied"), false);
 }
 bool QmlPlayerBridge::colourPaste() {
     if (!impl_->colourClip) return false;
@@ -883,7 +875,7 @@ QVariantList QmlPlayerBridge::exportTracks()const{
     for(const auto& track:item->info.tracks){const auto& selection=track.audio?item->media.audio:item->media.subtitles;
         const bool selected=selection.policy==engine::ExportTrackPolicy::All||selection.contains(track.index);
         result<<QVariantMap{{"index",track.index},{"audio",track.audio},{"selected",selected},{"compatible",track.compatible},
-            {"label",QStringLiteral("%1 · %2 · %3%4").arg(track.index).arg(utf8Of(track.codec)).arg(utf8Of(track.language)).arg(track.channels?tr(" · %1 声道").arg(track.channels):QString())},
+            {"label",QStringLiteral("%1 · %2 · %3%4").arg(track.index).arg(utf8Of(track.codec)).arg(utf8Of(track.language)).arg(track.channels?tr(" · %1 ch").arg(track.channels):QString())},
             {"title",utf8Of(track.title)},{"action",uiText(track.action)}};
     }
     return result;
@@ -894,7 +886,7 @@ void QmlPlayerBridge::setExportTrackPolicy(bool audio,int policy){
     engine::ExportTrackSelection selection;selection.policy=static_cast<engine::ExportTrackPolicy>(policy);
     if(selection.policy==engine::ExportTrackPolicy::Selected){
         for(const auto& track:item->info.tracks)if(track.audio==audio){selection.indices[0]=track.index;selection.count=1;break;}
-        if(!selection.count){emit notice(tr("该文件没有可选轨道"),true);return;}
+        if(!selection.count){emit notice(tr("This file has no selectable tracks"),true);return;}
     }
     if(queue.setTracks(id,audio,selection))impl_->exportQueue.refresh();
 }
@@ -906,7 +898,7 @@ void QmlPlayerBridge::toggleExportTrack(bool audio,int index,bool keep){
         // Leaving "all" keeps what "all" actually carried: tracks it skipped for
         // this container stay out instead of turning into a hard failure.
         const bool selected=track.index==index?keep:previous.policy==engine::ExportTrackPolicy::All?track.compatible:previous.contains(track.index);
-        if(selected){if(selection.count>=selection.indices.size()){emit notice(tr("手动选择最多 64 条；保留全部不限制轨道数量"),true);return;}selection.indices[selection.count++]=track.index;}
+        if(selected){if(selection.count>=selection.indices.size()){emit notice(tr("Up to 64 when choosing by hand; Keep all has no track limit"),true);return;}selection.indices[selection.count++]=track.index;}
     }
     if(!selection.count)selection.policy=engine::ExportTrackPolicy::None;
     if(queue.setTracks(id,audio,selection))impl_->exportQueue.refresh();
@@ -921,7 +913,7 @@ void QmlPlayerBridge::previewExportItem(qulonglong id){
 bool QmlPlayerBridge::exportCompletionSound()const{return impl_->prefs.value(QStringLiteral("exportCompletionSound"),true).toBool();}
 void QmlPlayerBridge::setExportCompletionSound(bool enabled){
     const auto previous=impl_->prefs;impl_->prefs[QStringLiteral("exportCompletionSound")]=enabled;
-    if(!impl_->savePrefs()){impl_->prefs=previous;emit notice(tr("提示音设置保存失败"),true);}
+    if(!impl_->savePrefs()){impl_->prefs=previous;emit notice(tr("Could not save the sound setting"),true);}
     emit exportChanged();
 }
 void QmlPlayerBridge::clearFinishedExportItems() {
@@ -964,15 +956,15 @@ QString QmlPlayerBridge::captureSignalLevel() const {
 }
 QString QmlPlayerBridge::captureSignalText() const {
     const auto& s = impl_->snapshot;
-    if (captureSignalLevel() == QLatin1String("idle")) return tr("未连接");
-    if (s.captureRecovering) return tr("正在恢复");
-    if (s.captureFps > 0.5 && s.captureSampledBlack) return tr("收到黑帧 · 检查输入制式");
-    return s.captureFps > 0.5 ? tr("正在收帧") : tr("等待信号");
+    if (captureSignalLevel() == QLatin1String("idle")) return tr("Not connected");
+    if (s.captureRecovering) return tr("Recovering");
+    if (s.captureFps > 0.5 && s.captureSampledBlack) return tr("Black frames received · Check the input mode");
+    return s.captureFps > 0.5 ? tr("Receiving frames") : tr("Waiting for signal");
 }
 
 void QmlPlayerBridge::importPresetDialog() {
-    const QString path = QFileDialog::getOpenFileName(nullptr, tr("导入预设"), QString(),
-                                                      tr("Veyra 预设 (*.vpreset);;所有文件 (*)"));
+    const QString path = QFileDialog::getOpenFileName(nullptr, tr("Import preset"), QString(),
+                                                      tr("Veyra preset (*.vpreset);;All files (*)"));
     if (!path.isEmpty()) importPreset(path);
 }
 bool QmlPlayerBridge::importPreset(const QString& path) {
@@ -980,17 +972,17 @@ bool QmlPlayerBridge::importPreset(const QString& path) {
     auto& library = impl_->facade.presets();
     const bool ok = library.importFile(std::filesystem::path(wideOf(path)), name);
     veyra::log::info("ui-preset", std::format("import ok={} name={}", ok, utf8Of(name).toStdString()));
-    if (!ok) { emit notice(tr("导入失败：%1").arg(uiText(library.error())), true); return false; }
+    if (!ok) { emit notice(tr("Import failed: %1").arg(uiText(library.error())), true); return false; }
     emit presetsChanged();
-    emit notice(tr("已导入预设：%1").arg(utf8Of(name)), false);
+    emit notice(tr("Preset imported: %1").arg(utf8Of(name)), false);
     return true;
 }
 void QmlPlayerBridge::exportPresetDialog(int index) {
     const auto& entries = impl_->facade.presets().entries();
     if (index < 0 || size_t(index) >= entries.size()) return;
-    const QString path = QFileDialog::getSaveFileName(nullptr, tr("导出预设"),
+    const QString path = QFileDialog::getSaveFileName(nullptr, tr("Export preset"),
                                                       utf8Of(entries[size_t(index)].name) + QStringLiteral(".vpreset"),
-                                                      tr("Veyra 预设 (*.vpreset)"));
+                                                      tr("Veyra preset (*.vpreset)"));
     if (!path.isEmpty()) exportPreset(index, path);
 }
 bool QmlPlayerBridge::exportPreset(int index, const QString& path) {
@@ -998,8 +990,8 @@ bool QmlPlayerBridge::exportPreset(int index, const QString& path) {
     if (index < 0 || size_t(index) >= library.entries().size()) return false;
     const bool ok = library.exportEntry(size_t(index), std::filesystem::path(wideOf(path)));
     veyra::log::info("ui-preset", std::format("export index={} ok={}", index, ok));
-    if (!ok) { emit notice(tr("导出失败：%1").arg(uiText(library.error())), true); return false; }
-    emit notice(tr("预设已导出到：%1").arg(QDir::toNativeSeparators(path)), false);
+    if (!ok) { emit notice(tr("Export failed: %1").arg(uiText(library.error())), true); return false; }
+    emit notice(tr("Preset exported to: %1").arg(QDir::toNativeSeparators(path)), false);
     return true;
 }
 
@@ -1008,10 +1000,8 @@ QString QmlPlayerBridge::liveOpeningText() const {
     const auto& s = impl_->snapshot;
     if (s.running || s.failed || s.transport != engine::TransportState::Opening) return {};
     const QString status = veyra::ui::i18n::text(s.status);
-    if (s.remotePlay)
-        return status.contains(QStringLiteral("PIN")) ? status : tr("正在连接 PS5 · %1").arg(impl_->liveLabel);
-    if (impl_->liveKind == QLatin1String("screen")) return tr("正在开始屏幕捕获…");
-    if (s.capture) return tr("正在打开采集设备…");
+    if (impl_->liveKind == QLatin1String("screen")) return tr("Starting screen capture…");
+    if (s.capture) return tr("Opening the capture device…");
     return {};
 }
 

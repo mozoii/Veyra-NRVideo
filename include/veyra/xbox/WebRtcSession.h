@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "veyra/xbox/Protocol.h"
+#include "veyra/xbox/ResolutionMode.h"
 #include "veyra/xbox/StreamApi.h"
 
 namespace rtc {
@@ -59,6 +60,8 @@ public:
     WebRtcSession& operator=(const WebRtcSession&) = delete;
 
     void setCallbacks(WebRtcCallbacks callbacks) { callbacks_ = std::move(callbacks); }
+    // The tier this session advertises (capabilities, dimensions, preferences). Defaults to Auto.
+    void setResolutionProfile(ResolutionMode mode) { profile_ = resolutionDesc(mode); }
     // Tests: gather candidates on this address only (e.g. "127.0.0.1"). Empty: every interface.
     void setBindAddress(std::string address) { bindAddress_ = std::move(address); }
 
@@ -105,6 +108,7 @@ private:
     std::chrono::steady_clock::time_point origin_ = std::chrono::steady_clock::now();
     std::string failure_;
     std::string bindAddress_;
+    ResolutionDesc profile_ = resolutionDesc(ResolutionMode::Auto);
 };
 
 } // namespace veyra::xbox

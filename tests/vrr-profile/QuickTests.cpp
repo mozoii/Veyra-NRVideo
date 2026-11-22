@@ -9,7 +9,7 @@ class Setup final : public QObject {
 public slots:
     void qmlEngineAvailable(QQmlEngine* engine) {
         engine->addImportPath(QStringLiteral(VEYRA_VRR_SOURCE_ROOT "/qml"));
-        const auto language = qEnvironmentVariable("VEYRA_TEST_UI_LANGUAGE", "zh-CN");
+        const auto language = qEnvironmentVariable("VEYRA_TEST_UI_LANGUAGE", "en");
         if (!veyra::ui::i18n::apply(language)) qFatal("Could not load the test UI language");
         engine->setUiLanguage(language);
     }

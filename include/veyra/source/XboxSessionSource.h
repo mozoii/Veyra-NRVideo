@@ -14,9 +14,10 @@
 #include <string>
 #include <thread>
 
-#include "veyra/remoteplay/Types.h"
+#include "veyra/input/ControllerTypes.h"
 #include "veyra/sink/CaptureAudioSession.h"
 #include "veyra/source/IFrameSource.h"
+#include "veyra/xbox/ResolutionMode.h"
 
 struct AVFrame;
 struct ID3D12Device;
@@ -32,7 +33,8 @@ struct XboxConnectDesc {
     std::string consoleName;         // for messages
     bool gamepad = true;             // forward the PC's controller
     bool softwareDecode = false;    // opt-in workaround for silent hardware decode corruption
-    std::string locale = "zh-CN";
+    std::string locale = "en-US";
+    xbox::ResolutionMode resolutionMode = xbox::ResolutionMode::Auto;
     std::shared_ptr<ID3D12Device> decodeDevice;
     std::shared_ptr<ID3D12CommandQueue> decodeQueue;
     const std::atomic<bool>* stopRequested = nullptr; // engine owner outlives the source
@@ -79,8 +81,8 @@ public:
     void videoReset(bool resetAudio = true) { audio_.videoReset(resetAudio); }
 
     // Controller 0; sent when it changes and at least every 33 ms (the console expects a heartbeat).
-    void controller(const remoteplay::ControllerState& state);
-    remoteplay::ControllerFeedback takeFeedback();
+    void controller(const input::ControllerState& state);
+    input::ControllerFeedback takeFeedback();
 
 private:
     struct Impl;

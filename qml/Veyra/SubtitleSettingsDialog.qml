@@ -8,12 +8,12 @@ DialogLayer {
     objectName: "subtitle-dialog"
     key: "subtitle"
     glyph: "type"
-    title: qsTr("字幕设置")
-    sub: qsTr("实时预览，设置对所有文件生效")
+    title: qsTr("Subtitle settings")
+    sub: qsTr("Live preview; settings apply to every file")
     dialogWidth: 620
-    actions: [{ label: qsTr("恢复默认") }, { label: qsTr("完成"), primary: true }]
+    actions: [{ label: qsTr("Reset to default") }, { label: qsTr("Done"), primary: true }]
     onActionTriggered: label => {
-        if (label !== qsTr("恢复默认")) { dialogHost.close(); return }
+        if (label !== qsTr("Reset to default")) { dialogHost.close(); return }
         // The look only: tracks and the timing offset belong to the file.
         const defaults = { subtitleEnabled: true, subtitleSize: 22, subtitleFont: 0, subtitleOutline: 2,
                            subtitleBackground: false, subtitleMargin: 0, subtitleFit: false, subtitleLines: 2 }
@@ -23,18 +23,18 @@ DialogLayer {
 
     readonly property var prefs: veyra.preferences
     function pref(key, fallback) { return prefs[key] !== undefined ? prefs[key] : fallback }
-    readonly property var trackOptions: [{ id: "-1", label: qsTr("关闭", "off") }]
+    readonly property var trackOptions: [{ id: "-1", label: qsTr("Off", "off") }]
         .concat(veyra.subtitleTracks.map(t => ({ id: String(t.index), label: t.label + " · " + t.note, disabled: !t.usable })))
     function trackLabel(index) {
         const t = veyra.subtitleTracks.find(x => x.index === index)
-        return t ? t.label : qsTr("关闭", "off")
+        return t ? t.label : qsTr("Off", "off")
     }
     VRow {
         visible: (veyra.liveTranslation || null) !== null
-        label: qsTr("实时翻译")
+        label: qsTr("Live translation")
         VButton {
             objectName: "subtitle-live-translation"
-            text: qsTr("实时翻译设置…")
+            text: qsTr("Live translation settings…")
             onClicked: dialogHost.open("translation")
         }
     }
@@ -74,7 +74,7 @@ DialogLayer {
             spacing: 2
             Repeater {
                 model: veyra.subtitleText.length > 0 ? veyra.subtitleText.split("\n").slice(0, 2)
-                                                     : [qsTr("这是字幕预览，"), qsTr("改动会实时显示在这里。")]
+                                                     : [qsTr("This is a subtitle preview."), qsTr("Changes show here live.")]
                 delegate: Rectangle {
                     required property string modelData
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -99,11 +99,11 @@ DialogLayer {
         }
     }
 
-    DialogSection { text: qsTr("字幕轨") }
+    DialogSection { text: qsTr("Subtitle tracks") }
     DialogGroup {
         VRow {
-            label: qsTr("主字幕")
-            hint: veyra.subtitleTracks.length === 0 ? (veyra.subtitleStatus.length > 0 ? veyra.subtitleStatus : (veyra.hasSource ? qsTr("当前片源没有字幕") : qsTr("打开视频后显示可用字幕"))) : ""
+            label: qsTr("Main subtitles")
+            hint: veyra.subtitleTracks.length === 0 ? (veyra.subtitleStatus.length > 0 ? veyra.subtitleStatus : (veyra.hasSource ? qsTr("This source has no subtitles") : qsTr("Available subtitles appear once a video is open"))) : ""
             VSelect {
                 objectName: "subtitle-primary"
                 implicitWidth: 220
@@ -113,8 +113,8 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("副字幕（双语）")
-            hint: qsTr("显示在主字幕上方")
+            label: qsTr("Secondary subtitles (bilingual)")
+            hint: qsTr("Shown above the main subtitles")
             VSelect {
                 objectName: "subtitle-secondary"
                 implicitWidth: 220
@@ -124,24 +124,24 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("外挂字幕")
-            hint: qsTr("文本字幕 · PGS/SUP · VobSub（IDX+SUB）")
-            VButton { objectName: "subtitle-load"; text: qsTr("加载文件…"); onClicked: veyra.loadSubtitleDialog() }
+            label: qsTr("External subtitles")
+            hint: qsTr("Text · PGS/SUP · VobSub (IDX+SUB)")
+            VButton { objectName: "subtitle-load"; text: qsTr("Load file…"); onClicked: veyra.loadSubtitleDialog() }
         }
         VRow {
-            label: qsTr("默认显示副字幕")
-            hint: qsTr("打开新文件时自动选第二条可用字幕")
+            label: qsTr("Show secondary subtitles by default")
+            hint: qsTr("Pick the second available subtitle track automatically when opening a new file")
             VSwitch {
                 checked: subtitleDialog.pref("subtitleSecondLanguage", false)
                 onToggled: checked => veyra.setPreference("subtitleSecondLanguage", checked)
             }
         }
     }
-    DialogSection { text: qsTr("时间") }
+    DialogSection { text: qsTr("Time") }
     DialogGroup {
         VRow {
-            label: qsTr("主字幕延时")
-            hint: qsTr("Z / X 微调 50 ms，Shift 为 1 s；正值 = 字幕推后")
+            label: qsTr("Main subtitle delay")
+            hint: qsTr("Z / X nudge by 50 ms, with Shift 1 s; positive = subtitles later")
             // .stepper: − value +, 50 ms a step; the value can be typed.
             RowLayout {
                 objectName: "subtitle-delay-stepper"
@@ -157,20 +157,20 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("按音轨自动对齐")
-            hint: veyra.subtitleStatus.length > 0 ? veyra.subtitleStatus : qsTr("分析前 30 分钟的人声与字幕时间")
+            label: qsTr("Auto-align by audio track")
+            hint: veyra.subtitleStatus.length > 0 ? veyra.subtitleStatus : qsTr("Analyzes speech and subtitle timing in the first 30 minutes")
             VButton {
-                text: veyra.subtitleAligning ? qsTr("分析中…") : qsTr("自动对齐")
+                text: veyra.subtitleAligning ? qsTr("Analyzing…") : qsTr("Auto-align")
                 enabled: !veyra.subtitleAligning && veyra.subtitlePrimary >= 0
                 onClicked: veyra.autoAlignSubtitle()
             }
         }
     }
-    DialogSection { text: qsTr("样式") }
+    DialogSection { text: qsTr("Style") }
     DialogGroup {
         VRow {
-            label: qsTr("显示字幕")
-            hint: qsTr("快捷键 B")
+            label: qsTr("Show subtitles")
+            hint: qsTr("Shortcut B")
             VSwitch {
                 objectName: "subtitle-enabled"
                 checked: subtitleDialog.pref("subtitleEnabled", true)
@@ -178,7 +178,7 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("字号")
+            label: qsTr("Font size")
             value: subtitleDialog.pref("subtitleSize", 22) + " px"
             VSlider {
                 objectName: "subtitle-size"
@@ -188,34 +188,34 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("字体")
+            label: qsTr("Font")
             VSelect {
                 objectName: "subtitle-font"
                 implicitWidth: 170
-                readonly property var names: [qsTr("字幕原字体"), qsTr("黑体"), qsTr("宋体"), qsTr("等线"), "Arial", "Segoe UI"]
+                readonly property var names: [qsTr("Subtitle's own font"), qsTr("SimHei"), qsTr("SimSun"), qsTr("DengXian"), "Arial", "Segoe UI"]
                 value: names[subtitleDialog.pref("subtitleFont", 0)]
                 options: names.map((n, i) => ({ id: String(i), label: n }))
                 onPicked: id => veyra.setPreference("subtitleFont", Number(id))
             }
         }
         VRow {
-            label: qsTr("描边")
+            label: qsTr("Outline")
             VSeg {
                 objectName: "subtitle-outline"
-                options: [{ id: "0", label: qsTr("无") }, { id: "1", label: qsTr("细") }, { id: "2", label: qsTr("标准") }, { id: "3", label: qsTr("粗") }]
+                options: [{ id: "0", label: qsTr("None") }, { id: "1", label: qsTr("Thin") }, { id: "2", label: qsTr("Standard") }, { id: "3", label: qsTr("Coarse") }]
                 current: String(subtitleDialog.pref("subtitleOutline", 2))
                 onPicked: id => veyra.setPreference("subtitleOutline", Number(id))
             }
         }
         VRow {
-            label: qsTr("背景条")
+            label: qsTr("Background bar")
             VSwitch {
                 checked: subtitleDialog.pref("subtitleBackground", false)
                 onToggled: checked => veyra.setPreference("subtitleBackground", checked)
             }
         }
         VRow {
-            label: qsTr("底部距离")
+            label: qsTr("Distance from bottom")
             value: subtitleDialog.pref("subtitleMargin", 0) + " px"
             VSlider {
                 objectName: "subtitle-margin"
@@ -225,8 +225,8 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("长句自动缩小")
-            hint: qsTr("默认保持字号；开启后超过目标行数才缩小")
+            label: qsTr("Shrink long lines automatically")
+            hint: qsTr("Keeps the font size by default; when on, shrinks only beyond the target number of lines")
             VSwitch {
                 checked: subtitleDialog.pref("subtitleFit", false)
                 onToggled: checked => veyra.setPreference("subtitleFit", checked)
@@ -234,7 +234,7 @@ DialogLayer {
         }
         VRow {
             visible: subtitleDialog.pref("subtitleFit", false)
-            label: qsTr("目标行数")
+            label: qsTr("Target lines")
             value: String(subtitleDialog.pref("subtitleLines", 2))
             VSlider {
                 implicitWidth: 170

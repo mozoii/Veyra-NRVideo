@@ -13,7 +13,7 @@ void check(bool ok, const char* what) {
 }  // namespace
 
 namespace {
-// 单元测试只关心水位与超时的判定，宽限期单独测。
+// The unit test only cares about level and timeout decisions; the grace period is tested separately.
 BufferingGate makeGate() {
     veyra::engine::BufferingGateLimits limits;
     limits.warmupMs = 0;
@@ -22,9 +22,9 @@ BufferingGate makeGate() {
 }  // namespace
 
 int main() {
-    // 刚打开、PCM 还是 0：宽限期内不判水位（现场 2026-11-01 的误判就是这里）。
+    // Just opened and PCM is still 0: do not judge the level inside the grace period (the misdiagnose on 2026-11-01 was here).
     {
-        BufferingGate g;   // 默认 2000 ms 宽限
+        BufferingGate g;   // default 2000 ms grace
         check(g.update(true, 0.0, 0.0, 0) == BufferingGate::Action::None, "warm-up: an empty ring right after open is not dryness");
         check(!g.holding(), "warm-up: nothing is held while the ring fills");
         g.update(true, 0.0, 0.0, 1999);
@@ -32,7 +32,7 @@ int main() {
         g.update(true, 0.0, 0.0, 2100);
         check(g.holding(), "warm-up: past the grace period a dry ring does hold");
     }
-    // PCM 环的稳态约 1 秒（实测 987…1019）：恢复阈值必须低于它，否则永远解不了。
+    // A steady PCM ring is about 1 s (measured 987-1019 ms): the release threshold must stay below it or the hold never clears.
     {
         BufferingGate g = makeGate();
         g.update(true, 100.0, 100.0, 0);
@@ -40,39 +40,39 @@ int main() {
         g.update(true, 987.0, 2517.0, 100);
         check(!g.holding(), "the steady PCM level (987 ms) releases the hold");
     }
-    // 稳态不保持。
+    // Steady state does not hold.
     {
         auto g = makeGate();
         check(g.update(true, 1000.0, 2517.0, 0) == BufferingGate::Action::None, "steady levels never ask for an action");
         check(!g.holding(), "steady levels do not hold");
     }
-    // 跌破进入阈值就保持，但还没到重连的时候。
+    // Falling below the enter threshold holds, but is not a reconnect yet.
     {
         auto g = makeGate();
         check(g.update(true, 250.0, 400.0, 1000) == BufferingGate::Action::None, "entering the hold is not an action");
         check(g.holding(), "below the enter thresholds the gate holds");
     }
-    // 滞回：回到 enter 与 exit 之间仍然保持。
+    // Hysteresis: recovering between enter and exit still holds.
     {
         auto g = makeGate();
         g.update(true, 250.0, 400.0, 0);
         g.update(true, 800.0, 1200.0, 1000);
         check(g.holding(), "a partial recovery between enter and exit keeps holding");
     }
-    // 两路都回到 exit 才解除。
+    // Both routes must reach the exit threshold to release.
     {
         auto g = makeGate();
         g.update(true, 250.0, 400.0, 0);
         g.update(true, 1100.0, 1600.0, 1000);
         check(!g.holding(), "reaching both exit thresholds releases the hold");
     }
-    // 单路低也进入保持：预读队列断、PCM 还剩一点。
+    // A single dry route also holds: read-ahead queue dry, PCM still has a little left.
     {
         auto g = makeGate();
         g.update(true, 900.0, 100.0, 0);
         check(g.holding(), "a dry read-ahead queue alone is enough to hold");
     }
-    // 5 秒窗口、重连预算、放弃。
+    // The 5 s window, the reconnect budget, giving up.
     {
         auto g = makeGate();
         g.update(true, 100.0, 100.0, 0);
@@ -85,7 +85,7 @@ int main() {
         check(g.gaveUp(), "giving up is sticky");
         check(g.update(true, 100.0, 100.0, 60000) == BufferingGate::Action::None, "a given-up gate stops asking");
     }
-    // 重连后数据回来：解除保持，重连计数保留。
+    // Data returns after a reconnect: release the hold and keep the reconnect count.
     {
         auto g = makeGate();
         g.update(true, 100.0, 100.0, 0);
@@ -94,7 +94,7 @@ int main() {
         check(!g.holding() && !g.gaveUp(), "recovery clears both hold and give-up");
         check(g.reconnects() == 1, "recovery keeps the reconnect count");
     }
-    // 重连也失败：解除保持、保留「已放弃」—— 引擎据此提示一次，画面不再被冻住。
+    // A reconnect that fails too: release the hold, keep the give-up sticky - the engine hints once and the picture is not frozen again.
     {
         auto g = makeGate();
         g.update(true, 100.0, 100.0, 0);
@@ -104,9 +104,9 @@ int main() {
         g.abandon();
         check(!g.holding() && g.gaveUp(), "abandon releases the hold but keeps giving up");
     }
-    // 跳转或换音轨之后重新宽限：清空再填不算断流，但重连计数不重置。
+    // Re-arm after a seek or a track change: an empty ring refilled is not dryness, but the reconnect count is not reset.
     {
-        BufferingGate g;   // 默认 2000 ms 宽限
+        BufferingGate g;   // default 2000 ms grace
         g.update(true, 1000.0, 2517.0, 0);
         g.rearm(1000);
         check(g.update(true, 0.0, 0.0, 1500) == BufferingGate::Action::None, "rearm: an empty ring after a seek is not dryness");
@@ -114,13 +114,13 @@ int main() {
         g.update(true, 0.0, 0.0, 3100);
         check(g.holding(), "rearm: past the grace period a dry ring holds again");
     }
-    // 没有音频（本地文件没开音轨、或音轨已被关掉）时不保持。
+    // No audio (local file opened without an audio track, or the track was switched off) never holds.
     {
         auto g = makeGate();
         check(g.update(false, 0.0, 0.0, 0) == BufferingGate::Action::None, "no audio means no action");
         check(!g.holding(), "no audio never holds");
     }
-    // 阈值可以从外面改：现场按网络调参。
+    // The thresholds can be changed from outside: field tuning against the network.
     {
         veyra::engine::BufferingGateLimits limits;
         limits.warmupMs = 0;

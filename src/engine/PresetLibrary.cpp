@@ -92,10 +92,10 @@ void PresetLibrary::addBuiltins() {
     if (!entries_.empty()) return;
     // Built-ins are the same in both modes: the chain differs only by order,
     // and a list preset describes the product order by construction.
-    add(L"原画", L"所有增强关闭", ChainMode::List, false, false, 1, false, false);
-    add(L"流畅", L"超分 2K · 补帧 2X", ChainMode::List, false, true, 2, false, false);
-    add(L"均衡", L"超分 4K · NR 1 层 · 补帧 2X", ChainMode::List, true, true, 2, false, false);
-    add(L"极致", L"超分 4K · NR 1 层 · HDR · 补帧 2X", ChainMode::List, true, true, 2, true, false);
+    add(L"Original", L"All enhancements off", ChainMode::List, false, false, 1, false, false);
+    add(L"Smooth", L"SR 2K · FG 2X", ChainMode::List, false, true, 2, false, false);
+    add(L"Balanced", L"SR 4K · NR 1 layer · FG 2X", ChainMode::List, true, true, 2, false, false);
+    add(L"Ultimate", L"SR 4K · NR 1 layer · HDR · FG 2X", ChainMode::List, true, true, 2, true, false);
 }
 
 bool PresetLibrary::load() {
@@ -160,7 +160,7 @@ bool PresetLibrary::load() {
     // DLAA anti-aliasing nodes (library v20, session v15).
     const auto dlaaPath=std::filesystem::path(path_).concat(L".dlaa");
     if(std::filesystem::exists(directDlaa))path_=directDlaa;else if(std::filesystem::exists(dlaaPath))path_=dlaaPath;
-    // v22: 「自动」倍率标记（本地功能；上游的 v21 已是 output-controls）。
+    // v22: the "Auto" multiplier marker (local; upstream v21 is output-controls).
     const auto autoFgPath=std::filesystem::path(path_).concat(L".auto-fg");
     const auto controlsPath=std::filesystem::path(path_).concat(L".output-controls");
     if(std::filesystem::exists(directAutoFg))path_=directAutoFg;
@@ -170,15 +170,15 @@ bool PresetLibrary::load() {
     if (!std::filesystem::exists(path_)) return true;
     std::error_code ec;
     const auto size = std::filesystem::file_size(path_, ec);
-    if (ec || size > kMaxPresetBytes) { corrupt_ = true; error_ = L"预设库文件过大，原文件保留"; return false; }
+    if (ec || size > kMaxPresetBytes) { corrupt_ = true; error_ = L"The preset library file is too large; the original file is kept"; return false; }
     std::ifstream f(path_, std::ios::binary);
-    if (!f) { corrupt_ = true; error_ = L"预设库无法读取，原文件保留"; return false; }
+    if (!f) { corrupt_ = true; error_ = L"The preset library cannot be read; the original file is kept"; return false; }
     const std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     std::vector<PresetEntry> loaded;
     std::wstring def, parseError;
     if (!parse(data, loaded, def, parseError)) {
         corrupt_ = true;
-        error_ = parseError.empty() ? L"预设库损坏或版本不支持；原文件已保留，禁止覆盖" : parseError;
+        error_ = parseError.empty() ? L"The preset library is damaged or an unsupported version; the original file is kept and not overwritten" : parseError;
         return false;
     }
     // The file's own presets replace the built-ins; built-ins are re-added so a
@@ -186,7 +186,7 @@ bool PresetLibrary::load() {
     entries_ = std::move(loaded);
     defaultName_ = def;
     addBuiltins();
-    for (auto& entry : entries_) entry.builtin = entry.builtin || (entry.name == L"原画" || entry.name == L"流畅" || entry.name == L"均衡" || entry.name == L"极致");
+    for (auto& entry : entries_) entry.builtin = entry.builtin || (entry.name == L"Original" || entry.name == L"Smooth" || entry.name == L"Balanced" || entry.name == L"Ultimate");
     if (!includeBuiltins_) {
         const bool defaultWasBuiltin = std::any_of(entries_.begin(), entries_.end(), [this](const auto& e) {
             return e.builtin && e.name == defaultName_;
@@ -199,45 +199,45 @@ bool PresetLibrary::load() {
 
 bool PresetLibrary::exportEntry(size_t index, const std::filesystem::path& target) {
     error_.clear();
-    if (index >= entries_.size()) { error_ = L"预设不存在"; return false; }
+    if (index >= entries_.size()) { error_ = L"The preset does not exist"; return false; }
     auto entry = entries_[index];
     entry.builtin = false;
     const auto data = encodeEntries({entry}, L"");
     std::vector<PresetEntry> checked;
     std::wstring def;
     if (!parse(data, checked, def, error_) || checked.size() != 1) {
-        if (error_.empty()) error_ = L"预设无法编码";
+        if (error_.empty()) error_ = L"The preset cannot be encoded";
         return false;
     }
     std::error_code ec;
     const auto temp = std::filesystem::path(target).concat(L".tmp");
     {
         std::ofstream f(temp, std::ios::binary | std::ios::trunc);
-        if (!f || !(f << data) || !f.flush()) { error_ = L"导出文件无法写入"; return false; }
+        if (!f || !(f << data) || !f.flush()) { error_ = L"The export file cannot be written"; return false; }
     }
     std::filesystem::rename(temp, target, ec);
-    if (ec) { std::filesystem::remove(temp, ec); error_ = L"导出文件无法替换"; return false; }
+    if (ec) { std::filesystem::remove(temp, ec); error_ = L"The export file cannot be replaced"; return false; }
     return true;
 }
 
 bool PresetLibrary::importFile(const std::filesystem::path& source, std::wstring& nameOut) {
     error_.clear();
-    if (corrupt_) { error_ = L"预设库损坏，已拒绝导入"; return false; }
+    if (corrupt_) { error_ = L"The preset library is damaged; import refused"; return false; }
     std::error_code ec;
     const auto size = std::filesystem::file_size(source, ec);
-    if (ec || size == 0 || size > kMaxPresetBytes) { error_ = L"预设文件为空或过大"; return false; }
+    if (ec || size == 0 || size > kMaxPresetBytes) { error_ = L"The preset file is empty or too large"; return false; }
     std::ifstream f(source, std::ios::binary);
-    if (!f) { error_ = L"预设文件无法读取"; return false; }
+    if (!f) { error_ = L"The preset file cannot be read"; return false; }
     const std::string data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     std::vector<PresetEntry> loaded;
     std::wstring def, parseError;
     if (!parse(data, loaded, def, parseError) || loaded.empty()) {
-        error_ = parseError.empty() ? L"不是 Veyra 预设文件" : parseError;
+        error_ = parseError.empty() ? L"Not a Veyra preset file" : parseError;
         return false;
     }
     auto entry = loaded.front();
     entry.builtin = false;
-    const std::wstring base = entry.name.empty() ? std::wstring(L"导入的预设") : entry.name;
+    const std::wstring base = entry.name.empty() ? std::wstring(L"Imported preset") : entry.name;
     auto taken = [this](const std::wstring& n) {
         return std::any_of(entries_.begin(), entries_.end(), [&n](const auto& e) { return e.name == n; });
     };
@@ -249,7 +249,7 @@ bool PresetLibrary::importFile(const std::filesystem::path& source, std::wstring
 }
 
 bool PresetLibrary::save() {
-    if (corrupt_) { error_ = L"预设库损坏，已拒绝覆盖原文件"; return false; }
+    if (corrupt_) { error_ = L"The preset library is damaged; overwriting the original file was refused"; return false; }
     const auto data = serialize();
     std::vector<PresetEntry> checked;
     std::wstring checkedDefault;
@@ -258,7 +258,7 @@ bool PresetLibrary::save() {
     // Opting into a new model must leave the older build's library intact.
     // v14 (anti-aliasing nodes, chains past 16 nodes) and v15 (beauty nodes) get their own files too.
     // v16 (three-step SR) as well.
-    // v22 (「自动」倍率标记, local) gets its own file; v21 is upstream's output-controls.
+    // v22 (the "Auto" multiplier marker, local) gets its own file; v21 is upstream's output-controls.
     if(data.starts_with("VEYRA_PRESET_LIBRARY 22")&&!path_.wstring().ends_with(L".auto-fg"))path_=std::filesystem::path(path_).concat(L".auto-fg");
     if(data.starts_with("VEYRA_PRESET_LIBRARY 21")&&!path_.wstring().ends_with(L".output-controls"))path_=std::filesystem::path(path_).concat(L".output-controls");
     if(!path_.wstring().ends_with(L".auto-fg")&&!path_.wstring().ends_with(L".output-controls")){
@@ -309,38 +309,38 @@ bool PresetLibrary::save() {
     std::filesystem::create_directories(path_.parent_path(), ec);
     const auto temporary = std::filesystem::path(path_).concat(L".tmp");
     HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) { error_ = L"预设库写入失败"; return false; }
+    if (file == INVALID_HANDLE_VALUE) { error_ = L"Could not write the preset library"; return false; }
     DWORD written = 0;
     const bool ok = WriteFile(file, data.data(), DWORD(data.size()), &written, nullptr) && written == data.size() && FlushFileBuffers(file);
     CloseHandle(file);
     if (!ok || !MoveFileExW(temporary.c_str(), path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         std::filesystem::remove(temporary, ec);
-        error_ = ok ? L"预设库替换失败" : L"预设库写入失败";
+        error_ = ok ? L"Could not replace the preset library" : L"Could not write the preset library";
         return false;
     }
     return true;
 }
 
 bool PresetLibrary::put(const PresetEntry& entry, bool replace) {
-    if (!nameOk(entry.name)) { error_ = L"预设名称非法"; return false; }
+    if (!nameOk(entry.name)) { error_ = L"Invalid preset name"; return false; }
     const auto found = std::find_if(entries_.begin(), entries_.end(), [&](const PresetEntry& e) { return e.name == entry.name; });
     if (found != entries_.end()) {
-        if (!replace) { error_ = L"同名预设已存在"; return false; }
-        if (found->builtin) { error_ = L"内置预设不能覆盖，请换一个名称"; return false; }
+        if (!replace) { error_ = L"A preset with this name already exists"; return false; }
+        if (found->builtin) { error_ = L"Built-in presets cannot be overwritten; use another name"; return false; }
         const auto before = *found; *found = entry;
         if (save()) return true;
         *found = before; return false;
     }
-    if (entries_.size() >= 64) { error_ = L"预设数量已达上限"; return false; }
+    if (entries_.size() >= 64) { error_ = L"The preset limit has been reached"; return false; }
     entries_.push_back(entry);
     if (save()) return true;
     entries_.pop_back(); return false;
 }
 
 bool PresetLibrary::rename(size_t index, std::wstring name) {
-    if (index >= entries_.size() || entries_[index].builtin) { error_ = L"内置预设不能改名"; return false; }
-    if (!nameOk(name)) { error_ = L"预设名称非法"; return false; }
-    if (std::any_of(entries_.begin(), entries_.end(), [&](const PresetEntry& e) { return e.name == name; })) { error_ = L"同名预设已存在"; return false; }
+    if (index >= entries_.size() || entries_[index].builtin) { error_ = L"Built-in presets cannot be renamed"; return false; }
+    if (!nameOk(name)) { error_ = L"Invalid preset name"; return false; }
+    if (std::any_of(entries_.begin(), entries_.end(), [&](const PresetEntry& e) { return e.name == name; })) { error_ = L"A preset with this name already exists"; return false; }
     const auto oldDefault = defaultName_;
     const auto oldName = entries_[index].name;
     if (defaultName_ == oldName) defaultName_ = name;
@@ -353,7 +353,7 @@ bool PresetLibrary::rename(size_t index, std::wstring name) {
 
 bool PresetLibrary::duplicate(size_t index) {
     if (index >= entries_.size()) return false;
-    if (entries_.size() >= 64) { error_ = L"预设数量已达上限"; return false; }
+    if (entries_.size() >= 64) { error_ = L"The preset limit has been reached"; return false; }
     PresetEntry copy = entries_[index];
     copy.builtin = false;
     for (int n = 2; n < 100; ++n) {
@@ -368,7 +368,7 @@ bool PresetLibrary::duplicate(size_t index) {
 
 bool PresetLibrary::erase(size_t index) {
     if (index >= entries_.size()) return false;
-    if (entries_[index].builtin) { error_ = L"内置预设不能删除；可以复制后修改"; return false; }
+    if (entries_[index].builtin) { error_ = L"Built-in presets cannot be deleted; copy one and edit it"; return false; }
     const auto oldDefault = defaultName_;
     const auto removed = entries_[index];
     if (defaultName_ == entries_[index].name) defaultName_.clear();
@@ -453,8 +453,8 @@ void PresetLibrary::apply(const PresetEntry& entry, EnhancementSettings& setting
 
 ChainValidation PresetLibrary::applyToChain(const PresetEntry& entry, EffectChain& chain,
                                            EnhancementSettings& settings) {
-    if (entry.kind != chain.mode) return {false, "预设编辑模式不匹配"};
-    if (entry.contents & ~kPresetAllContent) return {false, "预设内容类型无效"};
+    if (entry.kind != chain.mode) return {false, "Preset edit mode mismatch"};
+    if (entry.contents & ~kPresetAllContent) return {false, "Invalid preset content type"};
     if (const auto v = validateChain(chain); !v.accepted) return v;
     if (const auto v = validateChain(entry.chain); !v.accepted) return v;
     const bool hasChain = (entry.contents & presetContentMask(PresetContent::Chain)) != 0;
@@ -483,7 +483,7 @@ ChainValidation PresetLibrary::applyToChain(const PresetEntry& entry, EffectChai
             }
         }
         const auto needed = next.nodeCount - next.countOf(EffectType::Color) + colors.size();
-        if (needed > kMaxChainNodes) return {false, "合并后的节点数量超出上限"};
+        if (needed > kMaxChainNodes) return {false, "The merged node count exceeds the limit"};
         auto arranged = next;
         arranged.nodes = {}; arranged.nodeCount = 0;
         size_t colorIndex = 0;
@@ -511,7 +511,7 @@ ChainValidation PresetLibrary::applyToChain(const PresetEntry& entry, EffectChai
         if (!hasFg) next.fgMultiplier = chain.fgMultiplier;
         auto* fg = next.firstOf(EffectType::FrameGeneration);
         if (!fg && nextSettings.multiplier > 1) {
-            if (next.nodeCount == kMaxChainNodes) return {false, "合并后无法添加补帧节点"};
+            if (next.nodeCount == kMaxChainNodes) return {false, "Cannot add a frame generation node after merging"};
             fg = &next.nodes[next.nodeCount++];
             *fg = {}; fg->type = EffectType::FrameGeneration;
         }
@@ -520,7 +520,7 @@ ChainValidation PresetLibrary::applyToChain(const PresetEntry& entry, EffectChai
     }
     if (const auto v = validateChain(next); !v.accepted) return v;
     if (hasChain || hasColor) fromChain(next, nextSettings);
-    if (!nextSettings.validate().empty()) return {false, "预设参数无效"};
+    if (!nextSettings.validate().empty()) return {false, "Invalid preset settings"};
     chain = next; settings = nextSettings;
     return {};
 }
@@ -528,12 +528,12 @@ ChainValidation PresetLibrary::applyToChain(const PresetEntry& entry, EffectChai
 ChainValidation PresetLibrary::applyToEditor(const PresetEntry& entry, NodeEditorDocument& document,
                                             EnhancementSettings& settings) {
     if (entry.kind != ChainMode::Node || document.nodes.mode != ChainMode::Node)
-        return {false, "预设编辑模式不匹配"};
-    if (entry.contents & ~kPresetAllContent) return {false, "预设内容类型无效"};
+        return {false, "Preset edit mode mismatch"};
+    if (entry.contents & ~kPresetAllContent) return {false, "Invalid preset content type"};
     if (auto v = document.layout.validate(document.nodes); !v.accepted) return v;
     if (auto v = validateChain(entry.chain); !v.accepted) return v;
     if (entry.nodeConfiguration && (!entry.nodeConfiguration->valid() || entry.nodeConfiguration->chain != entry.chain))
-        return {false, "预设编辑快照无效"};
+        return {false, "Invalid preset edit snapshot"};
     auto next = std::make_unique<NodeEditorDocument>(document);
     auto& nodes = next->nodes; auto& layout = next->layout;
     auto values = settings;
@@ -595,7 +595,7 @@ ChainValidation PresetLibrary::applyToEditor(const PresetEntry& entry, NodeEdito
     } else {
         const auto append = [&](ChainNode node, uint32_t after, bool attach) -> ChainValidation {
             if (nodes.nodeCount >= kMaxChainNodes || layout.nextId == (std::numeric_limits<uint32_t>::max)())
-                return {false, "节点容量或标识已耗尽"};
+                return {false, "Node capacity or IDs exhausted"};
             const uint32_t index = nodes.nodeCount++, id = layout.nextId++;
             // New slots are placed below existing cards, not on top of them.
             for (uint32_t i = 0; i < index; ++i)
@@ -673,7 +673,7 @@ ChainValidation PresetLibrary::applyToEditor(const PresetEntry& entry, NodeEdito
     // still DLSS 6X. Never validate that accidental flat-settings combination.
     // The document contract checks every detached node against draft globals.
     auto projectedValues = values; fromChain(*runtime, projectedValues);
-    if (!contract->valid() || !projectedValues.validate().empty()) return {false, "预设节点参数无效"};
+    if (!contract->valid() || !projectedValues.validate().empty()) return {false, "Invalid preset node settings"};
     document = *next; settings = values; return {};
 }
 
@@ -786,7 +786,7 @@ std::string PresetLibrary::encodeEntries(const std::vector<PresetEntry>& entries
     const bool dlaa=std::any_of(entries_.begin(),entries_.end(),[&](const auto& e){
         return dlaaChain(e.chain)||(e.nodeConfiguration&&(dlaaChain(e.nodeConfiguration->chain)||
             (e.nodeConfiguration->editor&&dlaaChain(e.nodeConfiguration->editor->nodes))));});
-    // v22: 「自动」倍率标记（本地）；上游 v21 是 output-controls。
+    // v22: the "Auto" multiplier marker (local); upstream v21 is output-controls.
     const auto autoFgChain=[](const EffectChain& chain){return chain.fgAutoMultiplier;};
     const bool autoFg=std::any_of(entries_.begin(),entries_.end(),[&](const auto& e){
         return autoFgChain(e.chain)||(e.nodeConfiguration&&(autoFgChain(e.nodeConfiguration->chain)||
@@ -865,7 +865,7 @@ std::string PresetLibrary::encodeEntries(const std::vector<PresetEntry>& entries
 bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out, std::wstring& def, std::wstring& error,
                           bool* migrated, bool preserveLegacy, int maxVersion) {
     if (migrated) *migrated = false;
-    if (data.size() > kMaxPresetBytes) { error = L"预设库超过 2 MiB"; return false; }
+    if (data.size() > kMaxPresetBytes) { error = L"The preset library exceeds 2 MiB"; return false; }
     std::istringstream in(data);
     in.imbue(std::locale::classic());
     std::string magic, quoted;
@@ -876,25 +876,25 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
     // v22 is the local auto-multiplier marker (upstream owns 21 for output-controls);
     // the ceiling must include it or encode->decode self-check rejects our own file.
     const int allowedVersion=maxVersion>0?std::min(maxVersion,22):22;
-    if (!(in >> magic >> version) || magic != "VEYRA_PRESET_LIBRARY" || version < 1 || version > allowedVersion) { error = L"预设库格式或版本不支持"; return false; }
-    if (!(in >> std::quoted(quoted) >> count) || count > 64) { error = L"预设库条目数非法"; return false; }
+    if (!(in >> magic >> version) || magic != "VEYRA_PRESET_LIBRARY" || version < 1 || version > allowedVersion) { error = L"Preset library format or version not supported"; return false; }
+    if (!(in >> std::quoted(quoted) >> count) || count > 64) { error = L"Preset library: invalid number of entries"; return false; }
     def = wide(quoted);
     for (size_t i = 0; i < count; ++i) {
         PresetEntry e;
         std::string name, note;
         int kind = 0, builtin = 0, fgBackend = 0, audioSync = 0, chainMode = 0, strict = 0;
         uint32_t nodeCount = 0;
-        if (!(in >> std::quoted(name) >> std::quoted(note) >> kind >> builtin >> e.contents >> e.fg.multiplier >> fgBackend >> audioSync >> e.audioOffsetMs >> nodeCount >> chainMode >> e.chain.fgMultiplier >> strict)) { error = L"预设库头部字段损坏"; return false; }
+        if (!(in >> std::quoted(name) >> std::quoted(note) >> kind >> builtin >> e.contents >> e.fg.multiplier >> fgBackend >> audioSync >> e.audioOffsetMs >> nodeCount >> chainMode >> e.chain.fgMultiplier >> strict)) { error = L"Preset library: header field damaged"; return false; }
         if (kind < 0 || kind > 1 || chainMode < 0 || chainMode > 1 || strict < 0 || strict > 1 ||
             (e.contents & ~(version>=10?kPresetAllContent:kPresetLegacyContent)) ||
-            nodeCount > kMaxChainNodes || e.fg.multiplier < 1 || e.fg.multiplier > (version>=7?8u:6u)) { error = L"预设库字段超出范围"; return false; }
+            nodeCount > kMaxChainNodes || e.fg.multiplier < 1 || e.fg.multiplier > (version>=7?8u:6u)) { error = L"Preset library: field out of range"; return false; }
         if(version>=22){
             int autoFg=0;
-            if(!(in>>autoFg)||autoFg<0||autoFg>1){error=L"预设库自动倍率字段损坏";return false;}
+            if(!(in>>autoFg)||autoFg<0||autoFg>1){error=L"Invalid automatic multiplier field in preset library";return false;}
             e.chain.fgAutoMultiplier=autoFg!=0;
         }
-        if(version>=7&&!(in>>e.fg.vfgQuality)){error=L"预设库 VFG 质量字段损坏";return false;}
-        if(fgBackend<0||fgBackend>(version>=7?6:3)){error=L"预设库补帧后端无效";return false;}
+        if(version>=7&&!(in>>e.fg.vfgQuality)){error=L"The preset library has an invalid VFG quality field.";return false;}
+        if(fgBackend<0||fgBackend>(version>=7?6:3)){error=L"The preset library has an invalid frame-generation backend.";return false;}
         e.name = wide(name);
         e.note = wide(note);
         e.kind = static_cast<ChainMode>(kind);
@@ -902,13 +902,13 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
         e.fg.backend = static_cast<FrameGenerationBackend>(fgBackend);
         EnhancementSettings fgContract;
         fgContract.multiplier=e.fg.multiplier;fgContract.frameGenerationBackend=e.fg.backend;fgContract.vfgQuality=e.fg.vfgQuality;
-        if(!fgContract.validate().empty()){error=L"预设库补帧后端或倍率无效";return false;}
+        if(!fgContract.validate().empty()){error=L"Preset library: invalid frame generation backend or multiplier";return false;}
         e.audioSync = static_cast<AudioSyncMode>(audioSync);
         e.chain.nodeCount = nodeCount;
         e.chain.mode = static_cast<ChainMode>(chainMode);
         e.chain.fgStrictAdmission = strict != 0;
-        if (!nameOk(e.name)) { error = L"预设库里的名称非法"; return false; }
-        if (e.audioOffsetMs < -250 || e.audioOffsetMs > 250) { error = L"预设库音频偏移超出范围"; return false; }
+        if (!nameOk(e.name)) { error = L"Invalid name in the preset library"; return false; }
+        if (e.audioOffsetMs < -250 || e.audioOffsetMs > 250) { error = L"Preset library: audio offset out of range"; return false; }
         for (uint32_t n = 0; n < nodeCount; ++n) {
             ChainNode& node = e.chain.nodes[n];
             int type = 0, enabled = 0, runtime = 0, temporal = 0, lowLatency = 0, protEnabled = 0, hdrEnabled = 0;
@@ -917,17 +917,17 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
                   >> node.nr.model.style >> node.nr.model.autoMask >> node.nr.model.uiCorrection
                   >> node.nr.residual.total >> node.nr.residual.darken >> node.nr.residual.brighten
                   >> node.nr.residual.color >> node.nr.residual.luminance
-                  >> runtime >> temporal >> lowLatency >> protEnabled >> node.protection.featherPixels)) { error = L"预设库节点字段损坏"; return false; }
+                  >> runtime >> temporal >> lowLatency >> protEnabled >> node.protection.featherPixels)) { error = L"Preset library: node field damaged"; return false; }
             for (auto& r : node.protection.regions) {
-                if (!(in >> r.left >> r.top >> r.right >> r.bottom)) { error = L"预设库保护区域损坏"; return false; }
+                if (!(in >> r.left >> r.top >> r.right >> r.bottom)) { error = L"Preset library: protected areas damaged"; return false; }
                 if (r.left > r.right) { std::swap(r.left, r.right); r.ellipse = true; }
             }
-            if (!(in >> hdrEnabled >> node.videoHdr.contrast >> node.videoHdr.saturation >> node.videoHdr.middleGray >> node.videoHdr.peakNits)) { error = L"预设库 HDR 字段损坏"; return false; }
+            if (!(in >> hdrEnabled >> node.videoHdr.contrast >> node.videoHdr.saturation >> node.videoHdr.middleGray >> node.videoHdr.peakNits)) { error = L"Preset library: HDR field damaged"; return false; }
             if (type < 0 || type >= int(EffectType::Count) || (version < 14 && type >= int(EffectType::AntiAliasing)) ||
                 (version < 21 && type >= int(EffectType::NrStabilizer)) ||
                 enabled < 0 || enabled > 1 || !validNrRuntime(static_cast<NrRuntime>(runtime)) ||
                 temporal < 0 || temporal > 1 || lowLatency < 0 || lowLatency > 1 || protEnabled < 0 || protEnabled > 1 || hdrEnabled < 0 || hdrEnabled > 1) {
-                error = L"预设库节点取值超出范围"; return false;
+                error = L"Preset library: node value out of range"; return false;
             }
             node.type = static_cast<EffectType>(type);
             node.enabled = enabled != 0;
@@ -937,49 +937,49 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
             node.protection.enabled = protEnabled != 0;
             node.videoHdr.enabled = hdrEnabled != 0;
             if(version>=3){int size;
-                if(!(in>>size)||!pipeline::validNrSizePolicy(static_cast<pipeline::NrSizePolicy>(size))){error=L"预设库 NR 分辨率非法";return false;}
+                if(!(in>>size)||!pipeline::validNrSizePolicy(static_cast<pipeline::NrSizePolicy>(size))){error=L"Preset library: invalid NR resolution";return false;}
                 node.nr.sizePolicy=static_cast<pipeline::NrSizePolicy>(size);
             }
-            if(version>=8&&!readNrCorrection(in,node.nr.residual.correction,version>=9)){error=L"预设库 NR 调控参数损坏";return false;}
+            if(version>=8&&!readNrCorrection(in,node.nr.residual.correction,version>=9)){error=L"Preset library NR correction parameters are invalid";return false;}
             if(version>=13){int performance=0;
-                if(!(in>>performance)||performance<0||performance>1){error=L"预设库 NR 模型字段损坏";return false;}
+                if(!(in>>performance)||performance<0||performance>1){error=L"Corrupt NR model field in preset library";return false;}
                 node.nr.model.performance=performance!=0;}
             if (version >= 2 && node.type == EffectType::Color) {
                 std::string lut;
                 if (!readColorSettings(in, node.color, lut, 19) ||
                     (!lut.empty() && !node.color.setLutName(wide(lut))) || !node.color.validate().empty()) {
-                    error = L"预设库节点调色参数损坏"; return false;
+                    error = L"Preset library: node color settings damaged"; return false;
                 }
             }
             if (version >= 14 && node.type == EffectType::AntiAliasing && !readAntiAlias(in, node.aa)) {
-                error = L"预设库节点抗锯齿参数损坏"; return false;
+                error = L"Preset library: node anti-aliasing settings damaged"; return false;
             }
             // DLAA exists from v20 on: an older header cannot carry it.
             if (version < 20 && node.type == EffectType::AntiAliasing && node.aa.usesDlaa()) {
-                error = L"预设库版本不支持 DLAA 抗锯齿"; return false;
+                error = L"This preset library version does not support DLAA anti-aliasing"; return false;
             }
             if(node.type==EffectType::NrStabilizer&&!(in>>node.holdStrength>>node.holdTolerance)){
-                error=L"预设库稳定器字段损坏";return false;
+                error=L"Invalid preset stabilizer data.";return false;
             }
             if (version >= 15 && node.type == EffectType::Beauty && !readBeauty(in, node.beauty)) {
-                error = L"预设库节点美颜参数损坏"; return false;
+                error = L"Preset library: node beauty settings damaged"; return false;
             }
         }
-        if (version >= 15 && !readBeautyDetection(in, e.chain.beautyDetection)) { error = L"预设库美颜人脸识别字段损坏"; return false; }
+        if (version >= 15 && !readBeautyDetection(in, e.chain.beautyDetection)) { error = L"Preset library: beauty face detection fields damaged"; return false; }
         in >> std::ws;
         std::string lut;
         // 19 is the current colour-block schema: it includes the per-section
         // bypass mask that the writer always emits.
-        if (!readColorSettings(in, e.color, lut, 19)) { error = L"预设库调色字段损坏"; return false; }
-        if (!lut.empty() && !e.color.setLutName(wide(lut))) { error = L"预设库 LUT 名称非法"; return false; }
-        if (auto problem = e.color.validate(); !problem.empty()) { error = L"预设库调色参数超出范围"; return false; }
+        if (!readColorSettings(in, e.color, lut, 19)) { error = L"Preset library: color field damaged"; return false; }
+        if (!lut.empty() && !e.color.setLutName(wide(lut))) { error = L"Preset library: invalid LUT name"; return false; }
+        if (auto problem = e.color.validate(); !problem.empty()) { error = L"Preset library: color settings out of range"; return false; }
         // v1 stores its only grade after the chain, not in the Color node.
         // Restore that payload before a node-mode caller uses the chain itself.
         if (version == 1) {
             if (auto* color = e.chain.firstOf(EffectType::Color)) color->color = e.color;
         }
         auto compatible = e.chain;
-        if (auto verdict = validateChain(compatible); !verdict.accepted) { error = L"预设库链路违反顺序规则"; return false; }
+        if (auto verdict = validateChain(compatible); !verdict.accepted) { error = L"The preset library's chain breaks the order rules"; return false; }
         if (!preserveLegacy) e.chain = compatible;
         if (version >= 4) {
             int hasEditor = 0;
@@ -989,7 +989,7 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
                 if (!(in >> std::quoted(body)) || e.kind != ChainMode::Node ||
                     !ChainSessionStore::decode(body, *session) || !session->valid() ||
                     session->active != ChainMode::Node || session->configurations[1].chain != e.chain) {
-                    error = L"预设编辑文档无效，原状态保留"; return false;
+                    error = L"Invalid preset edit document; previous state kept"; return false;
                 }
                 e.nodeConfiguration = session->configurations[1];
             }
@@ -1004,20 +1004,20 @@ bool PresetLibrary::parse(const std::string& data, std::vector<PresetEntry>& out
         }
         if(version>=10){
             int present=0;
-            if(!(in>>present)||present<0||present>1){error=L"预设光流字段损坏";return false;}
+            if(!(in>>present)||present<0||present>1){error=L"Preset optical-flow fields are damaged";return false;}
             if(present){
                 int backend,quality,half,content;
-                if(!(in>>backend>>quality>>half>>content)||half<0||half>1){error=L"预设光流字段损坏";return false;}
+                if(!(in>>backend>>quality>>half>>content)||half<0||half>1){error=L"Preset optical-flow fields are damaged";return false;}
                 PresetFlowSettings f{OpticalFlowBackend(backend),FlowQuality(quality),half!=0,ContentRate(content)};
                 EnhancementSettings contract;f.apply(contract);
-                if(!contract.validate().empty()){error=L"预设光流或去除重复帧设置无效";return false;}
+                if(!contract.validate().empty()){error=L"Invalid optical-flow or duplicate-removal preset settings";return false;}
                 e.flow=f;
             }
         }
         out.push_back(std::move(e));
     }
     in >> std::ws;
-    if (!in.eof()) { error = L"预设库尾部有多余数据"; return false; }
+    if (!in.eof()) { error = L"Preset library: extra data at the end"; return false; }
     return true;
 }
 
@@ -1068,7 +1068,7 @@ std::string ChainSessionStore::encode(const ChainSession& session) {
             return n.type==EffectType::AntiAliasing&&n.aa.method==AntiAliasMethod::Dlaa;});};
     const bool dlaa=std::any_of(session.configurations.begin(),session.configurations.end(),[&](const auto& c){
         return dlaaChain(c.chain)||(c.editor&&dlaaChain(c.editor->nodes));});
-    // v17: 「自动」倍率标记（本地；上游 v16 是 output-controls）。
+    // v17: the "Auto" multiplier marker (local); upstream v16 is output-controls.
     const bool autoFg=std::any_of(session.configurations.begin(),session.configurations.end(),[&](const auto& c){
         return c.chain.fgAutoMultiplier||(c.editor&&c.editor->nodes.fgAutoMultiplier);});
     const bool outputControls=std::any_of(session.configurations.begin(),session.configurations.end(),[](const auto& c){
@@ -1250,7 +1250,7 @@ bool ChainSessionStore::load(ChainSession& session) {
     // DLAA anti-aliasing nodes (library v20, session v15).
     const auto dlaaPath=std::filesystem::path(path_).concat(L".dlaa");
     if(std::filesystem::exists(directDlaa))path_=directDlaa;else if(std::filesystem::exists(dlaaPath))path_=dlaaPath;
-    // v22: 「自动」倍率标记（本地功能；上游的 v21 已是 output-controls）。
+    // v22: the "Auto" multiplier marker (local; upstream v21 is output-controls).
     const auto autoFgPath=std::filesystem::path(path_).concat(L".auto-fg");
     const auto controlsPath=std::filesystem::path(path_).concat(L".output-controls");
     if(std::filesystem::exists(directAutoFg))path_=directAutoFg;
@@ -1270,17 +1270,17 @@ bool ChainSessionStore::load(ChainSession& session) {
         }
     }
     corrupt_ = true;
-    error_ = L"模式会话损坏、无法读取或版本不支持；原文件保留，禁止覆盖";
+    error_ = L"The mode session is damaged, unreadable or an unsupported version; the original file is kept and not overwritten";
     return false;
 }
 
 bool ChainSessionStore::save(const ChainSession& session) {
     error_.clear();
-    if (corrupt_) { error_ = L"模式会话损坏，已拒绝覆盖原文件"; return false; }
-    if (!session.valid()) { error_ = L"模式会话包含无效链或参数，未保存"; return false; }
+    if (corrupt_) { error_ = L"The mode session is damaged; overwriting the original file was refused"; return false; }
+    if (!session.valid()) { error_ = L"The mode session contains an invalid chain or settings; not saved"; return false; }
     const auto data = encode(session);
     ChainSession checked;
-    if (!decode(data, checked)) { error_ = L"模式会话编码校验失败，未保存"; return false; }
+    if (!decode(data, checked)) { error_ = L"Mode session encoding check failed; not saved"; return false; }
     if(data.starts_with("VEYRA_CHAIN_SESSION 16")&&!path_.wstring().ends_with(L".output-controls"))path_=std::filesystem::path(path_).concat(L".output-controls");
     if(!path_.wstring().ends_with(L".output-controls")){
 
@@ -1334,7 +1334,7 @@ bool ChainSessionStore::save(const ChainSession& session) {
         // Put the path and the OS reason into the message that already reaches the
         // log: "cannot create directory" alone gives nobody anything to act on.
         const std::string reason = ec.message();
-        error_ = std::format(L"模式会话目录无法创建: {} ({}）", path_.wstring(),
+        error_ = std::format(L"Cannot create the mode session directory: {} ({})", path_.wstring(),
             std::wstring(reason.begin(), reason.end()));
         return false;
     }
@@ -1346,7 +1346,7 @@ bool ChainSessionStore::save(const ChainSession& session) {
     }
     if (!written || !MoveFileExW(temporary.c_str(), path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         std::filesystem::remove(temporary, ec);
-        error_ = L"模式会话写入或替换失败，原存档保留"; return false;
+        error_ = L"Could not write or replace the mode session; the old saved state is kept"; return false;
     }
     return true;
 }

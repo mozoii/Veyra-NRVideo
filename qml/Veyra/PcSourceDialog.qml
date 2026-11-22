@@ -8,8 +8,8 @@ DialogLayer {
     objectName: "moonlight-dialog"
     key: "moonlight"
     glyph: "cast"
-    title: qsTr("PC 串流")
-    sub: qsTr("串流另一台电脑（Sunshine 主机）· 增强与调色沿用软件自己的处理链")
+    title: qsTr("PC streaming")
+    sub: qsTr("Stream another PC (Sunshine host) · enhancement and color use this app's own pipeline")
     dialogWidth: 760
     readonly property var ml: veyra.moonlight
     readonly property var st: ml ? ml.state : ({})
@@ -21,16 +21,16 @@ DialogLayer {
         : (st.runningApp > 0 ? st.runningApp : (appList.length > 0 ? appList[0].id : -1))
     readonly property bool canStart: !!st.paired && !!st.online && !st.busy && effectiveApp >= 0 && !st.streaming
     actions: st.streaming ? [
-        { label: qsTr("关闭") },
-        { label: qsTr("断开"), primary: true }
+        { label: qsTr("Close") },
+        { label: qsTr("Disconnect"), primary: true }
     ] : [
-        { label: st.busy ? qsTr("取消操作") : qsTr("关闭") },
-        { label: qsTr("开始串流"), primary: true, icon: "play" }
+        { label: st.busy ? qsTr("Cancel") : qsTr("Close") },
+        { label: qsTr("Start streaming"), primary: true, icon: "play" }
     ]
     onActionTriggered: label => {
-        if (label === qsTr("断开")) { veyra.moonlightDisconnect(); dialogHost.close(); return }
-        if (label === qsTr("取消操作")) { ml.cancel(); return }
-        if (label === qsTr("关闭")) { dialogHost.close(); return }
+        if (label === qsTr("Disconnect")) { veyra.moonlightDisconnect(); dialogHost.close(); return }
+        if (label === qsTr("Cancel")) { ml.cancel(); return }
+        if (label === qsTr("Close")) { dialogHost.close(); return }
         if (canStart) ml.connectStream(effectiveApp)
     }
     Connections {
@@ -48,19 +48,19 @@ DialogLayer {
     readonly property var resolutions: [
         { id: "720p", label: "720p · 1280×720" }, { id: "1080p", label: "1080p · 1920×1080" },
         { id: "1440p", label: "1440p · 2560×1440" }, { id: "4k", label: "4K · 3840×2160" },
-        { id: "native", label: qsTr("本机屏幕分辨率") }]
+        { id: "native", label: qsTr("This PC's screen resolution") }]
     readonly property var rates: [30, 60, 90, 120, 144].map(v => ({ id: String(v), label: v + " fps" }))
     function labelOf(list, id, fallback) { const f = list.find(x => String(x.id) === String(id)); return f ? f.label : fallback }
     function stateText(s) {
-        return s === "online" ? qsTr("在线") : s === "unpaired" ? qsTr("未配对") : s === "busy" ? qsTr("在线 · 有游戏在运行")
-             : s === "checking" ? qsTr("检查中…") : qsTr("离线")
+        return s === "online" ? qsTr("Online") : s === "unpaired" ? qsTr("Not paired") : s === "busy" ? qsTr("Online · a game is running")
+             : s === "checking" ? qsTr("Checking…") : qsTr("Offline")
     }
 
-    DialogSection { text: qsTr("主机") }
+    DialogSection { text: qsTr("Host") }
     DialogNote {
         visible: mlDialog.hostList.length === 0
-        text: qsTr("还没有主机。在要被串流的电脑上安装 Sunshine（官网 app.lizardbyte.dev/Sunshine，软件不自带），")
-            + qsTr("两台电脑接在同一个局域网，这里会自动出现；也可以在下面手填它的 IP。首次使用需要配对。")
+        text: qsTr("No hosts yet. Install Sunshine on the PC you want to stream (official site app.lizardbyte.dev/Sunshine; not bundled with this app),")
+            + qsTr("With both PCs on the same LAN, the host appears here automatically; you can also enter its IP below. Pairing is needed the first time.")
     }
     Repeater {
         model: mlDialog.hostList
@@ -109,17 +109,17 @@ DialogLayer {
                         elide: Text.ElideRight
                     }
                 }
-                VTag { visible: hostRow.modelData.paired; text: qsTr("已配对"); kind: "ok" }
+                VTag { visible: hostRow.modelData.paired; text: qsTr("Paired"); kind: "ok" }
                 VButton {
                     visible: !hostRow.modelData.paired && hostRow.modelData.state !== "offline"
                     objectName: "moonlight-pair-" + hostRow.modelData.id
-                    text: qsTr("配对")
+                    text: qsTr("Pair")
                     primary: true
                     enabled: !mlDialog.st.busy
                     onClicked: mlDialog.ml.pair(hostRow.modelData.id)
                 }
                 VButton {
-                    text: qsTr("删除")
+                    text: qsTr("Delete")
                     ghost: true
                     enabled: !mlDialog.st.busy
                     onClicked: mlDialog.ml.forget(hostRow.modelData.id)
@@ -129,14 +129,14 @@ DialogLayer {
     }
     DialogGroup {
         VRow {
-            label: qsTr("手动添加")
-            hint: qsTr("IP 或主机名，端口不是 47989 时写成 192.168.1.20:47989")
+            label: qsTr("Add manually")
+            hint: qsTr("IP or host name; if the port is not 47989, write it as 192.168.1.20:47989")
             RowLayout {
                 spacing: 6
                 DialogTextField { id: mlAddress; objectName: "moonlight-address"; implicitWidth: 190; placeholder: "192.168.1.x"; onEdited: text => { if (text.length > 0) { mlDialog.ml.addHost(text); mlAddress.text = "" } } }
                 VSpinner { visible: mlDialog.st.busy === true; Layout.alignment: Qt.AlignVCenter }
-                VButton { text: qsTr("添加"); ghost: true; enabled: !mlDialog.st.busy && mlAddress.text.length > 0; onClicked: { mlDialog.ml.addHost(mlAddress.text); mlAddress.text = "" } }
-                VButton { text: qsTr("刷新"); ghost: true; enabled: !mlDialog.st.busy; onClicked: mlDialog.ml.refresh() }
+                VButton { text: qsTr("Add"); ghost: true; enabled: !mlDialog.st.busy && mlAddress.text.length > 0; onClicked: { mlDialog.ml.addHost(mlAddress.text); mlAddress.text = "" } }
+                VButton { text: qsTr("Refresh"); ghost: true; enabled: !mlDialog.st.busy; onClicked: mlDialog.ml.refresh() }
             }
         }
     }
@@ -158,7 +158,7 @@ DialogLayer {
             spacing: 6
             Text {
                 Layout.fillWidth: true
-                text: qsTr("在主机上打开 Sunshine 网页（https://主机IP:47990），进入「PIN」页，输入下面的数字并提交：")
+                text: qsTr("On the host, open the Sunshine web page (https://host-IP:47990), go to the PIN page, enter the number below and submit:")
                 color: Theme.t2
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsSmall
@@ -176,14 +176,14 @@ DialogLayer {
         }
     }
 
-    DialogSection { visible: !!mlDialog.st.paired; text: qsTr("游戏与程序 · ") + (mlDialog.st.hostName || "") }
+    DialogSection { visible: !!mlDialog.st.paired; text: qsTr("Games and programs · ") + (mlDialog.st.hostName || "") }
     DialogNote {
         visible: !!mlDialog.st.selected && !mlDialog.st.paired && !mlDialog.st.pairing
-        text: qsTr("这台主机还没有和本机配对。点「配对」，在主机的 Sunshine 网页里输入软件给出的 PIN。")
+        text: qsTr("This host is not paired with this PC yet. Click Pair and enter the PIN the app shows in the host's Sunshine web page.")
     }
     DialogNote {
         visible: !!mlDialog.st.paired && !mlDialog.st.online
-        text: qsTr("主机现在连不上（离线、休眠，或地址变了）。开机后点「刷新」。")
+        text: qsTr("The host cannot be reached right now (offline, asleep, or its address changed). Turn it on and click Refresh.")
     }
     Flow {
         visible: !!mlDialog.st.paired && !!mlDialog.st.online
@@ -222,7 +222,7 @@ DialogLayer {
                     }
                     RowLayout {
                         spacing: 6
-                        VTag { visible: appCard.modelData.running; text: qsTr("运行中"); kind: "acc" }
+                        VTag { visible: appCard.modelData.running; text: qsTr("Running"); kind: "acc" }
                         VTag { visible: appCard.modelData.hdr; text: "HDR" }
                     }
                 }
@@ -236,29 +236,29 @@ DialogLayer {
         spacing: 8
         Text {
             Layout.fillWidth: true
-            text: qsTr("主机上有游戏在运行。断开串流不会结束它；选它并开始即可继续。")
+            text: qsTr("A game is running on the host. Disconnecting does not end it; select it and start to continue.")
             color: Theme.t3
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsSmall
             wrapMode: Text.WordWrap
         }
-        VButton { objectName: "moonlight-quit-app"; text: qsTr("退出游戏"); ghost: true; enabled: !mlDialog.st.busy; onClicked: mlDialog.ml.quitApp() }
+        VButton { objectName: "moonlight-quit-app"; text: qsTr("Quit game"); ghost: true; enabled: !mlDialog.st.busy; onClicked: mlDialog.ml.quitApp() }
     }
 
-    DialogSection { text: qsTr("串流设置（只影响串流本身，按主机保存）") }
+    DialogSection { text: qsTr("Streaming settings (affect only the stream itself; saved per host)") }
     DialogGroup {
         VRow {
-            label: qsTr("分辨率")
-            hint: qsTr("主机按这个尺寸编码；软件的超分与增强在收到之后再做")
+            label: qsTr("Resolution")
+            hint: qsTr("The host encodes at this size; the app's super resolution and enhancement run after the stream arrives")
             VSelect { objectName: "moonlight-res"; implicitWidth: 190; value: mlDialog.labelOf(mlDialog.resolutions, mlDialog.cfg.res, "1080p · 1920×1080"); options: mlDialog.resolutions; onPicked: id => mlDialog.ml.set("res", id) }
         }
         VRow {
-            label: qsTr("帧率")
+            label: qsTr("Frame rate")
             VSelect { objectName: "moonlight-fps"; implicitWidth: 130; value: (mlDialog.cfg.fps || 60) + " fps"; options: mlDialog.rates; onPicked: id => mlDialog.ml.set("fps", Number(id)) }
         }
         VRow {
-            label: qsTr("码率")
-            hint: qsTr("默认 150 Mbps；有线千兆可以拉到 300–500，无线卡顿时调低。主机画面简单时实际码率会低于这里的上限")
+            label: qsTr("Bitrate")
+            hint: qsTr("Default 150 Mbps; wired gigabit can go to 300–500, lower it if wireless stutters. When the host picture is simple, the actual bitrate stays below this cap")
             RowLayout {
                 spacing: 10
                 VSlider {
@@ -279,49 +279,49 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("编码")
-            hint: mlDialog.cfg.codec === 3 ? qsTr("AV1 需要主机显卡能编码、本机显卡能解码") : qsTr("自动：优先 HEVC，主机不支持时用 H.264")
+            label: qsTr("Codec")
+            hint: mlDialog.cfg.codec === 3 ? qsTr("AV1 needs a host GPU that can encode it and a local GPU that can decode it") : qsTr("Auto: HEVC first, H.264 when the host does not support it")
             VSeg {
                 objectName: "moonlight-codec"
-                options: [{ id: "0", label: qsTr("自动") }, { id: "1", label: "H.264" }, { id: "2", label: "HEVC" }, { id: "3", label: "AV1" }]
+                options: [{ id: "0", label: qsTr("Auto") }, { id: "1", label: "H.264" }, { id: "2", label: "HEVC" }, { id: "3", label: "AV1" }]
                 current: String(mlDialog.cfg.codec || 0)
                 onPicked: id => mlDialog.ml.set("codec", Number(id))
             }
         }
         VRow {
             label: "HDR"
-            hint: mlDialog.st.hdrHost ? qsTr("需要主机显示器开启 HDR，且编码选 HEVC 或 AV1；本机需要硬件解码") : qsTr("这台主机没有报告 10 位编码能力")
+            hint: mlDialog.st.hdrHost ? qsTr("Needs HDR on for the host display and HEVC or AV1 as the codec; this PC needs hardware decoding") : qsTr("This host did not report 10-bit encoding support")
             VSwitch { objectName: "moonlight-hdr"; enabled: !!mlDialog.st.hdrHost || mlDialog.cfg.hdr === true; checked: mlDialog.cfg.hdr === true; onToggled: checked => mlDialog.ml.set("hdr", checked) }
         }
         VRow {
-            label: qsTr("声道")
+            label: qsTr("Channels")
             VSeg {
                 objectName: "moonlight-audio"
-                options: [{ id: "2", label: qsTr("立体声") }, { id: "6", label: "5.1" }, { id: "8", label: "7.1" }]
+                options: [{ id: "2", label: qsTr("Stereo") }, { id: "6", label: "5.1" }, { id: "8", label: "7.1" }]
                 current: String(mlDialog.cfg.audio || 2)
                 onPicked: id => mlDialog.ml.set("audio", Number(id))
             }
         }
         VRow {
-            label: qsTr("手柄")
-            hint: qsTr("把电脑手柄当作主机上的 Xbox 手柄（1 号）")
+            label: qsTr("Controller")
+            hint: qsTr("Use this PC's controller as Xbox controller 1 on the console")
             VSwitch { objectName: "moonlight-gamepad"; checked: mlDialog.cfg.gamepad !== false; onToggled: checked => mlDialog.ml.set("gamepad", checked) }
         }
         VRow {
-            label: qsTr("自动捕获键盘鼠标")
-            hint: qsTr("开始后键鼠交给主机；Ctrl+Alt+Shift+Z 释放，+Q 断开，+S 统计")
+            label: qsTr("Capture keyboard and mouse automatically")
+            hint: qsTr("Once started, keyboard and mouse go to the host; Ctrl+Alt+Shift+Z releases, +Q disconnects, +S shows stats")
             VSwitch { objectName: "moonlight-capture"; checked: mlDialog.cfg.captureInput !== false; onToggled: checked => mlDialog.ml.set("captureInput", checked) }
         }
         VRow {
-            label: qsTr("让主机切换到串流分辨率")
-            hint: qsTr("关闭时主机保持自己的分辨率，画面由主机缩放")
+            label: qsTr("Have the host switch to the stream resolution")
+            hint: qsTr("When off, the host keeps its own resolution and scales the picture itself")
             VSwitch { objectName: "moonlight-sops"; checked: mlDialog.cfg.sops === true; onToggled: checked => mlDialog.ml.set("sops", checked) }
         }
         VRow {
-            label: qsTr("主机同时出声")
-            hint: qsTr("默认只在本机出声")
+            label: qsTr("Also play sound on the host")
+            hint: qsTr("Sound plays only on this PC by default")
             VSwitch { objectName: "moonlight-hostaudio"; checked: mlDialog.cfg.hostAudio === true; onToggled: checked => mlDialog.ml.set("hostAudio", checked) }
         }
     }
-    DialogNote { objectName: "moonlight-status"; visible: (mlDialog.st.status || "").length > 0; text: (mlDialog.st.busy ? qsTr("处理中 · ") : "") + (mlDialog.st.status || "") }
+    DialogNote { objectName: "moonlight-status"; visible: (mlDialog.st.status || "").length > 0; text: (mlDialog.st.busy ? qsTr("Processing · ") : "") + (mlDialog.st.status || "") }
 }

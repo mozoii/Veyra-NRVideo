@@ -54,7 +54,7 @@ for vendor in ('AMD','NVIDIA'):
             immutable[rel]=row['sha256']
     for name in ('README.md','README_CN.md','README_EN.md','THIRD_PARTY_NOTICES.md','LICENSE'):shutil.copyfile(ROOT/name,app/name)
     for name in docnames:shutil.copyfile(ROOT/'docs'/name,app/'docs'/name)
-    (app/'RELEASE_2.0.5.md').write_text('Veyra 2.0.5 正式应用版本 / Stable application release\n\n新目录完整解压后运行veyra_qml_ui.exe。增强组件保留实验边界；详细更新/数据/未验证项见docs/RELEASE_NOTES_2.0.5.md。NVIDIA显存持续增长未修复，留待下一版本。\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.5\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\n对应源码与静态字幕依赖重链接见docs/BUILD_2.0.5.md。\n',encoding='utf8')
+    (app/'RELEASE_2.0.5.md').write_text('Veyra 2.0.5 stable application release / Stable application release\n\nExtract fully to a new directory, then run veyra_qml_ui.exe. Enhancement components keep experimental boundary; detailed updates/data/unverified items in docs/RELEASE_NOTES_2.0.5.md. NVIDIA memory growing continuously is unfixed, left for the next version.\n\nRelease: https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.0.5\nDiscord: https://discord.gg/c9aREyMj8\nKo-fi: https://ko-fi.com/likely7\nSource and static-subtitle-dependency relinking: docs/BUILD_2.0.5.md.\n',encoding='utf8')
     for rel,h in immutable.items():assert sha(app/rel)==h,rel
     assert sha(app/'veyra_qml_ui.exe')==EXE
     for p in (ROOT/'qml').rglob('*'):

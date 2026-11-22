@@ -80,12 +80,12 @@ for vendor in ('AMD','NVIDIA'):
         for name in ('RELEASE_2.0.4_PLAN_2026-10-05.md','RELEASE_2.0.4_ACCEPTANCE_2026-10-05.md','RELEASE_NOTES_2.0.4.md','BRANCH_MAP_2026-10-05.md'):
             p=ROOT/'docs'/name
             if p.is_file():shutil.copy2(p,app/'docs'/name)
-        (app/'TEST_2.0.4.md').write_text('Veyra 2.0.4 本地测试候选 / local test candidate\n\n'
-            '整合 NR 强度5及三风格自动/手动调控、Xbox解码错误恢复、Claude UI修复、性能/计时/AMD NR/字幕及此前本地修复。'
-            '公开版本仍为2.0.3，本包用于发布前测试。请先在新目录解压，不复制旧配置目录或混装DLL。\n\n'
-            '重点复测：真实Xbox补帧热切换、采集60帧及后台播放、RX9000 NR、数字输入/列表宽度/补帧预设。'
-            '本机RTX5070短测不能代替对应显卡或主机实测，软件解码回退可能增加CPU与延迟；默认GPU优先级为实时，旧选择保留。\n\n'
-            '详见docs/RELEASE_NOTES_2.0.4.md和docs/RELEASE_2.0.4_ACCEPTANCE_2026-10-05.md。\n',encoding='utf8')
+        (app/'TEST_2.0.4.md').write_text('Veyra 2.0.4 local test candidate / local test candidate\n\n'
+            'Integrates NR strength 5 with three styles auto/manual control, Xbox decode-error recovery, Claude UI fix, performance/timing/AMD NR/subtitles and prior local fixes.'
+            'Public version still 2.0.3, this package is for pre-release testing. Please fully extract to a new directory first, not copy the old config directory or mix DLLs.\n\n'
+            'Key retests: real Xbox frame-interpolation hot switch, 60-frame capture and background playback, RX9000 NR, digital input / list width / frame-interpolation presets.'
+            'The local RTX5070 short test does not substitute for the corresponding GPU or host physical test, software decode fallback may increase CPU and latency; default GPU priority is real-time, old selection kept.\n\n'
+            'See docs/RELEASE_NOTES_2.0.4.md and docs/RELEASE_2.0.4_ACCEPTANCE_2026-10-05.md.\n',encoding='utf8')
     assert sha(app/'veyra_qml_ui.exe')==sha(BUILD/'veyra_qml_ui.exe')
     for p in (ROOT/'qml').rglob('*'):
         if p.is_file():assert sha(app/'qml'/p.relative_to(ROOT/'qml'))==sha(p)

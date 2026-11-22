@@ -384,7 +384,7 @@ bool DemuxSession::openContext(std::wstring* error, bool initial) {
     closeContext();
     AVFormatContext* context = avformat_alloc_context();
     if (!context) {
-        if (error) *error = L"无法分配媒体上下文";
+        if (error) *error = L"Could not allocate the media context";
         return false;
     }
     context->interrupt_callback = {&Interrupt::callback, irq_.get()};
@@ -416,7 +416,7 @@ bool DemuxSession::openContext(std::wstring* error, bool initial) {
             file_.reset();
             avformat_free_context(context);
             av_dict_free(&options);
-            if (error) *error = L"无法打开视频文件，请检查路径和网络共享是否可访问";
+            if (error) *error = L"Could not open the video file. Check that the path and the network share are reachable.";
             return false;
         }
         context->pb = file_->avio;
@@ -438,7 +438,7 @@ bool DemuxSession::openContext(std::wstring* error, bool initial) {
     if (result < 0) {   // avformat_open_input freed the context
         log::error("net-session", std::format("open failed code={} text={} timedOut={} initial={}", result, errorText(result), timedOut, initial));
         file_.reset();
-        if (error) *error = irq_->cancelled() ? L"已取消" : timedOut ? L"连接服务器超时（40 秒内没有完成），请检查地址和网络" : L"无法连接到服务器或地址不可用，请检查网络";
+        if (error) *error = irq_->cancelled() ? L"Cancelled" : timedOut ? L"Timed out connecting to the server (not finished within 40 s). Check the address and the network." : L"Could not connect to the server, or the address is unavailable. Check the network.";
         return false;
     }
     irq_->arm(kProbeTimeoutMs);
@@ -449,7 +449,7 @@ bool DemuxSession::openContext(std::wstring* error, bool initial) {
         log::error("net-session", std::format("find_stream_info failed code={} text={} timedOut={}", result, errorText(result), probeTimedOut));
         avformat_close_input(&context);
         file_.reset();
-        if (error) *error = irq_->cancelled() ? L"已取消" : probeTimedOut ? L"读取媒体信息超时（30 秒），服务器太慢或不是视频流" : L"无法读取媒体信息，地址可能不是视频";
+        if (error) *error = irq_->cancelled() ? L"Cancelled" : probeTimedOut ? L"Timed out reading the media information (30 s); the server is too slow or this is not a video stream" : L"Could not read the media information; the address may not be a video";
         return false;
     }
     startTimeUs_ = context->start_time != AV_NOPTS_VALUE
@@ -478,7 +478,7 @@ std::shared_ptr<DemuxSession> DemuxSession::open(const OpenParams& params, std::
     int video = av_find_best_stream(context, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (video < 0) {
         log::error("net-session", "no video stream");
-        if (error) *error = L"该地址没有视频流";
+        if (error) *error = L"This address has no video stream";
         return nullptr;
     }
     // An HLS master playlist lists every quality as streams of one context. Like other players
@@ -642,11 +642,11 @@ double DemuxSession::resumeTargetLocked() const {
     // A live stream that has just come back restarts with half a second: the jitter buffer refills while it plays.
     if (liveBackCap_ > 0) target = std::min(target, liveBackCap_);
     target = std::min(target, std::max(1.0, aheadSecondsLocked() - 0.5));
-    // 服务器供不上时，上面算出的目标要等几十秒才攒得到，而攒够之后只够播十几秒又耗尽
-    // —— 观感是画面长期死等（现场 2026-10-24：server 0.81 MB/s 对 bitrate 1.75 MB/s，
-    // 目标 20 秒、实际只到 10.91 秒，一直停在「缓冲中」）。
-    // 这种情形改成「够一小段就继续播」：把等待压回 startSeconds 的量级，让画面和声音
-    // 都往前走，代价是停顿更频繁。反复短暂停顿比长期冻结更诚实，也更容易让用户想降画质。
+    // When the server cannot sustain the rate, the target computed above takes tens of seconds to fill, and after it fills it lasts only a few seconds before running out
+    //  - the picture hangs indefinitely (field 2026-10-24: server 0.81 MB/s against a bitrate of 1.75 MB/s,
+    // target 20 seconds, actual 10.91 seconds, parked at "buffering").
+    // For this case the rule is "play once a short segment is available": the wait is compressed back to the startSeconds scale so picture and sound
+    // both advance. The cost is more frequent pauses, and repeated short pauses are more honest than a frozen frame; they also make it easier for the user to decide to lower the picture quality.
     if (bandwidthLow_ && target > plan_.startSeconds * 2.0)
         target = std::max(plan_.startSeconds, std::min(target, plan_.startSeconds * 2.0));
     return target;
@@ -849,11 +849,11 @@ void DemuxSession::requestReconnect(const char* reason) {
 }
 
 bool DemuxSession::holding() const {
-    // 只读当前阶段，不重算。phase_ 由解码线程在 updatePhaseLocked() 里维护，而这里
-    // 会被音频线程每 2–10 ms 调一次（WasapiAudioSink 的 runOnAudioThread 循环）：
-    // 原来每次调用都执行 updatePhaseLocked()，等于让音频线程反复替解码线程判阶段，
-    // 既和白天的读循环抢锁，也会把刚刚判定的 Buffering 又算回 Playing —— 音频于是
-    // 在 pause / resume 之间抖动，表现成「时钟在走、画面不动」（现场 2026-10-24）。
+    // Read the current phase only, never recompute it. phase_ is maintained by the decode thread in updatePhaseLocked(), while this
+    // is called by the audio thread every 2-10 ms (the runOnAudioThread loop of WasapiAudioSink):
+    // Previously every call ran updatePhaseLocked(), meaning the audio thread kept re-deciding the phase on the decode thread's behalf,
+    // competing with the read loop for the lock and recomputing the freshly decided Buffering back to Playing - the audio then
+    // jitters between pause and resume, showing as "the clock advances while the picture does not" (field 2026-10-24).
     std::lock_guard lock(m_);
     return phase_ != Phase::Playing;
 }
@@ -913,21 +913,21 @@ NetworkStats DemuxSession::stats() const {
         out.message = failure_;
     } else if (reconnecting_) {
         out.state = NetworkStats::State::Reconnecting;
-        out.message = std::format(L"网络中断，正在重连（第 {} 次）", reconnectAttempt_ ? reconnectAttempt_ : 1u);
+        out.message = std::format(L"Network dropped, reconnecting (attempt {})", reconnectAttempt_ ? reconnectAttempt_ : 1u);
     } else if (eof_ && video_.empty()) {
         out.state = NetworkStats::State::Ended;
     } else if (phase_ == Phase::Prebuffering) {
         out.state = NetworkStats::State::Prebuffering;
-        out.message = std::format(L"正在缓冲 {:.1f}/{:.1f} 秒", out.bufferedSeconds, targetSeconds_);
+        out.message = std::format(L"Buffering {:.1f}/{:.1f} s", out.bufferedSeconds, targetSeconds_);
     } else if (phase_ == Phase::Buffering) {
         out.state = NetworkStats::State::Buffering;
-        out.message = std::format(L"网络缓冲中 {:.1f}/{:.1f} 秒", out.bufferedSeconds, targetSeconds_);
+        out.message = std::format(L"Buffering the network {:.1f}/{:.1f} s", out.bufferedSeconds, targetSeconds_);
     } else {
         out.state = NetworkStats::State::Playing;
     }
     if (bandwidthLow_ && (out.state == NetworkStats::State::Buffering || out.state == NetworkStats::State::Prebuffering)) {
-        // Separate piece (the UI translates "；"-separated parts on their own).
-        out.message += L"；" + std::format(L"服务器速度 {:.1f} MB/s 低于视频码率 {:.1f} MB/s，建议加大缓冲或下载后播放",
+        // Separate piece (the UI translates "; "-separated parts on their own).
+        out.message += L"; " + std::format(L"Server speed {:.1f} MB/s is below the video bitrate {:.1f} MB/s; raise the buffer or download it before playing",
                                            out.serverBytesPerSecond / 1048576.0, out.bitrateBytesPerSecond / 1048576.0);
     }
     return out;
@@ -1477,7 +1477,7 @@ bool DemuxSession::recover(int code, const char* why) {
     log::warn("net-session", std::format("connection lost reason={} code={} text={}", why, code, code ? errorText(code) : std::string()));
     closeContext();
     if (!settings_.autoReconnect) {
-        fail(L"网络连接中断（断线自动重连已关闭）");
+        fail(L"Network connection lost (auto-reconnect is off)");
         return false;
     }
     {
@@ -1561,7 +1561,7 @@ bool DemuxSession::recover(int code, const char* why) {
         delayMs = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - begin).count() < 15000 ? 1000 : 2000;
     }
     if (stop_.load() || (cancelled_ && cancelled_->load())) return false;
-    fail(std::format(L"网络连接中断，已重试 {} 秒仍无法恢复", reconnectBudgetMs_ / 1000));
+    fail(std::format(L"Network connection lost; still not back after retrying for {} s", reconnectBudgetMs_ / 1000));
     return false;
 }
 

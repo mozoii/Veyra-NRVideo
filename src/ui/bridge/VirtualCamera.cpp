@@ -11,19 +11,19 @@ int QmlPlayerBridge::virtualCameraFps()const{
 void QmlPlayerBridge::setVirtualCameraEnabled(bool enabled){
     std::wstring error;
     if(impl_->engine.setVirtualCamera(enabled,uint32_t(virtualCameraFps()),error)&&enabled&&!virtualCameraEnabled())
-        emit notice(tr("虚拟摄像机已启用，在直播软件中选择 Veyra Virtual Camera"),false);
+        emit notice(tr("Virtual camera enabled. Select Veyra Virtual Camera in your streaming app."),false);
     pollVirtualCamera();
 }
 void QmlPlayerBridge::uninstallVirtualCamera(){
     std::wstring error;
     if(!impl_->engine.uninstallVirtualCamera(error))emit notice(i18n::text(error),true);
-    else if(!impl_->engine.virtualCameraSnapshot().installing)emit notice(tr("已卸载当前用户的 Veyra 虚拟摄像机"),false);
+    else if(!impl_->engine.virtualCameraSnapshot().installing)emit notice(tr("Veyra virtual camera removed for the current user."),false);
     pollVirtualCamera();
 }
 void QmlPlayerBridge::installVirtualCamera(){
     std::wstring error;
     if(!impl_->engine.installVirtualCamera(error))emit notice(i18n::text(error),true);
-    else emit notice(tr("请在 Windows 弹窗中确认管理员安装"),false);
+    else emit notice(tr("Approve the administrator installation in the Windows prompt."),false);
     pollVirtualCamera();
 }
 void QmlPlayerBridge::pollVirtualCamera(){
@@ -41,6 +41,6 @@ void QmlPlayerBridge::pollVirtualCamera(){
     if(s.failed&&!s.error.empty()&&old.value("error")!=state.value("error"))emit notice(state.value("error").toString(),true);
     if(!s.setupError.empty()&&old.value("setupError")!=state.value("setupError"))emit notice(state.value("setupError").toString(),true);
     if(old.value("installing").toBool()&&!s.installing&&s.setupError.empty())
-        emit notice(s.systemInstalled?tr("摄像机组件已安装，请刷新或重新打开直播软件"):tr("虚拟摄像机设备已卸载"),false);
+        emit notice(s.systemInstalled?tr("Camera components installed. Refresh or reopen your streaming app."):tr("Virtual camera device removed."),false);
 }
 }

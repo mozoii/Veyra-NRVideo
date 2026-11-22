@@ -158,7 +158,7 @@ struct EnhanceGraphDesc {
     engine::FlowQuality flowQuality=engine::FlowQuality::Balanced;
     engine::OpticalFlowBackend opticalFlowBackend=engine::OpticalFlowBackend::Nvidia;
     bool amdFlowHalfResolution=false;
-    // XeSS motion refinement with the optical-flow source (UI "边缘神盾"): FlowRefine/
+    // XeSS motion refinement with the optical-flow source (UI "Edge Aegis"): FlowRefine/
     // FlowFill plus NVOF forward-backward or FidelityFX FlowClaim. Off: validated flow.
     bool fgMotionRefine=true;
     // DLSS-G performance mode (ngx/DlssgLite.h): DLSS frame generation only.
@@ -1020,7 +1020,7 @@ private:
     double nrReuseInferredPts_=0; // PTS of the last frame that ran NR inference
     std::string nrReuseUnavailable_;
     std::string nrReuseIneligibility() const;
-    // 纹理 / 清晰度 / 去朦胧 of the list grade fused into input conversion (srcRgba_).
+    // Texture / clarity / dehaze of the list grade fused into input conversion (srcRgba_).
     ColorDetailPass colorDetail_;
     // The texture the rest of the graph reads as "the NR result". Without the
     // stabiliser this is residualRgba_; with it, the stabilised copy the pass

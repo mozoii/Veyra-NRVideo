@@ -107,7 +107,7 @@ void UpdateChecker::finish() {
             result = QStringLiteral("available");
         } else {
             latestVersion_.clear(); releaseUrl_.clear(); emit releaseChanged();
-            if (manual_) emit notice(tr("当前已是最新版本"), false);
+            if (manual_) emit notice(tr("You are up to date"), false);
             result = QStringLiteral("current");
         }
     }
@@ -117,7 +117,7 @@ void UpdateChecker::finish() {
         return;
     }
     if (!failure_.isEmpty()) {
-        if (manual_) emit notice(tr("检查更新失败，请检查网络后重试"), true);
+        if (manual_) emit notice(tr("Could not check for updates. Check your connection and try again."), true);
         result = failure_;
     }
     body_.clear();

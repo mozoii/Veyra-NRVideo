@@ -50,7 +50,7 @@ private:
     uint64_t revision_=0;
     avermedia::SampleInfo input_{};
 };
-// Any capture card whose audio pin is 16-bit stereo PCM. A PS5 set to Bitstream
+// Any capture card whose audio pin is 16-bit stereo PCM. A console set to Bitstream
 // (Dolby/DTS) behind a card whose USB audio has only two channels arrives as
 // IEC 61937 inside "PCM": it is decoded through the carrier above instead of
 // being played as noise, and the session returns to the card's PCM format once

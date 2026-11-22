@@ -28,7 +28,7 @@ QVariantList QmlPlayerBridge::chain() const {
                 const auto option=choice.toMap();
                 if(option.value("id").toString()==fgBackendName())item["label"]=option.value("label");
             }
-        if(node.type==engine::EffectType::NrEnhance)item["label"]=tr("NR 画面增强 · 第 %1 层").arg(++nrOrdinal);
+        if(node.type==engine::EffectType::NrEnhance)item["label"]=tr("NR enhancement · layer %1").arg(++nrOrdinal);
         item["enabled"] = node.enabled;
         item["x"] = double(node.viewX);
         item["y"] = double(node.viewY);
@@ -77,12 +77,12 @@ QString QmlPlayerBridge::nrAutoSelectionReason(int index) const {
             node.nr.residual.correction.usesHistory():node.nr.temporal);
         otherAuto|=int(i)!=index&&node.enabled&&node.nr.sizePolicy==pipeline::NrSizePolicy::Auto;
     }
-    if(first!=index||count>2||otherAuto)return tr("自动 NR 仅支持一至两层列表的第一层");
+    if(first!=index||count>2||otherAuto)return tr("Auto NR supports the first layer of a one- or two-layer list");
     if(impl_->chain.mode!=engine::ChainMode::List||engine::currentNrRuntime(s.nrRuntime)!=engine::NrRuntime::Ampere||s.sr||s.multiplier>1||temporal||
        s.nrHoldStrength>0||s.color.enabled||s.additionalColorCount||s.antiAlias.enabled||s.additionalAntiAliasCount||s.beautyEnabled()||s.videoHdr.enabled||
        s.opticalFlowBackend!=engine::OpticalFlowBackend::Nvidia||s.nrMotion!=engine::MotionSource::OpticalFlow||snapshot.capture||snapshot.image||snapshot.sourceHdr||
        (snapshot.sourceWidth&& (snapshot.sourceWidth!=1920||snapshot.sourceHeight!=1080)))
-        return tr("需 1080p SDR 文件、SF 和 NVIDIA 光流；关闭超分、补帧、抗闪烁、调色、美颜及 HDR");
+        return tr("Requires a 1080p SDR file, SF and NVIDIA optical flow; turn off upscaling, frame generation, anti-flicker, grading, beauty and HDR");
     return {};
 }
 
@@ -232,13 +232,13 @@ void QmlPlayerBridge::emitParameterChanged(void (QmlPlayerBridge::*group)(), boo
 bool QmlPlayerBridge::chainValid() const { return impl_->validation.accepted; }
 int QmlPlayerBridge::nodeMode() const { return impl_->chain.mode == engine::ChainMode::Node ? 1 : 0; }
 void QmlPlayerBridge::setNodeMode(int mode) {
-    if (mode < 0 || mode > 1) { emit notice(tr("无效编辑模式"), true); return; }
+    if (mode < 0 || mode > 1) { emit notice(tr("Invalid edit mode"), true); return; }
     const auto want = mode ? engine::ChainMode::Node : engine::ChainMode::List;
     if (impl_->chain.mode == want) return;
     const auto previousSession = impl_->currentSession();
     auto candidate = previousSession;
     const bool freshNode = want == engine::ChainMode::Node && !candidate.initialized[size_t(want)];
-    if (!candidate.select(want)) { emit notice(tr("模式配置无效，未切换"), true); return; }
+    if (!candidate.select(want)) { emit notice(tr("Invalid mode configuration; not switched"), true); return; }
     if (freshNode) {
         // The first visit to the node editor starts from an empty graph (input
         // straight to output), not a copy of the list's effects.
@@ -255,15 +255,15 @@ void QmlPlayerBridge::setNodeMode(int mode) {
     auto& configuration = candidate.configurations[size_t(want)];
     disableUnavailableEffects(configuration);
     configuration.apply(next);
-    if (!next.validate().empty()) { emit notice(tr("模式参数无效，未切换"), true); return; }
+    if (!next.validate().empty()) { emit notice(tr("Invalid mode settings; not switched"), true); return; }
     // Save before changing the live mode; an unwritable/corrupt file cannot
     // silently discard the configuration the user is about to leave.
     if (!impl_->facade.saveChainSession(candidate)) { emit notice(uiText(impl_->facade.error()), true); return; }
     if (!impl_->facade.applySettings(next,engine::runtimeOrder(configuration.chain))) {
         impl_->facade.setPending(previousSettings);
         if (!impl_->facade.saveChainSession(previousSession))
-            emit notice(tr("引擎拒绝切换，存档回退失败：") + uiText(impl_->facade.error()), true);
-        emit notice(tr("引擎未接受模式设置，当前配置不变"), true); return;
+            emit notice(tr("The engine refused the switch and the saved state could not be restored: ") + uiText(impl_->facade.error()), true);
+        emit notice(tr("The engine did not accept the mode; current configuration unchanged"), true); return;
     }
     impl_->session = impl_->savedSession = candidate;
     impl_->restoreConfiguration(configuration);
@@ -304,12 +304,12 @@ QVariantList QmlPlayerBridge::presets() const {
 
 QString QmlPlayerBridge::currentPresetName() const {
     // Matching is by name of the stored entry whose chain equals what the UI is
-    // showing; anything else is honestly "自定义" rather than the nearest guess.
+    // showing; anything else is honestly "Custom" rather than the nearest guess.
     const auto& entries = impl_->facade.presets().entries();
     for (const auto& e : entries) {
         if (e.chain == impl_->chain) return utf8Of(e.name);
     }
-    return tr("自定义");
+    return tr("Custom");
 }
 
 QVariantList QmlPlayerBridge::audioTracks() const {
@@ -323,7 +323,7 @@ QVariantList QmlPlayerBridge::audioTracks() const {
         if (!track.codec.empty()) parts << utf8Of(track.codec);
         QVariantMap item;
         item["index"] = track.streamIndex;
-        item["label"] = parts.isEmpty() ? tr("音轨 %1").arg(track.streamIndex) : parts.join(QStringLiteral(" · "));
+        item["label"] = parts.isEmpty() ? tr("Audio track %1").arg(track.streamIndex) : parts.join(QStringLiteral(" · "));
         item["channels"] = int(track.channels);
         out << item;
     }
@@ -350,7 +350,7 @@ QString QmlPlayerBridge::captureSessionSummary() const {
     if (!formatLabel.isEmpty()) parts << formatLabel.section(QStringLiteral(" · "), 0, 1);
     else if (!session.formatKey.empty()) parts << utf8Of(session.formatKey);
     if (formatLabel.isEmpty() && session.fps > 0.01) parts << QStringLiteral("%1 fps").arg(session.fps, 0, 'f', 2);
-    if (!session.presetName.empty()) parts << tr("预设「%1」").arg(utf8Of(session.presetName));
+    if (!session.presetName.empty()) parts << tr("Preset \"%1\"").arg(utf8Of(session.presetName));
     return parts.join(QStringLiteral(" · "));
 }
 
@@ -358,7 +358,7 @@ void QmlPlayerBridge::resumeCaptureSession() {
     // "Continue": the remembered device, format, audio and colour, re-checked
     // against what the machine reports now; nothing else is picked for the user.
     impl_->capturePrefs = ui::CapturePreferenceStore(impl_->dataDir).load();
-    if (impl_->capturePrefs.videoPath.empty()) { emit notice(tr("还没有采集记录"), true); return; }
+    if (impl_->capturePrefs.videoPath.empty()) { emit notice(tr("No capture history yet"), true); return; }
     impl_->captureDevice = impl_->capturePrefs.videoPath;
     impl_->captureColor = impl_->capturePrefs.colorForDevice(impl_->captureDevice);
     impl_->captureResumePending = true;
@@ -392,7 +392,7 @@ int QmlPlayerBridge::addEffect(const QString& type) {
     const auto fgCeiling=engine::twoXFrameGeneration(fgBackend)?2u:
         fgBackend==engine::FrameGenerationBackend::XeSS?uint32_t(xessCeiling(impl_->snapshot)):fgBackend==engine::FrameGenerationBackend::Vfg?8u:6u;
     if(fgType&&fgBackend==engine::FrameGenerationBackend::Vfg&&(!vfgHardwarePossible()||!pipeline::VfgBackend::runtimeAvailable(runtime::localRuntimeDirectory().wstring()))){
-        emit notice(!vfgHardwarePossible()?tr("VFG 需要 NVIDIA RTX 30 / 40 / 50（30 系为实验兼容）"):tr("未找到 VFG 运行组件，请在组件页核对路径"),true);return -1;
+        emit notice(!vfgHardwarePossible()?tr("VFG requires NVIDIA RTX 30 / 40 / 50 (RTX 30 compatibility is experimental)"):tr("VFG runtime components were not found. Check their paths on the Components page."),true);return -1;
     }
     if (impl_->chain.mode == engine::ChainMode::Node) {
         const bool fg = fgType;
@@ -400,7 +400,7 @@ int QmlPlayerBridge::addEffect(const QString& type) {
         for (const auto& item : engine::effectCatalog())
             if ((fg && item.type == engine::EffectType::FrameGeneration) || utf8Of(item.id) == type) info = &item;
         if (!info || info->hidden) {
-            emit notice(tr("节点模式不支持该效果类型"), true); return -1;
+            emit notice(tr("Node mode does not support this effect type"), true); return -1;
         }
         auto& c = impl_->chain;
         auto before = std::make_unique<engine::EffectChain>(c);
@@ -414,7 +414,7 @@ int QmlPlayerBridge::addEffect(const QString& type) {
         if (index < 0) {
             if (c.nodeCount >= engine::kMaxChainNodes || c.countOf(info->type) >= info->maxInstances ||
                 impl_->layout.nextId == std::numeric_limits<uint32_t>::max()) {
-                emit notice(tr("该类型节点已达上限（含禁用和未连接节点）"), true); return -1;
+                emit notice(tr("This node type has reached its limit (including disabled and unconnected nodes)"), true); return -1;
             }
             index = int(c.nodeCount++);
             auto& node = c.nodes[index]; node = engine::ChainNode{}; node.type = info->type;
@@ -470,7 +470,7 @@ int QmlPlayerBridge::addEffect(const QString& type) {
         int slot=-1;
         for(uint32_t i=0;i<c.nodeCount;++i)if(c.nodes[i].type==engine::EffectType::FrameGeneration)slot=int(i);
         if(slot<0) {
-            if(c.nodeCount>=engine::kMaxChainNodes){emit notice(tr("效果链已满"),true);return -1;}
+            if(c.nodeCount>=engine::kMaxChainNodes){emit notice(tr("The effect chain is full"),true);return -1;}
             slot=int(c.nodeCount++);c.nodes[slot]={};c.nodes[slot].type=engine::EffectType::FrameGeneration;
             c.nodes[slot].viewX=float(slot%4)*260;c.nodes[slot].viewY=float(slot/4)*300;
         }
@@ -483,7 +483,7 @@ int QmlPlayerBridge::addEffect(const QString& type) {
            !unavailableEffects(next).isEmpty()||
            !impl_->facade.applySettings(next,engine::runtimeOrder(c))) {
             c=before;impl_->facade.setPending(previous);impl_->validation=engine::validateChain(c);
-            emit notice(tr("补帧选择未被接受，保留原设置；请检查倍率和后端能力"),true);return -1;
+            emit notice(tr("The frame generation choice was not accepted; previous setting kept. Check the multiplier and backend capability"),true);return -1;
         }
         impl_->options=engine::PlayerOptions::from(next,engine::runtimeOrder(c));
         emit settingsChanged();emitChainChanged();return slot;
@@ -497,13 +497,13 @@ int QmlPlayerBridge::addEffect(const QString& type) {
             break;
         }
     }
-    if (!found) { emit notice(tr("未知的效果: %1").arg(type), true); return -1; }
+    if (!found) { emit notice(tr("Unknown effect: %1").arg(type), true); return -1; }
 
     auto& c = impl_->chain;
-    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("效果链已满"), true); return -1; }
+    if (c.nodeCount >= engine::kMaxChainNodes) { emit notice(tr("The effect chain is full"), true); return -1; }
     const auto& info = engine::effectInfo(wanted);
     if (c.countOf(wanted) >= info.maxInstances) {
-        emit notice(tr("%1 最多 %2 个").arg(uiText(info.label)).arg(info.maxInstances), true);
+        emit notice(tr("At most %2 × %1").arg(uiText(info.label)).arg(info.maxInstances), true);
         return -1;
     }
 
@@ -686,7 +686,7 @@ bool QmlPlayerBridge::removeEffect(int index) {
     auto& c = impl_->chain;
     if (index < 0 || uint32_t(index) >= c.nodeCount) return false;
     const auto& info = engine::effectInfo(c.nodes[index].type);
-    if (info.mustBeLast) { emit notice(tr("补帧固定为最后一步，不能删除"), true); return false; }
+    if (info.mustBeLast) { emit notice(tr("Frame generation is fixed as the last step and cannot be deleted"), true); return false; }
     const auto before=c; const int selected=impl_->selectedNr,colourSelected=impl_->selectedColour;
     const auto previousLayout = impl_->layout;
     if (c.mode == engine::ChainMode::Node) {
@@ -722,7 +722,7 @@ bool QmlPlayerBridge::moveEffect(int from, int to) {
     // engine refuses them too so a script cannot route around the UI.
     if (engine::effectInfo(c.nodes[from].type).mustBeLast ||
         engine::effectInfo(c.nodes[to].type).mustBeLast) {
-        emit notice(tr("补帧固定为最后一步，不能拖动"), true);
+        emit notice(tr("Frame generation is fixed as the last step and cannot be dragged"), true);
         return false;
     }
     const auto before = c;
@@ -843,7 +843,7 @@ bool QmlPlayerBridge::applyPresetIndex(int index) {
     if (index < 0 || size_t(index) >= impl_->facade.presets().entries().size()) return false;
     const auto mode = impl_->chain.mode;
     const auto& entry = impl_->facade.presets().entries()[size_t(index)];
-    if (entry.kind != mode) { emit notice(tr("请先切换到预设对应的编辑模式"), true); return false; }
+    if (entry.kind != mode) { emit notice(tr("Switch to the edit mode the preset belongs to first"), true); return false; }
     const auto previous = impl_->facade.pendingSettings();
     const auto oldGlobals = impl_->draftGlobals;
     auto nextGlobals = oldGlobals;
@@ -871,7 +871,7 @@ bool QmlPlayerBridge::applyPresetIndex(int index) {
     if (!validation.accepted) { emit notice(uiText(validation.message), true); return false; }
     if (const auto error = settings.validate(); !error.empty()) {
         veyra::log::error("qml-preset", error);
-        emit notice(tr("预设参数无效，已保留原状态"), true); return false;
+        emit notice(tr("Invalid preset settings; previous state kept"), true); return false;
     }
     // Partial presets do not change the current editing target. Colour-only
     // insertion/removal can shift NR indices, so retain the instance ordinal.
@@ -915,19 +915,19 @@ bool QmlPlayerBridge::applyPresetIndex(int index) {
 }
 
 void QmlPlayerBridge::enqueueExportFile(const QString& input,const QString& output) {
-    if(!QFileInfo(input).isFile()){emit notice(tr("队列输入文件不存在"),true);return;}
+    if(!QFileInfo(input).isFile()){emit notice(tr("The queued input file does not exist"),true);return;}
     impl_->exportQueue.addFile(input,output);emit exportChanged();
 }
 void QmlPlayerBridge::addExportFiles(const QStringList& paths) {
     for(const auto& path:paths){const auto url=QUrl(path);const QString file=url.isLocalFile()?url.toLocalFile():path;
         if(QFileInfo(file).isFile())impl_->exportQueue.addFile(file);
-        else emit notice(tr("无法添加文件：%1").arg(file),true);
+        else emit notice(tr("Could not add file: %1").arg(file),true);
     }
     emit exportChanged();
 }
 void QmlPlayerBridge::addExportFilesDialog() {
-    addExportFiles(QFileDialog::getOpenFileNames(nullptr,tr("加入导出队列"),QString(),
-        tr("视频文件 (*.mp4 *.mkv *.mov *.avi *.webm *.ts *.m2ts);;所有文件 (*)")));
+    addExportFiles(QFileDialog::getOpenFileNames(nullptr,tr("Add to export queue"),QString(),
+        tr("Video files (*.mp4 *.mkv *.mov *.avi *.webm *.ts *.m2ts);;All files (*)")));
 }
 bool QmlPlayerBridge::selectExportPreset(int index) {
     if (index == -1) {
@@ -943,9 +943,9 @@ bool QmlPlayerBridge::selectExportPreset(int index) {
 }
 
 bool QmlPlayerBridge::savePresetAs(const QString& name, int contentsMask, bool nodeMode) {
-    if (name.isEmpty()) { emit notice(tr("预设需要一个名字"), true); return false; }
+    if (name.isEmpty()) { emit notice(tr("The preset needs a name"), true); return false; }
     if (nodeMode != (impl_->chain.mode == engine::ChainMode::Node)) {
-        emit notice(tr("请先切换到要保存的编辑模式"), true); return false;
+        emit notice(tr("Switch to the edit mode you want to save first"), true); return false;
     }
     engine::PresetEntry entry;
     entry.name = wideOf(name);
@@ -973,14 +973,14 @@ bool QmlPlayerBridge::savePresetAs(const QString& name, int contentsMask, bool n
     entry.flow = engine::PresetFlowSettings::capture(settings());
     const bool ok = impl_->facade.savePreset(entry, false);
     if (ok) emit presetsChanged();
-    else emit notice(tr("保存预设失败: %1").arg(uiText(impl_->facade.error())), true);
+    else emit notice(tr("Failed to save preset: %1").arg(uiText(impl_->facade.error())), true);
     return ok;
 }
 
 bool QmlPlayerBridge::deletePreset(int index) {
     if (index < 0 || size_t(index) >= impl_->facade.presets().entries().size()) return false;
     const auto& entry = impl_->facade.presets().entries()[size_t(index)];
-    if (entry.builtin) { emit notice(tr("内置预设不能删除，可以另存一份"), true); return false; }
+    if (entry.builtin) { emit notice(tr("Built-in presets cannot be deleted; you can save a copy"), true); return false; }
     const bool selected = impl_->exportPresetName == entry.name;
     const bool ok = impl_->facade.presets().erase(size_t(index));
     if (ok) {
@@ -1018,26 +1018,26 @@ QVariantList QmlPlayerBridge::presetSaveParts() const {
     QStringList chainParts;
     for (uint32_t i = 0; i < impl_->chain.nodeCount; ++i)
         chainParts << uiText(engine::effectInfo(impl_->chain.nodes[i].type).label);
-    add("chain", tr("效果链"),
-        chainParts.isEmpty() ? tr("空") : chainParts.join(QStringLiteral(" → ")),
+    add("chain", tr("Effect chain"),
+        chainParts.isEmpty() ? tr("Empty") : chainParts.join(QStringLiteral(" → ")),
         impl_->chain.nodeCount > 0);
-    add("color", tr("色彩"), s.color.enabled ? tr("已启用") : tr("未启用"), s.color.enabled);
-    add("fg", tr("补帧"),
-        s.multiplier > 1 ? QStringLiteral("%1X").arg(s.multiplier) : tr("关闭", "off"),
+    add("color", tr("Color"), s.color.enabled ? tr("Enabled") : tr("Not enabled"), s.color.enabled);
+    add("fg", tr("Frame Gen"),
+        s.multiplier > 1 ? QStringLiteral("%1X").arg(s.multiplier) : tr("Off", "off"),
         s.multiplier > 1);
-    add("audio", tr("声音"),
-        s.audioOffsetMs != 0 ? tr("偏移 %1 ms").arg(s.audioOffsetMs) : tr("默认"),
+    add("audio", tr("Audio"),
+        s.audioOffsetMs != 0 ? tr("Offset %1 ms").arg(s.audioOffsetMs) : tr("Default"),
         s.audioOffsetMs != 0);
-    const QStringList flowNames{QStringLiteral("NVIDIA NVOF"), tr("AMD 光流"), QStringLiteral("GPU DIS")};
-    const QStringList qualityNames{tr("性能"), tr("平衡"), tr("质量")};
+    const QStringList flowNames{QStringLiteral("NVIDIA NVOF"), tr("AMD optical flow"), QStringLiteral("GPU DIS")};
+    const QStringList qualityNames{tr("Performance"), tr("Balance"), tr("Quality")};
     const auto content=engine::currentContentRate(s.content);
-    const auto cadenceName=content==engine::ContentRate::Transport?tr("去重关闭"):
-        content==engine::ContentRate::Capture60To30?QStringLiteral("60→30"):tr("自动去除");
+    const auto cadenceName=content==engine::ContentRate::Transport?tr("Duplicate removal off"):
+        content==engine::ContentRate::Capture60To30?QStringLiteral("60→30"):tr("Automatic removal");
     QString flowSummary = flowNames.value(int(s.opticalFlowBackend)) + QStringLiteral(" · ") +
         qualityNames.value(int(s.flow)) + QStringLiteral(" · ") + cadenceName;
     if (s.opticalFlowBackend == engine::OpticalFlowBackend::AmdFidelityFx && s.amdFlowHalfResolution)
-        flowSummary += QStringLiteral(" · ") + tr("半分辨率");
-    add("flow", tr("光流与去除重复帧"), flowSummary,
+        flowSummary += QStringLiteral(" · ") + tr("Half resolution");
+    add("flow", tr("Optical flow and duplicate removal"), flowSummary,
         engine::PresetFlowSettings::capture(s) != engine::PresetFlowSettings{});
     return out;
 }
@@ -1052,7 +1052,7 @@ bool QmlPlayerBridge::setDefaultPreset(int index) {
     const bool ok = index == -1 ? impl_->facade.presets().clearDefault()
                                 : impl_->facade.presets().setDefault(size_t(index));
     if (ok) emit presetsChanged();
-    else emit notice(tr("默认预设保存失败：") + uiText(impl_->facade.presets().error()), true);
+    else emit notice(tr("Could not save the default preset: ") + uiText(impl_->facade.presets().error()), true);
     return ok;
 }
 

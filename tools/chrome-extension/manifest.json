@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "在 Veyra 播放",
+  "name": "Play in Veyra",
   "version": "1.1",
-  "description": "把当前标签页的直接媒体地址交给 Veyra 播放",
+  "description": "Hand the current tab's direct media address to Veyra",
   "permissions": [
     "activeTab",
     "scripting"
@@ -12,7 +12,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "在 Veyra 播放",
+    "default_title": "Play in Veyra",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

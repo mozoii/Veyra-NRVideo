@@ -23,7 +23,7 @@ using Microsoft::WRL::ComPtr;
 namespace {
 bool checked(HRESULT hr,const char* operation,std::wstring* error=nullptr){
     log::info("decklink-api",std::format("{} hr=0x{:08X}",operation,uint32_t(hr)));
-    if(FAILED(hr)&&error)*error=std::format(L"BMD 原生接口 {} 失败（0x{:08X}），请检查驱动、输入制式和设备占用",std::wstring(operation,operation+strlen(operation)),uint32_t(hr));
+    if(FAILED(hr)&&error)*error=std::format(L"BMD native API {} failed (0x{:08X}). Check the driver, input format and device access.",std::wstring(operation,operation+strlen(operation)),uint32_t(hr));
     return SUCCEEDED(hr);
 }
 std::wstring take(BSTR value){std::wstring s=value?std::wstring(value,SysStringLen(value)):L"";SysFreeString(value);return s;}
@@ -52,7 +52,7 @@ std::vector<Row> enumerate(){
         if(SUCCEEDED(device.As(&config)))checked(config->GetInt(bmdDeckLinkConfigVideoInputConnection,&port),"GetInputConnection");
         LONGLONG supported=0;const auto portsHr=attributes->GetInt(BMDDeckLinkVideoInputConnections,&supported);
         if(portsHr==S_OK&&supported>=0&&supported<=UINT32_MAX)row.supportedConnections=uint32_t(supported);
-        row.details.name=std::format(L"[原生] {} · Driver ({})",row.name,inputConnectionName(uint32_t(port)));
+        row.details.name=std::format(L"[Native] {} · Driver ({})",row.name,inputConnectionName(uint32_t(port)));
         log::info("decklink-device",std::format("stableKind={} id=0x{:016X} sub={} subHr=0x{:08X} autoDetect={} detectHr=0x{:08X} connection=0x{:X} supportedConnections=0x{:X} portsHr=0x{:08X}",persistent?"persistent":"topological",uint64_t(id),sub,uint32_t(subHr),row.details.autoDetection,uint32_t(detectHr),uint64_t(port),row.supportedConnections,uint32_t(portsHr)));
         out.push_back(std::move(row));device.Reset();
     }
@@ -68,7 +68,7 @@ std::vector<Row> enumerate(){
         for(auto connection:inputConnections)if(row.supportedConnections&connection){
             auto choice=row;choice.requestedConnection=connection;
             choice.details.path=inputConnectionPath(row.details.path,connection);
-            choice.details.name=std::format(L"[原生] {} · {}",row.name,inputConnectionName(connection));
+            choice.details.name=std::format(L"[Native] {} · {}",row.name,inputConnectionName(connection));
             choices.push_back(std::move(choice));
         }
     }
@@ -138,7 +138,7 @@ public:
             signal.bits=flags&bmdDetectedVideoInput12BitDepth?12:flags&bmdDetectedVideoInput10BitDepth?10:flags&bmdDetectedVideoInput8BitDepth?8:0;
             log::info("decklink-format",std::format("events=0x{:X} mode=0x{:08X} extent={}x{} duration={}/{} interlaced={} detectedFlags=0x{:X} rgb={} bits={}",events,signal.mode.id,signal.mode.width,signal.mode.height,signal.mode.duration,signal.mode.scale,signal.mode.interlaced,flags,signal.rgb,signal.bits));
             entry.sink->formatChanged(signal);return S_OK;
-        }catch(...){entry.sink->failure(L"BMD 制式回调异常");return E_FAIL;}
+        }catch(...){entry.sink->failure(L"BMD format callback failed.");return E_FAIL;}
     }
     HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame* video,IDeckLinkAudioInputPacket* audio)override{
         Entry entry(*this);if(!entry.sink)return S_OK;
@@ -148,11 +148,11 @@ public:
                 if(noInput_.exchange(frame.noInput?1:0)!=(frame.noInput?1:0))log::info("decklink-input",std::format("noInput={} frameFlags=0x{:X}",frame.noInput,flags));
                 if(frame.noInput){entry.sink->video(frame);return S_OK;}
                 const auto format=pixel(video->GetPixelFormat());
-                if(!format){entry.sink->failure(L"BMD 返回未支持的像素格式");return E_FAIL;}
+                if(!format){entry.sink->failure(L"BMD returned an unsupported pixel format.");return E_FAIL;}
                 frame.pixel=*format;frame.width=video->GetWidth();frame.height=video->GetHeight();frame.stride=video->GetRowBytes();frame.bottomUp=(flags&bmdFrameFlagFlipVertical)!=0;
                 void* data=nullptr;const HRESULT bytesHr=video->GetBytes(&data);
                 const HRESULT timeHr=video->GetStreamTime(&frame.pts100ns,&frame.duration100ns,10000000);
-                if(FAILED(bytesHr)||FAILED(timeHr)){checked(bytesHr,"VideoGetBytes");checked(timeHr,"VideoGetStreamTime");entry.sink->failure(L"BMD 无法读取有效画面或源时间戳");return E_FAIL;}
+                if(FAILED(bytesHr)||FAILED(timeHr)){checked(bytesHr,"VideoGetBytes");checked(timeHr,"VideoGetStreamTime");entry.sink->failure(L"BMD could not read valid video or source timestamps.");return E_FAIL;}
                 frame.data=static_cast<const uint8_t*>(data);frame.bytes=size_t(frame.stride)*frame.height;frame.color=entry.color;
                 using namespace pipeline;
                 frame.color.pixelFormat=frame.pixel==Pixel::V210?SourcePixelFormat::V210:frame.pixel==Pixel::Rgb10xLE?SourcePixelFormat::Rgb10xLE:frame.pixel==Pixel::Uyvy8?SourcePixelFormat::Uyvy:SourcePixelFormat::Bgra8;
@@ -165,12 +165,12 @@ public:
                         if(colorspace==bmdColorspaceRec2020){frame.color.matrix=YuvMatrix::BT2020NCL;frame.color.primaries=ColorPrimaries::BT2020;}
                         else if(colorspace==bmdColorspaceRec709){frame.color.matrix=YuvMatrix::BT709;frame.color.primaries=ColorPrimaries::BT709;}
                         else if(colorspace==bmdColorspaceRec601){frame.color.matrix=YuvMatrix::BT601;frame.color.primaries=frame.height==576?ColorPrimaries::BT601_625:ColorPrimaries::BT601_525;}
-                        else {entry.sink->failure(L"BMD 返回未知颜色空间");return E_FAIL;}
+                        else {entry.sink->failure(L"BMD returned an unknown color space.");return E_FAIL;}
                         frame.color.matrixAssumed=frame.color.primariesAssumed=false;
                     }
                     if(flags&bmdFrameContainsHDRMetadata){
                         eotfHr=metadata->GetInt(bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc,&eotf);
-                        if(FAILED(eotfHr)||(eotf!=0&&eotf!=2&&eotf!=3)){checked(eotfHr,"GetHDRTransfer");entry.sink->failure(L"BMD HDR 帧的 EOTF 不受支持；仅接受 SDR、PQ 或 HLG，拒绝猜测颜色传递");return E_FAIL;}
+                        if(FAILED(eotfHr)||(eotf!=0&&eotf!=2&&eotf!=3)){checked(eotfHr,"GetHDRTransfer");entry.sink->failure(L"Unsupported BMD EOTF. Only SDR, PQ and HLG are supported; the transfer function will not be guessed.");return E_FAIL;}
                         frame.color.transfer=eotf==2?TransferFunction::PQ:eotf==3?TransferFunction::HLG:TransferFunction::BT709;
                         frame.color.transferAssumed=false;frame.color.preserveSdrCodeValues=!frame.color.isHdrPath();
                         auto light=[&](BMDDeckLinkFrameMetadataID id){double value=0;const HRESULT h=metadata->GetFloat(id,&value);return SUCCEEDED(h)&&std::isfinite(value)&&value>0&&value<=65535?float(value):0.f;};
@@ -178,7 +178,7 @@ public:
                         frame.color.hdrMaxFallNits=light(bmdDeckLinkFrameMetadataHDRMaximumFrameAverageLightLevel);
                         frame.color.hdrMasteringPeakNits=light(bmdDeckLinkFrameMetadataHDRMaxDisplayMasteringLuminance);
                     }
-                }else if(flags&bmdFrameContainsHDRMetadata){entry.sink->failure(L"BMD 标记 HDR，但驱动未提供 HDR 元数据接口");return E_FAIL;}
+                }else if(flags&bmdFrameContainsHDRMetadata){entry.sink->failure(L"BMD reports HDR, but the driver provides no HDR metadata interface.");return E_FAIL;}
                 if(!loggedMetadata_.exchange(true)){log::info("decklink-metadata",std::format("QueryInterfaceHr=0x{:08X} colorspaceHr=0x{:08X} colorspace=0x{:X} hdr={} eotfHr=0x{:08X} eotf={}",uint32_t(metaHr),uint32_t(colorHr),uint64_t(colorspace),(flags&bmdFrameContainsHDRMetadata)!=0,uint32_t(eotfHr),eotf));}
                 if(!loggedFrame_.exchange(true)){log::info("decklink-frame",std::format("flags=0x{:X} extent={}x{} rowBytes={} pixel=0x{:X} bytesHr=0x{:08X} timeHr=0x{:08X} pts={} duration={}",flags,frame.width,frame.height,frame.stride,unsigned(video->GetPixelFormat()),uint32_t(bytesHr),uint32_t(timeHr),frame.pts100ns,frame.duration100ns));}
                 entry.sink->video(frame);
@@ -188,7 +188,7 @@ public:
                 else{checked(bytesHr,"AudioGetBytes");checked(timeHr,"AudioGetPacketTime");}
             }
             return S_OK;
-        }catch(...){entry.sink->failure(L"BMD 帧回调异常");return E_FAIL;}
+        }catch(...){entry.sink->failure(L"BMD frame callback failed.");return E_FAIL;}
     }
 };
 class ComDriver final:public Driver {
@@ -218,13 +218,13 @@ public:
     ~ComDriver(){stop();}
     bool open(std::wstring_view path,DriverSink& sink,std::wstring& error)override{
         stop();const auto selection=inputConnectionSelection(path);
-        if(!selection.valid){error=L"保存的 BMD 输入口无效，请重新选择设备和 HDMI/SDI 输入";return false;}
+        if(!selection.valid){error=L"The saved BMD input connection is invalid. Select the device and HDMI/SDI input again.";return false;}
         bool physicalFound=false;
         for(auto& row:enumerate()){
             if(row.details.path==selection.device)physicalFound=true;
             if(row.details.path==path){device_=row.device;input_=row.input;auto_=row.details.autoDetection;requestedConnection_=row.requestedConnection;supportedConnections_=row.supportedConnections;break;}
         }
-        if(!input_){error=physicalFound?L"这张 BMD 卡当前不提供所选输入口，请刷新并重新选择设备输入":L"BMD 原生设备当前不可用，请确认设备连接和 Desktop Video 状态，然后刷新设备列表";return false;}
+        if(!input_){error=physicalFound?L"This BMD card does not currently expose the selected connector. Refresh and select an available input.":L"The native BMD device is unavailable. Check its connection and Desktop Video status, then refresh the device list.";return false;}
         device_.As(&configuration_);
         callback_.Attach(new Callback(sink));
         if(!checked(input_->SetCallback(callback_.Get()),"SetCallback",&error)){stop();return false;}
@@ -238,13 +238,13 @@ public:
             const bool selected=connectionLease_.apply(requestedConnection_,supportedConnections_,[&](uint32_t& value){return readConnection(value);},[&](uint32_t value){return writeConnection(value);});
             uint32_t actualConnection=0;const bool read=readConnection(actualConnection);
             log::info("decklink-connection",std::format("requested=0x{:X} actual=0x{:X} verified={} read={} supported=0x{:X} persistentWrite=0",requestedConnection_,actualConnection,selected,read,supportedConnections_));
-            if(!selected){error=L"BMD 所选输入口不可用，或驱动未应用该输入口；请重新选择 HDMI/SDI 输入";return false;}
+            if(!selected){error=L"The selected BMD connector is unavailable or the driver did not apply it. Select the HDMI/SDI input again.";return false;}
             connectionConfigured_=true;
         }
         const auto hr=input_->DoesSupportVideoMode(BMDVideoConnection(requestedConnection_),BMDDisplayMode(mode.id),sdkPixel(p),bmdNoVideoInputConversion,bmdSupportedVideoModeDefault,&actual,&supported);
         checked(hr,"DoesSupportVideoMode",&error);
         log::info("decklink-negotiate",std::format("mode=0x{:08X} actual=0x{:08X} pixel=0x{:08X} supported={} automatic={}",mode.id,unsigned(actual),unsigned(sdkPixel(p)),supported,automatic));
-        if(FAILED(hr)||!supported||uint32_t(actual)!=mode.id){if(error.empty())error=L"BMD 输入不支持所选制式/像素格式";return false;}
+        if(FAILED(hr)||!supported||uint32_t(actual)!=mode.id){if(error.empty())error=L"BMD input does not support the selected video/pixel format.";return false;}
         if(!checked(input_->EnableVideoInput(BMDDisplayMode(mode.id),sdkPixel(p),automatic?bmdVideoInputEnableFormatDetection:bmdVideoInputFlagDefault),"EnableVideoInput",&error))return false;
         videoEnabled_=true;callback_->color(mode.color);
         if(audio&&!audioEnabled_){if(!checked(input_->EnableAudioInput(bmdAudioSampleRate48kHz,bmdAudioSampleType16bitInteger,2),"EnableAudioInput",&error))return false;audioEnabled_=true;}

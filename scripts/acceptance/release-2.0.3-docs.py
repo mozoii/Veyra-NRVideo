@@ -24,22 +24,22 @@ edit('README.md', english)
 
 def chinese(t):
     t = t.replace('2.0.2', '2.0.3')
-    t = t.replace('## 2.0.3 新增与修复\n', '''## 2.0.3 新增与修复
+    t = t.replace('## 2.0.3 New and fixed\n', '''## 2.0.3 New and fixed
 
-- **显卡分包**：NVIDIA 包不带 AMD NR；AMD 包不带 NVIDIA NR/NGX/VFG/CUDA。按用户追加决定，两包都保留原有 FidelityFX 2.3.0 共用组件，FSR3.1/XeSS 可用，NVIDIA 的 FSR4 入口置灰。
-- **功能可见但禁用**：NR 四版本、超分、补帧、RTX HDR、光流与节点添加统一判断硬件/组件，并显示禁用原因。恢复旧配置关闭不可用效果，保留参数。
-- **VFG 与现场修复**：VFG 全部 2–8X、低/中/高；Xbox 音频启动与有界恢复；导出码率草稿/验证/worker 冻结；小飞机兼容背景不透明；移除 NVIDIA App 插件误判；修复极简右侧像素黑边。删除九个 VFG 不使用的 NPP 库。RX9000 推理和 Xbox 真机长稳仍待验，HDR/杜比 PR 暂缓。
+- **Per-GPU split**: the NVIDIA package does not carry AMD NR; the AMD package does not carry NVIDIA NR/NGX/VFG/CUDA. Per the user's follow-up decision, both packages keep the original FidelityFX 2.3.0 shared components, FSR3.1/XeSS work, NVIDIA's FSR4 entry is disabled.
+- **Feature visible but disabled**: the four NR versions, super-resolution, frame generation, RTX HDR, optical flow and node addition all uniformly check hardware/components and show the disable reason. Restoring old configs disables unsupported effects while preserving parameters.
+- **VFG and field fixes**: all VFG 2-8X, low/medium/high; Xbox audio startup and bounded recovery; export bitrate draft/verify/worker freeze; airplane-compatible background opaque; NVIDIA App plugin false-positive removed; minimal right-edge pixel black-border fix. Nine NPP libraries unused by VFG are removed. RX9000 inference and Xbox long-term stability are still unverified, HDR/Dolby PR on hold.
 
 ''')
-    t = t.replace('下载 **Veyra-2.0.3-win64-portable.zip**，完整解压到可写新目录，运行 **veyra_qml_ui.exe**。运行只需这一个下载包。', '按 Veyra 实际使用的显卡下载 **Veyra-2.0.3-NVIDIA-win64-portable.7z** 或 **Veyra-2.0.3-AMD-win64-portable.7z**，用 7-Zip 完整解压到可写新目录，运行 **veyra_qml_ui.exe**。运行只需一个显卡包，源码包仅供重编译。')
-    t = t.replace('列表与节点的 **NR 版本** 均可选 RTX 50 · NVIDIA 原版、RTX 50 · Lecram、RTX 20–50 · SF-v2，切换时全 NR 链同步，原有默认选择保留。', '列表与节点的 **NR 版本** 均可选四项：RTX 50 · NVIDIA 原版、RTX 50 · Lecram、RTX 20–50 · SF-v2、RX9000 · lmxxf（实验）。不支持的版本保留置灰，支持的版本切换时全 NR 链同步。AMD NR 需要驱动 HIP 7，内部最高 1080p 像素预算，HDR/原生 1440p/4K NR 导出不支持。')
+    t = t.replace('Download **Veyra-2.0.3-win64-portable.zip**, fully extract to a writable new directory and run **veyra_qml_ui.exe**. Only this one download package is needed to run.', 'Download **Veyra-2.0.3-NVIDIA-win64-portable.7z** or **Veyra-2.0.3-AMD-win64-portable.7z** matching the GPU you actually use with Veyra, fully extract to a writable new directory with 7-Zip and run **veyra_qml_ui.exe**. Only one GPU package is needed to run; source packages are for recompiling only.')
+    t = t.replace('列表与节点的 **NR 版本** 均可选 RTX 50 · NVIDIA 原版、RTX 50 · Lecram、RTX 20–50 · SF-v2，切换时全 NR 链同步，原有默认选择保留。', 'The **NR version** in the list and node is freely selectable: RTX 50 · NVIDIA original, RTX 50 · Lecram, RTX 20-50 · SF-v2, RX9000 · lmxxf (experimental); unsupported versions stay disabled but retained, switching supported versions keeps the full NR chain in sync. AMD NR needs the HIP 7 driver runtime, has an internal max 1080p pixel budget, and does not support HDR/native 1440p/4K NR export.')
     return t
 edit('README_CN.md', chinese)
 
 def build(t):
     a = t.index('\n- Official FidelityFX SDK 1.1.4'); b = t.index('\n- MIT VFG sample reference', a)
     t = t[:a] + '\n- Both GPU packages retain the exact existing FidelityFX SDK 2.3.0 loader, upscaler and framegeneration components, at the user\'s explicit request to keep FSR3.1/4 together. Corresponding 2.3.0 sources are in the unchanged dependency archive. NVIDIA only exposes FSR3.1; FSR4 remains disabled there. No legacy SDK replacement or ABI compatibility change is shipped.\n' + t[b:]
-    return t.replace(', `--fsr31`', '').replace('、官方 FSR 3.1 源码', '（FSR 2.3.0 对应源码沿用）')
+    return t.replace(', `--fsr31`', '')
 edit('docs/BUILD_2.0.3.md', build)
 
 def components(t):
@@ -47,14 +47,14 @@ def components(t):
     t = t.replace('Gray; no FSR4 ML DLL/model payload', 'Gray; shared FidelityFX components retained by explicit user choice')
     a = t.index('NVIDIA FSR 3.1 uses'); b = t.index('\n\nAMD NR source', a)
     t = t[:a] + 'Both packages retain the existing signed SDK 2.3.0 loader, FSR4.1.1 SR provider and FSR4.0.1 FG provider, including FSR3.1 compatibility. The user explicitly requested keeping FSR3.1/4 together instead of splitting the runtime. NVIDIA exposes FSR3.1 and keeps FSR4 ML disabled; AMD exposes the ML paths only for qualifying RX9000 hardware. Each DLL keeps its existing approved identity. No old SDK replacement, DLL patch or new ABI compatibility branch is shipped.' + t[b:]
-    return t.replace('NVIDIA 包不带 AMD NR 与 FSR4 ML；', 'NVIDIA 包不带 AMD NR；两包保留原有 FSR3.1/4 共用组件，NVIDIA 的 FSR4 ML 仍禁用；')
+    return t.replace('NVIDIA package does not carry AMD NR and FSR4 ML;', 'NVIDIA package does not carry AMD NR; both packages keep the original shared FSR3.1/4 components, NVIDIA FSR4 ML remains disabled;')
 edit('docs/RUNTIME_COMPONENTS_2.0.3.md', components)
 
 def notes(t):
-    t = t.replace('不携带 AMD NR 或 FSR4 ML。FSR3.1 换为官方独立原件，约 6.4 MiB。', '不携带 AMD NR。按用户追加决定保留原有 FSR3.1/4 共用组件，NVIDIA 的 FSR4 选项仍置灰。')
+    t = t.replace('Does not carry AMD NR or FSR4 ML. FSR3.1 replaced with the official standalone original, ~6.4 MiB.', 'Does not carry AMD NR. Per the user follow-up decision the original shared FSR3.1/4 components are kept, NVIDIA FSR4 option remains disabled.')
     return t.replace('AMD NR and FSR4 ML assets are excluded. The standalone official FSR3.1 runtime is about 6.4 MiB.', 'AMD NR assets are excluded. The existing shared FidelityFX 2.3.0 runtime is retained by explicit user choice; FSR4 ML remains disabled on NVIDIA.')
 edit('docs/RELEASE_NOTES_2.0.3.md', notes)
-edit('docs/RELEASE_2.0.3_PLAN_2026-10-04.md', lambda t: t.replace('NVIDIA 不带 AMD NR/HIP 或 FSR4 ML，AMD 不带 DLSS/NGX/NVOF/VFG/CUDA。', 'NVIDIA 不带 AMD NR/HIP，AMD 不带 DLSS/NGX/NVOF/VFG/CUDA。用户追加决定保留现有 FSR3.1/4 共用组件，两包均使用已核验 SDK 2.3.0 三 DLL；NVIDIA 的 FSR4 ML 仍可见置灰。旧 SDK 独立 FSR3.1 研究与兼容试改已撤下，不进入最终产品。'))
+edit('docs/RELEASE_2.0.3_PLAN_2026-10-04.md', lambda t: t.replace('NVIDIA does not carry AMD NR/HIP or FSR4 ML, AMD does not carry DLSS/NGX/NVOF/VFG/CUDA.', 'NVIDIA does not carry AMD NR/HIP, AMD does not carry DLSS/NGX/NVOF/VFG/CUDA. User follow-up decision keeps the existing shared FSR3.1/4 components, both packages use the verified SDK 2.3.0 three DLLs; NVIDIA FSR4 ML is still visible but disabled. The old standalone FSR3.1 SDK study and compatibility experiment are removed, not entering the final product.'))
 
 def notices(t):
     t = t.replace('Only the fourteen native VFG dependencies are used;', 'Only the five VFG-required native dependencies are used; nine unrelated NPP libraries are omitted;')

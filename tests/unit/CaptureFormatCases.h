@@ -84,5 +84,5 @@ template<class Check> void captureFormatCases(Check check){
     t.subtype=fourcc("P010");DXVA2_ExtendedFormat ext{};ext.VideoTransferFunction=16;vi.dwControlFlags=ext.value|AMCONTROL_COLORINFO_PRESENT;
     check(captureMediaLayout(t,l)&&l.color.transfer==veyra::pipeline::TransferFunction::HLG&&!l.color.transferAssumed,"capture HLG metadata is retained, never silently interpreted as SDR");vi.dwControlFlags=0;
     t.subtype=fourcc("ABCD");check(capturePixelName(t.subtype)==L"ABCD"&&!captureMediaLayout(t,l),"unknown FourCC readable but not advertised as native");
-    t.subtype.Data2=3;check(capturePixelName(t.subtype).find(L"未知格式")!=std::wstring::npos&&!captureMediaLayout(t,l),"private GUID cannot alias standard FourCC");
+    t.subtype.Data2=3;check(capturePixelName(t.subtype).find(L"Unknown format")!=std::wstring::npos&&!captureMediaLayout(t,l),"private GUID cannot alias standard FourCC");
 }

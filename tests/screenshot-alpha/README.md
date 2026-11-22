@@ -88,7 +88,7 @@ and tuning unit tests pass with a fresh temporary directory; the existing
 tuning persistence test is not repeatable in a reused temporary directory.
 ScreenshotCombination requested HDR but the display's output remained SDR.
 
-The local player build disables optional PS5/Moonlight/Xbox streaming and does
+The local player build disables optional Moonlight/Xbox streaming and does
 not stage libass/XeSS. Actual HDR capture/F7, recording integration and those
 optional features were not retested. Their production code is outside this
 patch. `ImageDimensionTests --tiled-color` fails all six cases with

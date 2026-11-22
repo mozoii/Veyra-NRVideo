@@ -1,10 +1,10 @@
-"""生成「切换清单」：自动找出定制版与作者版之间所有不同的文件。
+"""Generate the switch manifest: automatically find every file that differs between the custom build and the author edition.
 
-用法：
-    python tools/diff_surfaces.py --author <作者包> --custom <构建目录> --package <程序包>
+Usage:
+    python tools/diff_surfaces.py --author <author package> --custom <build directory> --package <program package>
 
-输出：应纳入切换脚本的文件清单，并可直接生成 .orig / .p5 备份。
-这是升级流程的强制步骤：新增文件（作者加的新着色器、新 DLL、新目录）也会被发现。
+Output: the file manifest that must go into the switch script, with the .orig / .p5 backups generatable directly.
+This is a required step in the upgrade flow: newly added files (new shaders, new DLLs, new directories) are also found.
 """
 import argparse
 import hashlib
@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# 参与比对的路径（相对包根），支持 glob
+# Paths compared (relative to package root), globs supported
 WATCH = [
     "veyra_qml_ui.exe",
     "shaders/**/*.dxil",
@@ -33,7 +33,7 @@ def sha(p: Path) -> str:
 
 
 def collect(root: Path) -> dict[str, Path]:
-    """收集 root 下所有受监视的文件 → {相对路径: 绝对路径}"""
+    """Collect all watched files under root -> {relative path: absolute path}"""
     out = {}
     for pattern in WATCH:
         for p in root.glob(pattern):
@@ -44,9 +44,9 @@ def collect(root: Path) -> dict[str, Path]:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--author", required=True, help="作者原版包目录")
-    ap.add_argument("--custom", required=True, help="本仓库构建目录（含定制产物）")
-    ap.add_argument("--package", required=True, help="实际运行的程序包目录")
+    ap.add_argument("--author", required=True, help="Author edition package directory")
+    ap.add_argument("--custom", required=True, help="This repo build directory (with custom outputs)")
+    ap.add_argument("--package", required=True, help="Actual running program package directory")
     args = ap.parse_args()
 
     author = Path(args.author).resolve()
@@ -57,11 +57,11 @@ def main():
     c_files = collect(custom)
 
     print("=" * 70)
-    print("切换清单：定制版 vs 作者版")
+    print("Switch manifest: custom build vs author edition")
     print("=" * 70)
-    print(f"作者包  : {author}  ({len(a_files)} 个受监视文件)")
-    print(f"构建目录: {custom}  ({len(c_files)} 个受监视文件)")
-    print(f"程序包  : {pkg}")
+    print(f"Author package: {author}  ({len(a_files)} watched files)")
+    print(f"Build directory: {custom}  ({len(c_files)} watched files)")
+    print(f"Program package: {pkg}")
     print()
 
     all_paths = sorted(set(a_files) | set(c_files))
@@ -80,42 +80,42 @@ def main():
         else:
             only_custom.append(rel)
 
-    print(f"[A] 内容不同，必须纳入切换：{len(different)} 个")
+    print(f"[A] Different content, must be switched: {len(different)} files")
     for r in different:
         print(f"     {r}")
 
-    print(f"\n[B] 只在作者包里有：{len(only_author)} 个")
+    print(f"\n[B] Only in the author package: {len(only_author)} files")
     for r in only_author[:20]:
         print(f"     {r}")
     if len(only_author) > 20:
-        print(f"     ... 还有 {len(only_author) - 20} 个")
+        print(f"     ... and {len(only_author) - 20} more")
 
-    print(f"\n[C] 只在定制构建里有：{len(only_custom)} 个")
+    print(f"\n[C] Only in the custom build: {len(only_custom)} files")
     for r in only_custom[:20]:
         print(f"     {r}")
     if len(only_custom) > 20:
-        print(f"     ... 还有 {len(only_custom) - 20} 个")
+        print(f"     ... and {len(only_custom) - 20} more")
 
     print()
     print("=" * 70)
-    print("结论")
+    print("Conclusion")
     print("=" * 70)
     total = len(different) + len(only_author) + len(only_custom)
     if total == 0:
-        print("  两版完全相同，不需要切换脚本。")
+        print("  The two versions are identical; no switch script needed.")
         return 0
 
-    print(f"  需要切换的文件共 {len(different)} 个（内容不同的）。")
-    print(f"  另有 {len(only_author)} 个只在作者版、{len(only_custom)} 个只在定制版。")
+    print(f"  {len(different)} files need switching (different content).")
+    print(f"  Plus {len(only_author)} only in the author edition and {len(only_custom)} only in the custom edition.")
     print()
-    print("  ⚠ 切换脚本必须覆盖 [A] 的全部文件。")
-    print("  ⚠ [B] 和 [C] 通常不需要切换，但要确认它们不会造成版本混搭")
-    print("     （例如作者新增的着色器若被定制版 exe 引用，就要一并处理）。")
+    print("  [A] files must all be covered by the switch script.")
+    print("  [B] and [C] usually do not need switching, but confirm they will not cause version mixing")
+    print("     (e.g. a shader the author added that the custom exe references must be handled too.)")
 
-    # 检查程序包里这些文件的 .orig / .p5 备份是否存在
+    # Check whether the .orig / .p5 backups for these files exist in the package
     print()
     print("=" * 70)
-    print("程序包里的备份状态")
+    print("Backup status in the package")
     print("=" * 70)
     missing = []
     for r in different:
@@ -125,11 +125,11 @@ def main():
             if not bak.exists():
                 missing.append(f"{r}{suffix}")
     if missing:
-        print(f"  缺少 {len(missing)} 个备份（切换脚本会因此失败）：")
+        print(f"  Missing {len(missing)} backups (the switch script will fail because of this):")
         for m in missing[:15]:
             print(f"     {m}")
     else:
-        print("  所有差异文件都有 .orig / .p5 备份 ✓")
+        print("  All different files have .orig / .p5 backups")
 
     return 0
 

@@ -9,15 +9,15 @@ ColumnLayout {
     spacing: 4
     VRow {
         objectName: root.namePrefix+"-nvidia-low-latency-row"
-        label: qsTr("英伟达低延迟")
+        label: qsTr("NVIDIA Low Latency")
         hintBelow: true
-        hint: !root.available ? qsTr("需要 NVIDIA 显卡") : ""
+        hint: !root.available ? qsTr("Requires an NVIDIA GPU") : ""
         VSeg {
             objectName: root.namePrefix+"-nvidia-low-latency"
             enabled: root.available
             opacity: enabled ? 1 : 0.4
-            options: [{id:"0",label:qsTr("关")},{id:"1",label:qsTr("开")}]
-            // Another adapter shows 关: the NVIDIA choice is kept for the next
+            options: [{id:"0",label:qsTr("Off")},{id:"1",label:qsTr("On")}]
+            // Another adapter shows Off: the NVIDIA choice is kept for the next
             // NVIDIA session but does nothing there.
             current: root.available ? (root.backend.nvidiaLowLatency > 0 ? "1" : "0") : "0"
             onPicked: id => root.backend.nvidiaLowLatency=Number(id)
@@ -25,7 +25,7 @@ ColumnLayout {
     }
     Text {
         Layout.fillWidth: true
-        text: root.backend.running ? root.backend.presentationStatus : qsTr("打开视频后生效")
+        text: root.backend.running ? root.backend.presentationStatus : qsTr("Applies when a video is opened")
         color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11
         wrapMode: Text.WordWrap
     }

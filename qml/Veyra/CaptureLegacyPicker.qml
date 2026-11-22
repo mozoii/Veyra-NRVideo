@@ -38,25 +38,25 @@ Popup {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            Text { Layout.fillWidth: true; text: qsTr("旧版格式列表"); color: Theme.t1; font.family: Theme.fontUi; font.pixelSize: 16; font.bold: true }
-            VButton { text: qsTr("关闭"); ghost: true; onClicked: picker.close() }
+            Text { Layout.fillWidth: true; text: qsTr("Legacy format list"); color: Theme.t1; font.family: Theme.fontUi; font.pixelSize: 16; font.bold: true }
+            VButton { text: qsTr("Close"); ghost: true; onClicked: picker.close() }
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("分辨率、帧率和像素格式合并显示；包含非常用帧率，与主界面共用同一个精确选择。范围候选将在连接时验证。")
+            text: qsTr("Resolution, frame rate and pixel format in one list, including uncommon rates. Both views share the same exact selection. Range candidates are verified on connection.")
             color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 11; wrapMode: Text.WordWrap
         }
         Basic.TextField {
             id: search
             objectName: "capture-legacy-search"
             Layout.fillWidth: true
-            placeholderText: qsTr("搜索，例如：1920 60 NV12")
+            placeholderText: qsTr("Search, e.g. 1920 60 NV12")
             color: Theme.t1; placeholderTextColor: Theme.t3
             font.family: Theme.fontUi; font.pixelSize: 12
             background: Rectangle { color: Qt.rgba(1,1,1,.05); radius: 8; border.color: Theme.stroke }
             onTextEdited: searchDelay.restart()
         }
-        Text { text: qsTr("%1 / %2 个格式").arg(picker.filtered.length).arg(picker.formats.length); color: Theme.t3; font.pixelSize: 11 }
+        Text { text: qsTr("%1 / %2 formats").arg(picker.filtered.length).arg(picker.formats.length); color: Theme.t3; font.pixelSize: 11 }
         ListView {
             id: list
             objectName: "capture-legacy-list"
@@ -82,7 +82,7 @@ Popup {
                 ToolTip.text: modelData.label
                 onClicked: { picker.selected(modelData.id); picker.close() }
             }
-            Text { anchors.centerIn: parent; visible: list.count === 0; text: qsTr("没有匹配的格式"); color: Theme.t3; font.pixelSize: 12 }
+            Text { anchors.centerIn: parent; visible: list.count === 0; text: qsTr("No matching formats"); color: Theme.t3; font.pixelSize: 12 }
         }
     }
 }

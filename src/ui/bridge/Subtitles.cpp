@@ -8,7 +8,7 @@ namespace {
 const wchar_t* const kSubtitleFonts[] = {L"Microsoft YaHei UI", L"SimHei", L"SimSun", L"DengXian", L"Arial", L"Segoe UI"};
 bool subtitleIsChinese(const engine::SubtitleTrack& t) {
     const auto has = [](const std::wstring& s, const wchar_t* k) { return s.find(k) != std::wstring::npos; };
-    return has(t.language, L"chi") || has(t.language, L"zho") || has(t.language, L"zh") || has(t.name, L"中") ||
+    return has(t.language, L"chi") || has(t.language, L"zho") || has(t.language, L"zh") || has(t.name, L"Medium") ||
            has(t.name, L"简") || has(t.name, L"繁");
 }
 } // namespace
@@ -22,7 +22,7 @@ void QmlPlayerBridge::refreshSubtitles(const std::wstring& media) {
     auto& i = *impl_;
     i.subTracks.clear(); i.subExternal = i.subLoaded = 0;
     i.subPrimary = i.subSecondary = -1; i.subPrimaryChosen = i.subSecondaryChosen = false;
-    i.subStatus=QFileInfo(QString::fromStdWString(media)).isFile()?tr("正在读取字幕"):QString{}; i.subMedia = media;
+    i.subStatus=QFileInfo(QString::fromStdWString(media)).isFile()?tr("Reading subtitles"):QString{}; i.subMedia = media;
     if(i.subFileLoader)i.subFileGeneration=i.subFileLoader->requestFile(L"");
     i.subFilePath.clear();
     if (i.subAlignWorker.joinable()) { i.subAlignWorker.request_stop(); i.subAlignWorker = {}; }
@@ -34,7 +34,7 @@ void QmlPlayerBridge::refreshSubtitles(const std::wstring& media) {
     i.subScanGate = server ? std::make_shared<std::atomic<bool>>(false) : nullptr;
     i.subScanOpen = false;
     i.subLoader->setReadGate(i.subScanGate);
-    if (server) i.subStatus = tr("字幕将在视频缓冲好后读取");
+    if (server) i.subStatus = tr("Subtitles will load once the video is buffered");
     i.subGeneration = i.subLoader->request(media);
     emit subtitlesChanged();
 }
@@ -53,7 +53,7 @@ void QmlPlayerBridge::tickSubtitles() {
             i.subScanOpen = open;
             i.subScanGate->store(open);
             veyra::log::info("subtitle", std::format("server scan gate {} (buffer {:.1f}s)", open ? "open" : "closed", n.bufferedSeconds));
-            if (open && i.subStatus == tr("字幕将在视频缓冲好后读取")) { i.subStatus = tr("正在读取字幕"); changed = true; }
+            if (open && i.subStatus == tr("Subtitles will load once the video is buffered")) { i.subStatus = tr("Reading subtitles"); changed = true; }
         }
     }
     if (i.subLoader) {
@@ -67,7 +67,7 @@ void QmlPlayerBridge::tickSubtitles() {
             i.subTracks.insert(i.subTracks.begin() + std::ptrdiff_t(i.subExternal),
                                std::make_move_iterator(result->tracks.begin()), std::make_move_iterator(result->tracks.end()));
             i.subLoaded = count;
-            if(result->complete&&(i.subStatus==tr("正在读取字幕")||i.subStatus==tr("字幕将在视频缓冲好后读取")))i.subStatus.clear();
+            if(result->complete&&(i.subStatus==tr("Reading subtitles")||i.subStatus==tr("Subtitles will load once the video is buffered")))i.subStatus.clear();
             int firstUsable = -1, firstChinese = -1;
             for (size_t k = 0; k < i.subTracks.size(); ++k) {
                 if (!i.subTracks[k].usable()) continue;
@@ -96,8 +96,8 @@ void QmlPlayerBridge::tickSubtitles() {
             i.subFilePath.clear();
             const bool usable=std::any_of(result->tracks.begin(),result->tracks.end(),[](const auto& t){return t.usable();});
             if(!usable){
-                const auto detail=result->tracks.empty()?tr("文件格式不支持、数据损坏或没有字幕内容"):uiText(result->tracks.front().note);
-                i.subStatus=tr("外部字幕加载失败：%1 · %2").arg(file,detail);
+                const auto detail=result->tracks.empty()?tr("Unsupported format, damaged data, or no subtitle content"):uiText(result->tracks.front().note);
+                i.subStatus=tr("External subtitle loading failed: %1 · %2").arg(file,detail);
                 emit notice(i.subStatus,true);
             }else{
                 const int added=int(result->tracks.size());
@@ -108,7 +108,7 @@ void QmlPlayerBridge::tickSubtitles() {
                 if(i.subSecondary>=0)i.subSecondary+=added;
                 if(i.subAlignTrack>=0)i.subAlignTrack+=added;
                 i.subPrimary=first;i.subPrimaryChosen=true;
-                i.subStatus=tr("已加载外部字幕：%1").arg(file);
+                i.subStatus=tr("External subtitles loaded: %1").arg(file);
                 veyra::log::info("subtitle",std::format("external loaded tracks={} file={}",added,file.toStdString()));
             }
             changed=true;
@@ -118,11 +118,11 @@ void QmlPlayerBridge::tickSubtitles() {
         i.subAlignTrack >= 0 && size_t(i.subAlignTrack) < i.subTracks.size()) {
         i.subTracks[size_t(i.subAlignTrack)].offsetMs = i.subAlignOffset.load();
         std::lock_guard lock(i.subAlignMutex);
-        i.subStatus = tr("自动对齐：%1（Z/X 可微调）").arg(uiText(i.subAlignDetail));
+        i.subStatus = tr("Auto-align: %1 (Z/X to fine-tune)").arg(uiText(i.subAlignDetail));
         veyra::log::info("subtitle", std::format("auto align applied offsetMs={}", i.subAlignOffset.load()));
         changed = true;
     }
-    if (i.subAligning.load() != (i.subStatus.startsWith(tr("正在自动对齐")))) changed = true;
+    if (i.subAligning.load() != (i.subStatus.startsWith(tr("Auto-aligning")))) changed = true;
     if (changed) emit subtitlesChanged();
 
     const auto& s = i.snapshot;
@@ -225,11 +225,11 @@ QVariantList QmlPlayerBridge::subtitleTracks() const {
         const auto& t = impl_->subTracks[k];
         QString label = QString::fromStdWString(t.name);
         if (label.isEmpty()) label = QString::fromStdWString(t.language);
-        if (label.isEmpty()) label = tr("字幕 %1").arg(k + 1);
-        QString note = t.embedded ? tr("内嵌") : tr("外挂");
+        if (label.isEmpty()) label = tr("Subtitles %1").arg(k + 1);
+        QString note = t.embedded ? tr("Embedded") : tr("External");
         if (!t.codec.empty()) note += QStringLiteral(" · ") + QString::fromStdWString(t.codec).toUpper();
         if (!t.note.empty()) note += QStringLiteral(" · ") + uiText(t.note);
-        else if(!t.usable()) note += QStringLiteral(" · ") + tr("未解码出可显示的字幕");
+        else if(!t.usable()) note += QStringLiteral(" · ") + tr("No displayable subtitles decoded");
         out << QVariantMap{{"index", int(k)}, {"label", label}, {"note", note}, {"usable", t.usable()},
                            {"embedded", t.embedded}, {"cues", int(t.cues.size())}, {"offsetMs", t.offsetMs}};
     }
@@ -238,7 +238,7 @@ QVariantList QmlPlayerBridge::subtitleTracks() const {
 int QmlPlayerBridge::subtitlePrimary() const { return impl_->subPrimary; }
 void QmlPlayerBridge::setSubtitlePrimary(int index) {
     if (index < -1 || index >= int(impl_->subTracks.size())) return;
-    if (index >= 0 && !impl_->subTracks[size_t(index)].usable()) { emit notice(tr("该字幕轨没有可显示的内容"), true); return; }
+    if (index >= 0 && !impl_->subTracks[size_t(index)].usable()) { emit notice(tr("This subtitle track has nothing to show"), true); return; }
     impl_->subPrimaryChosen = true;
     if (impl_->subPrimary == index) return;
     impl_->subPrimary = index;
@@ -267,7 +267,7 @@ void QmlPlayerBridge::setSubtitleOffsetMs(int ms) {
     ms = std::clamp(ms, -30000, 30000);
     if (track.offsetMs == ms) return;
     track.offsetMs = ms;
-    impl_->subStatus = tr("字幕延时 %1 ms").arg(ms);
+    impl_->subStatus = tr("Subtitle delay %1 ms").arg(ms);
     veyra::log::info("subtitle", std::format("offset track={} offsetMs={}", p, ms));
     emit subtitlesChanged();
 }
@@ -283,30 +283,30 @@ void QmlPlayerBridge::setSubtitleBottomInset(int value) {
 }
 void QmlPlayerBridge::loadSubtitleDialog() {
     const QString start = impl_->subMedia.empty() ? QString() : QFileInfo(QString::fromStdWString(impl_->subMedia)).absolutePath();
-    const QString path = QFileDialog::getOpenFileName(nullptr, tr("加载外部字幕"), start,
-        tr("字幕文件 (*.srt *.ass *.ssa *.vtt *.sup *.pgs *.idx *.sub *.smi *.sami *.sbv *.mpl *.stl *.txt);;所有文件 (*.*)"));
+    const QString path = QFileDialog::getOpenFileName(nullptr, tr("Load external subtitles"), start,
+        tr("Subtitle files (*.srt *.ass *.ssa *.vtt *.sup *.pgs *.idx *.sub *.smi *.sami *.sbv *.mpl *.stl *.txt);;All files (*.*)"));
     if (!path.isEmpty()) loadSubtitleFile(path);
 }
 bool QmlPlayerBridge::loadSubtitleFile(const QString& path) {
     if(!QFileInfo(path).isFile()){
-        emit notice(tr("字幕文件不存在或无法读取"),true);
+        emit notice(tr("Subtitle file is missing or unreadable"),true);
         return false;
     }
     if(!impl_->subFileLoader)impl_->subFileLoader=std::make_unique<engine::SubtitleLoader>();
     impl_->subFilePath=wideOf(path);
     impl_->subFileGeneration=impl_->subFileLoader->requestFile(impl_->subFilePath);
-    impl_->subStatus=tr("正在加载外部字幕：%1").arg(QFileInfo(path).fileName());
+    impl_->subStatus=tr("Loading external subtitles: %1").arg(QFileInfo(path).fileName());
     emit subtitlesChanged();
     return true;
 }
 void QmlPlayerBridge::nudgeSubtitle(int deltaMs) {
-    if (impl_->subPrimary < 0) { emit notice(tr("没有正在显示的字幕"), true); return; }
+    if (impl_->subPrimary < 0) { emit notice(tr("No subtitles on screen"), true); return; }
     setSubtitleOffsetMs(subtitleOffsetMs() + deltaMs);
     emit notice(impl_->subStatus, false);
 }
 void QmlPlayerBridge::cycleSubtitle(bool secondary) {
     auto& i = *impl_;
-    if (i.subTracks.empty()) { emit notice(tr("当前片源没有字幕"), true); return; }
+    if (i.subTracks.empty()) { emit notice(tr("This source has no subtitles"), true); return; }
     int slot = secondary ? i.subSecondary : i.subPrimary;
     for (size_t n = 0; n <= i.subTracks.size(); ++n) {   // -1 -> 0 -> ... -> -1, skipping unusable
         slot = slot + 1 >= int(i.subTracks.size()) ? -1 : slot + 1;
@@ -314,25 +314,25 @@ void QmlPlayerBridge::cycleSubtitle(bool secondary) {
     }
     if (secondary) setSubtitleSecondary(slot); else setSubtitlePrimary(slot);
     const int now = secondary ? i.subSecondary : i.subPrimary;
-    emit notice(now < 0 ? (secondary ? tr("副字幕已关闭") : tr("主字幕已关闭"))
-                        : (secondary ? tr("副字幕：%1") : tr("主字幕：%1")).arg(subtitleTracks()[now].toMap().value("label").toString()), false);
+    emit notice(now < 0 ? (secondary ? tr("Secondary subtitles are off") : tr("Main subtitles are off"))
+                        : (secondary ? tr("Secondary subtitles: %1") : tr("Main subtitles: %1")).arg(subtitleTracks()[now].toMap().value("label").toString()), false);
 }
 void QmlPlayerBridge::toggleSubtitles() {
     const bool on = !impl_->prefBool("subtitleEnabled", true);
     setPreference(QStringLiteral("subtitleEnabled"), on);
-    emit notice(on ? tr("字幕：开") : tr("字幕：关"), false);
+    emit notice(on ? tr("Subtitles: on") : tr("Subtitles: off"), false);
 }
 void QmlPlayerBridge::autoAlignSubtitle() {
     auto& i = *impl_;
-    if (i.subAligning.load()) { emit notice(tr("已有一个自动对齐在进行"), true); return; }
+    if (i.subAligning.load()) { emit notice(tr("An automatic alignment is already running"), true); return; }
     if (i.subMedia.empty() || i.subPrimary < 0 || !i.subTracks[size_t(i.subPrimary)].usable()) {
-        emit notice(tr("没有可用的主字幕，无法自动对齐"), true); return;
+        emit notice(tr("No main subtitles available, so auto-alignment is not possible"), true); return;
     }
     const std::wstring media = i.subMedia;
     const auto track = i.subTracks[size_t(i.subPrimary)];
     i.subAlignGeneration = i.subGeneration; i.subAlignTrack = i.subPrimary;
     i.subAligning = true; i.subAlignReady = false;
-    i.subStatus = tr("正在自动对齐：分析音轨（最多前 30 分钟）…");
+    i.subStatus = tr("Auto-aligning: analyzing the audio track (first 30 minutes at most)…");
     emit subtitlesChanged();
     i.subAlignWorker = std::jthread([&i, media, track](std::stop_token stop) {
         const auto result = engine::alignSubtitleToAudio(media, track, 30, stop);
@@ -355,7 +355,7 @@ void QmlPlayerBridge::setPreOpenHook(std::function<void()> hook) {
 QString QmlPlayerBridge::appName() const { return QStringLiteral("Veyra"); }
 QString QmlPlayerBridge::version() const { return QStringLiteral(VEYRA_DISPLAY_VERSION); }
 
-// --- audio sync (1.4.4 声音补偿, #12) ------------------------------------------
+// --- audio sync (1.4.4 audio compensation, #12) -------------------------------------------
 int QmlPlayerBridge::audioSyncMode() const { return int(settings().audioSync); }
 void QmlPlayerBridge::setAudioSyncMode(int value) {
     if (value < 0 || value > 2) return;
@@ -369,7 +369,7 @@ void QmlPlayerBridge::setAudioSyncMode(int value) {
 }
 bool QmlPlayerBridge::audioSyncLive() const {
     const auto& s = impl_->snapshot;
-    return s.running && (s.capture || s.remotePlay);
+    return s.running && s.capture;
 }
 double QmlPlayerBridge::audioCompensationMs() const {
     return audioSyncLive() ? impl_->snapshot.captureAudio.compensationMs : 0.0;

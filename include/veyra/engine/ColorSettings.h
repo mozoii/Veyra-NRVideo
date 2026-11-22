@@ -87,8 +87,8 @@ struct ColorSettings {
     // reference, 2 = PQ. The plan forbids silently applying a display-referred
     // LUT to HDR content, so the choice is explicit and logged.
     int lutInputSpace=0;
-    // Per-section bypass (plan T3 "分组眼睛"): bit per colour page section -
-    // 0 亮, 1 颜色, 2 曲线, 3 混色器, 4 颜色分级, 5 校准, 6 LUT. A bypassed section
+    // Per-section bypass (plan T3 "section eyes"): bit per colour page section -
+    // 0 Bright, 1 Color, 2 Curves, 3 Mixer, 4 Color grading, 5 Calibrate, 6 LUT. A bypassed section
     // is baked as neutral, so the user can A/B one group without losing its
     // numbers. Lives in the settings (not the UI) because it changes the pixels.
     uint32_t groupBypassMask=0;

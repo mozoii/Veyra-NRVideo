@@ -30,7 +30,6 @@ def main():
     commit = git('rev-parse', 'HEAD')
     dependencies = {
         'Veyra-1.4.1-FFmpeg-source.zip': '15a77217bedceb4280fc680d5c0761544170356ca85e871f1558b61c86ee5f02',
-        'Veyra-1.4.1-RemotePlay-source.zip': '272e41bc128c9bd86d7a9a93e4f0150dd92db6b9d00909643336b9e01561f166',
     }
     for name, expected in dependencies.items():
         if sha256(args.dependency_directory / name) != expected:

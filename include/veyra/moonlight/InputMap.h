@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "veyra/remoteplay/Types.h"
+#include "veyra/input/ControllerTypes.h"
 
 namespace veyra::moonlight {
 
@@ -31,10 +31,10 @@ inline int16_t flipAxis(int16_t value) { return value == INT16_MIN ? INT16_MAX :
 
 // The positional layout is kept: the south face button is A whatever is printed on it.
 // A frame from an unfocused or lost device is all zeros, which releases everything.
-inline PadFrame mapPad(const remoteplay::ControllerState& state) {
+inline PadFrame mapPad(const input::ControllerState& state) {
     PadFrame frame;
     if (!state.inputActive) return frame;
-    using B = remoteplay::ControllerState;
+    using B = input::ControllerState;
     struct Pair { uint32_t from, to; };
     static constexpr Pair table[] = {
         {B::Cross, kPadA}, {B::Circle, kPadB}, {B::Square, kPadX}, {B::Triangle, kPadY},

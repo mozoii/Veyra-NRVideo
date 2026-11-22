@@ -26,30 +26,30 @@ if a.mode=='prepare':
     logs=git('log','--reverse','--format=%H%x09%s','v2.0.9..d91ec9f').splitlines()
     paths=git('diff','--name-status','v2.0.9','d91ec9f').splitlines()
     nonmerge=git('rev-list','--no-merges','--count','v2.0.9..d91ec9f')
-    index=['# 2.0.9 → 2.1.0 全部变更索引','',f'范围：v2.0.9（08832f6）至已验main d91ec9f；共{len(logs)}提交（非merge {nonmerge}），{len(paths)}变更路径。包含双方提交、云端PR、合并与验收文档；下列提交标题不是逐条新功能声明。产品总结见 RELEASE_NOTES_2.1.0.md。Lecram实验不在本范围。','','## 全部提交','']
+    index=['# 2.0.9 → 2.1.0 full change index','',f'Scope: v2.0.9 (08832f6) to verified main d91ec9f; {len(logs)} commits (non-merge {nonmerge}), {len(paths)} changed paths. Covers commits from both sides, cloud PRs, merges and acceptance docs; the commit titles below are not a per-feature claim. Product summary is in RELEASE_NOTES_2.1.0.md. The Lecram experiment is out of scope.','','## All commits','']
     index.extend(f'- `{x.split(chr(9))[0][:12]}` {x.split(chr(9),1)[1]}' for x in logs)
-    index.extend(['','## 全部路径（A新增 / M修改 / D删除）','','```text',*paths,'```',''])
+    index.extend(['','## All paths (A added / M modified / D deleted)','','```text',*paths,'```',''])
     (R/'docs/RELEASE_2.1.0_CHANGE_INDEX.md').write_text('\n'.join(index),'utf8')
     support=(R/'docs/RELEASE_SUPPORT.md').read_text('utf8').replace('v2.0.7/docs/images/2.0.7/community-group.png','v2.1.0/docs/images/2.1.0/community-group.png').replace('2026-10-19','2026-10-26')
     (R/'docs/RELEASE_SUPPORT.md').write_text(support,'utf8')
     notes=R/'docs/RELEASE_NOTES_2.1.0.md';body=notes.read_text('utf8')
-    if '## 支持与反馈 / Support & feedback' not in body:notes.write_text(body+'\n'+support,'utf8')
-    source_body='''# Veyra 2.1.0 · 完整对应源码 / Corresponding sources
+    if '## Support & feedback' not in body:notes.write_text(body+'\n'+support,'utf8')
+    source_body='''# Veyra 2.1.0 · Corresponding sources
 
-[返回两个软件下载包](https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.1.0) · [构建与完整依赖清单](https://github.com/Likely7/Veyra-NRVideo/blob/v2.1.0/docs/BUILD_2.1.0.md)
+[Return to the two software downloads](https://github.com/Likely7/Veyra-NRVideo/releases/tag/v2.1.0) · [Build and full dependency list](https://github.com/Likely7/Veyra-NRVideo/blob/v2.1.0/docs/BUILD_2.1.0.md)
 
-本页只存源码，不是另一个播放器包，不设latest。应用源码沿用用户已验ZIP，字节不变，仅去掉外部文件名的-test。
+This page only stores sources, not another player package, and is not latest. Application source reuses the user-verified ZIP byte-for-byte, only with the -test suffix removed from the external filename.
 
-- Veyra-2.1.0-source.zip：精确源码66b321051bef9343fa2bcc6556a53a551ccc809c，2187文件，SHA256 `d3ed0860cebef310eeceb5fafd790b553f78cecdf2d393e9f4c4d6ca87b32559`。
-- lmxxf-044-corresponding-source.zip：AMD Small/Original两个本地模块的完整构建输入、固定上游源码、补丁、配方及许可证，SHA256 `f83267c40fee6b36b183169e9e192089994628aa7b524357c8a0af5d4225070b`。
+- Veyra-2.1.0-source.zip: exact source 66b321051bef9343fa2bcc6556a53a551ccc809c, 2187 files, SHA256 `d3ed0860cebef310eeceb5fafd790b553f78cecdf2d393e9f4c4d6ca87b32559`.
+- lmxxf-044-corresponding-source.zip: complete build inputs, pinned upstream source, patch, recipe and license for the AMD Small/Original two local modules, SHA256 `f83267c40fee6b36b183169e9e192089994628aa7b524357c8a0af5d4225070b`.
 
-还需要未改变的既有材料（固定资产，不重复上传）：
+The following unchanged prior materials are still needed (fixed assets, not re-uploaded):
 
-- [FFmpeg slices256/dav1d/zlib源码](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.7-sources/FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip)，SHA256 `49db22049f072bd5448faa664aa736074dccfe6e72b4a933f673d8ae954b0bb6`。
-- [独立去隔行LGPL模块源码](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.9-sources/FFmpeg-9.0.1-deinterlace-module-source.zip)，SHA256 `f993629b6587bac09d26c3b365b59f009edd01e539c79436aae7775fc4448152`。
-- [依赖与重链接材料](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.6/Veyra-2.0.6-dependency-source.zip)，SHA256 `4eccde6343d66e0511b641aaacc12b999e424738a383fcce268d762abb3dceb9`。
+- [FFmpeg slices256/dav1d/zlib source](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.7-sources/FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip), SHA256 `49db22049f072bd5448faa664aa736074dccfe6e72b4a933f673d8ae954b0bb6`.
+- [Independent deinterlace LGPL module source](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.9-sources/FFmpeg-9.0.1-deinterlace-module-source.zip), SHA256 `f993629b6587bac09d26c3b365b59f009edd01e539c79436aae7775fc4448152`.
+- [Dependency and relink material](https://github.com/Likely7/Veyra-NRVideo/releases/download/v2.0.6/Veyra-2.0.6-dependency-source.zip), SHA256 `4eccde6343d66e0511b641aaacc12b999e424738a383fcce268d762abb3dceb9`.
 
-Veyra GPL-3.0，Chiaki组合适用AGPL-3.0及上游例外；专有SDK/运行库/模型不进源码Git，NVIDIA衍生权重不因外围MIT源码变成MIT。原包许可证/运行清单保留。发布标签新增的是发行文档、README、群图与发布校验脚本，不更改已验应用输入；GitHub自动生成仓库源码不等于全部依赖材料。
+Veyra is GPL-3.0; proprietary SDKs/runtimes/models do not enter source Git, and NVIDIA-derived weights do not become MIT because of the surrounding MIT sources. Original package licenses/runtime manifests are retained. The release tag only adds release docs, README, group image and release-verification scripts; it does not change the verified application inputs; GitHub-generated repository source is not the same as all dependency material.
 
 English: These are the exact tested application sources and the corresponding sources for both AMD0.44 modules. Rebuild instructions, retained dependency/relinking sources and licenses are linked above. The main release has just the two GPU application packages. This source archive is not latest.
 '''

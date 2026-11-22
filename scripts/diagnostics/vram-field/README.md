@@ -1,33 +1,33 @@
-# Veyra 2.0.6 NVIDIA 显存诊断包
+# Veyra 2.0.6 NVIDIA VRAM diagnostic package
 
-这是收集证据的程序，**不是已经修复显存增长的新版本**。基于当前 2.0.6 / VFG 优化后的产品代码，增加低频内存与资源生命周期记录，没有像素回读、显存压力负载、SDK/vtable hook、驱动修改或自动清缓存。原运行库不变。
+This is a program that collects evidence, **not a new version that fixes the VRAM growth**. Based on the current 2.0.6 / VFG-optimized product code, it adds low-frequency memory and resource lifecycle logging: no pixel readback, no VRAM stress load, no SDK/vtable hook, no driver modification or automatic cache clearing. The original runtime is unchanged.
 
-## 给测试用户
+## For test users
 
-1. 先退出 Veyra。将本包的 `veyra-vram-diagnostic.exe`、`Start-VRAM-Diagnostic.cmd`、`Start-VRAM-Diagnostic.ps1`、`Summarize-VRAM-Diagnostic.ps1`、`Pack-VRAM-Diagnostic.cmd`、`Pack-VRAM-Diagnostic.ps1` **放到已解压的 Veyra 2.0.6 NVIDIA 目录内，与原主程序并排**。不用覆盖或重命名原主程序，也不用管理员权限。不能直接在 ZIP 内运行。
-2. 双击 `Start-VRAM-Diagnostic.cmd`，在弹出的诊断播放器里，用原来会出问题的输入、NR 版本和设置正常播放。先保持条件不变；如果以前要几分钟才涨，就继续观察，不要每几分钟重启程序。控制台可以最小化，**不要关掉**。诊断没有默认倒计时，也不会替你开关效果。
-3. 一旦确认显存持续涨或明显卡顿，不必等到爆显存。可以先关闭 NR 观察约 20 秒，再**停止播放、保持播放器打开约 30 秒**，最后正常退出播放器。若情况已经很卡，直接停止播放即可。关闭播放器后，控制台会生成 `logs/vram-diagnostic-日期时间.zip`；把这个 ZIP 发回来。
+1. Exit Veyra first. Place this package's `veyra-vram-diagnostic.exe`, `Start-VRAM-Diagnostic.cmd`, `Start-VRAM-Diagnostic.ps1`, `Summarize-VRAM-Diagnostic.ps1`, `Pack-VRAM-Diagnostic.cmd`, `Pack-VRAM-Diagnostic.ps1` **inside the already-extracted Veyra 2.0.6 NVIDIA directory, side by side with the original main program**. Do not overwrite or rename the original main program, and no admin rights are needed. Do not run it directly inside the ZIP.
+2. Double-click `Start-VRAM-Diagnostic.cmd`. In the diagnostic player that pops up, play with the same input, NR version and settings that used to go wrong. Keep the conditions unchanged; if it used to take minutes to grow, keep observing, do not restart the program every few minutes. The console can be minimized, **do not close it**. The diagnostic has no default countdown and does not toggle effects for you automatically.
+3. Once you are sure VRAM keeps growing or stutters clearly, do not wait for it to explode. You can first close NR and observe about 20 seconds, then **stop playback, keep the player open for about 30 seconds**, and finally exit the player normally. If it is already very stuttery, just stop playback. After closing the player, the console writes `logs/vram-diagnostic-<date-time>.zip`; send that ZIP back.
 
-需要辅助标记时，切回控制台按数字：`1` 窗口、`2` 全屏、`3` 已关 NR、`4` 已开 NR、`5` 已停止播放、`6` 已看到增长。这些按键只记录你已完成的操作，不会操作播放器。主日志也会记录实际处理图/设置变化。尽量用原来正常播放条件复现，先不要同时改驱动、NR 包、画面尺寸和补帧。
+When you need supporting markers, switch back to the console and press a number: `1` window, `2` fullscreen, `3` NR off, `4` NR on, `5` stopped playback, `6` observed growth. These keys only record what you have completed; they do not control the player. The main log also records actual processing-image/settings changes. Try to reproduce with the original normal-playback conditions first, and do not simultaneously change the driver, NR package, picture size and frame generation.
 
-如果控制台被误关或播放器崩溃，先退出诊断播放器，再双击 `Pack-VRAM-Diagnostic.cmd`，它会重新打包最近一轮已有记录。异常退出不会补出缺失的退出前采样。
+If the console is accidentally closed or the player crashes, first exit the diagnostic player, then double-click `Pack-VRAM-Diagnostic.cmd`; it repackages the most recent recorded round. An abnormal exit does not synthesize the missing pre-exit samples.
 
-诊断使用独立配置副本，不写回原来的配置。只复制普通设置白名单；串流账号/密钥不复制，需要时在诊断播放器中重新登录。返回 ZIP 不包含配置目录、视频、截图、崩溃内存转储或凭据文件；**日志仍可能包含媒体路径、Windows 用户目录、设备标识和模块路径**。没有网络上传，文件由你自行发送。退出后不需要长期使用诊断 EXE。
+The diagnostic uses an independent configuration copy and never writes back to the original configuration. Only plain-settings allowlist items are copied; streaming account/keys are not copied — re-login in the diagnostic player if needed. Returning ZIP does not include the config directory, video, screenshots, crash memory dumps or credential files; **logs may still contain media paths, Windows user directories, device identifiers and module paths**. There is no network upload; you send the files yourself. After exiting, you do not need to keep the diagnostic EXE around long term.
 
-## 这次多了什么证据
+## What this time adds
 
-- `dxgi-memory.csv`：每 2 秒采进程在设备适配器 node0 的 LOCAL/NON_LOCAL Usage/Budget/Reservation，保留字节、LUID、设备代次、原始 HRESULT 和完成 fence。查询失败留空，不伪填 0；contextActive=0 表示引擎 context 已关闭，不表示整个进程已退出。
-- `resource-events.csv` / `tracked-live-resources.csv`：选定调用点的处理图纹理、NR 层纹理、处理图上传缓冲的创建/最终 COM 销毁，存活资源 ID、年龄和大小估计。group 0/1/2 分别是 graph texture / NR texture / graph upload。通过资源私有数据中的观察 token 跟踪，观察器不持有资源或设备引用。释放事件队列最多 4096 项，溢出次数明确记录；没有无界历史缓存。
-- `windows.csv`：每 2 秒记录本进程可见顶层窗口几何、所在显示器分辨率/刷新率、窗口 DPI 和前台状态，不记录窗口标题。coversMonitor 仅表示几何覆盖显示器，不等于独立翻转或 MPO；DPI=0/空显示模式表示 API 数据不可用。
-- `process-memory.jsonl`：每 5 秒的 WDDM GPU 进程计数，保留每个 LUID/phys 实例，以及 PrivateBytes、工作集、句柄和当时已加载模块列表。字段不可用明确记录。按 EXE/PID/启动时刻验证身份，不混入 PID 复用后的进程。
-- `modules.jsonl`：模块首次出现时的磁盘路径、版本、大小、修改时间和 SHA256；退出时复核已观察文件是否变化。模块加载不等于功能启用，磁盘 SHA 不等于内存映像校验。
-- `engine.log`：实际 NR/光流/补帧选择、分辨率、设置 revision、处理图和 NGX/NVOF 创建/关闭及错误。已有产品显存看门狗保持原行为，若触发重建或退出全屏，必须按此日志分段分析。
-- `summary.txt/json`：有效样本数量、观察时长、峰值/净增、各用户标记段。全程可能包含开关效果/停止，首尾变化率不能冒充稳态泄漏率。
+- `dxgi-memory.csv`: every 2 seconds samples the process's LOCAL/NON_LOCAL Usage/Budget/Reservation on the device adapter node0, keeping bytes, LUID, device generation, raw HRESULT and completed fence. A failed query leaves the field empty rather than faking 0; contextActive=0 means the engine context is closed, not that the whole process has exited.
+- `resource-events.csv` / `tracked-live-resources.csv`: creation/final COM destruction of the enhancement-graph textures, NR-layer textures and enhancement-graph upload buffers at selected call points, with live resource id, age and size estimate. Group 0/1/2 are graph texture / NR texture / graph upload. Tracked via an observation token in the resource's private data; the observer holds no resource or device reference. The release-event queue holds at most 4096 items; overflow count is recorded explicitly; no unbounded history cache.
+- `windows.csv`: every 2 seconds records the geometry of the top-level windows visible to this process, the resolution/refresh of the display each is on, the window DPI and the foreground state; window titles are not recorded. coversMonitor only means geometry covers the display, not an independent flip or MPO; DPI=0/empty display mode means the API data is unavailable.
+- `process-memory.jsonl`: every 5 seconds WDDM GPU process count, keeping each LUID/phys instance, plus PrivateBytes, working set, handles and the modules loaded at that time. Fields that are unavailable are explicitly recorded. Verified by EXE/PID/start-time, never mixing in a process whose PID has been reused.
+- `modules.jsonl`: the disk path, version, size, modification time and SHA256 of a module on first appearance; re-checks at exit that observed files have not changed. Module load is not the same as feature enablement; an on-disk SHA is not an image-in-memory check.
+- `engine.log`: actual NR/optical-flow/frame-generation selection, resolution, settings revision, enhancement-graph and NGX/NVOF create/close and errors. The existing product VRAM watchdog keeps its original behavior; if it triggers a rebuild or exits fullscreen, analyze per this log segment.
+- `summary.txt/json`: valid sample count, observation duration, peak/net growth, per-user-marker segment. The whole run may toggle effects/stop; a first-to-last rate cannot stand in for a steady-state leak rate.
 
-三种口径不能互换：DXGI Usage、WDDM Dedicated/Shared、已跟踪资源的分配大小估计。**不能相减后把余数叫“驱动泄漏”**。此轮没有覆盖 Qt/decoder/采集源/其它 passes/SDK 的所有内部资源，尚不能直接给出完整分配所有者；D3D12 对象销毁也不保证 WDDM 立刻回收板载驻留。这些是诊断包的边界。
+The three metrics must not be interchanged: DXGI Usage, WDDM Dedicated/Shared, and an allocation-size estimate for tracked resources. **Do not subtract and call the remainder "driver leak".** This round does not cover all internal resources of Qt/decoder/capture source/other passes/SDK, so a complete allocation owner cannot be given directly; D3D12 object destruction does not guarantee WDDM reclaims the on-board residency immediately. These are the boundaries of the diagnostic package.
 
-## 对应源码与构建
+## Corresponding source and build
 
-本包包含原产品对应源码 ZIP 和诊断补充源码（VramField.h、3 份生成的覆盖 cpp、构建脚本与收据）。产品实现未修改；构建脚本从 source/src 生成只加诊断的对象，将它们置于原静态库前重链接 GUI。现有缓存对象要求与收据一致；若更换源码必须用完整开发环境重新构建。没有把 NVIDIA/FFmpeg/Qt 开发 SDK 或运行 DLL 放入补充源码。
+This package contains the original product corresponding-source ZIP and the diagnostic source additions (VramField.h, the 3 generated covering cpp files, the build script and the receipt). Product implementation is not modified; the build script generates only-diagnostic objects from source/src, places them in front of the original static library and relinks the GUI. Existing cache objects must match the receipt; if sources change, a full development environment must rebuild. No NVIDIA/FFmpeg/Qt development SDK or runtime DLL is placed into the source additions.
 
-本机 RTX5070 短测只验证工具工作与本机回收，并不能代替受影响显卡的真实复现。根因仍待现场证据。
+This machine's RTX5070 short test only verifies that the tool works and local reclaim, and cannot stand in for a real reproduction on the affected card. The root cause still awaits field evidence.

@@ -35,9 +35,9 @@ int wmain(int argc,wchar_t**){try{
     verify(3400,[](auto& s){s.color.exposure=1.5f;},[&](auto& s){s.color.exposure=defaults.color.exposure;});
     auto undo=ui::settingsControlForTest(802);SendMessageW(undo,BM_CLICK,0,0);
     require(actual.color.exposure==1.5f&&actual.color.contrast==17,"colour reset must support undo");
-    const int blendReset=ui::colourParamEditId(L"混合")+2100;
+    const int blendReset=ui::colourParamEditId(L"Mix")+2100;
     verify(blendReset,[](auto& s){s.color.gradingBlending=77;},[&](auto& s){s.color.gradingBlending=defaults.color.gradingBlending;});
-    verify(ui::colourParamEditId(L"LUT 强度")+2100,[](auto& s){s.color.lutStrength=35;},[&](auto& s){s.color.lutStrength=defaults.color.lutStrength;});
+    verify(ui::colourParamEditId(L"LUT strength")+2100,[](auto& s){s.color.lutStrength=35;},[&](auto& s){s.color.lutStrength=defaults.color.lutStrength;});
     actual.color.exposure=2;++actual.revision;sync();auto before=actual;reject=true;
     SendMessageW(ui::settingsControlForTest(3400),BM_CLICK,0,0);
     require(actual==before&&IsWindowEnabled(ui::settingsControlForTest(3400)),"rejected transaction must retain the changed value");reject=false;

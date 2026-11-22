@@ -33,7 +33,7 @@ struct DisplayState {
 // docs/VRR_EVENT_QUERY_PLAN_2026-10-25.md; HDR 2026-10-26). Nothing re-reads them
 // on a timer: holders may call request() every frame or tick, and a query only
 // runs when the monitor has no state of the current display generation.
-// invalidate() (a display change, the 可变刷新 switch turned on, 刷新显示器状态)
+// invalidate() (a display change, the variable refresh switch turned on, refresh the monitor state)
 // makes every state stale; force is for the session-start check and the VRR
 // confirmation. One
 // query runs at a time on a worker thread and the others wait in a queue.

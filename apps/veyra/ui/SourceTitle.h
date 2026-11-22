@@ -15,15 +15,10 @@ inline bool isCaptureCardSource(const std::wstring& source) {
     return source.starts_with(L"capture:") || source.starts_with(L"capture2:");
 }
 
-inline bool isRemotePlaySource(const std::wstring& source) {
-    return source.starts_with(L"remoteplay:");
-}
-
 inline std::wstring windowTitleForSource(const std::wstring& source) {
-    if (source.empty()) return L"Veyra — 本地实验版";
-    if (isCaptureCardSource(source)) return L"Veyra — 采集卡 · LIVE";
-    if (isRemotePlaySource(source)) return L"Veyra — PS5 Remote Play";
-    if (source.starts_with(L"screen:")) return L"Veyra — 屏幕采集 · LIVE";
+    if (source.empty()) return L"Veyra — local experimental build";
+    if (isCaptureCardSource(source)) return L"Veyra — capture card · LIVE";
+    if (source.starts_with(L"screen:")) return L"Veyra — screen capture · LIVE";
     return L"Veyra — " + std::filesystem::path(source).filename().wstring();
 }
 

@@ -3,12 +3,6 @@ param(
     [Parameter(Mandatory = $true)][string]$Root,
     [Parameter(Mandatory = $true)][ValidateSet("x64-debug", "x64-release")][string]$Preset,
     [string]$BuildDirectory,
-    [switch]$RemotePlay,
-    [string]$ChiakiCheckout,
-    [string]$ChiakiStage,
-    [string]$RemotePlayPrefixPath,
-    [string]$ProtocPath,
-    [string]$PkgConfigPath,
     [string]$FfmpegRoot,
     [switch]$Clean
 )
@@ -82,17 +76,6 @@ if (Test-Path -LiteralPath (Join-Path $ffmpegRoot "include\libavformat\avformat.
 $clipToolsRoot = "C:\veyra-deps\tools-installed\x64-windows"
 if (Test-Path -LiteralPath (Join-Path $clipToolsRoot "include\libavcodec\avcodec.h") -PathType Leaf) {
     $configureExtra = $configureExtra + (' -DVEYRA_CLIP_TOOLS_ROOT="{0}"' -f $clipToolsRoot)
-}
-
-# Remote Play is explicit: no dangling source/backend combination and no
-# silently substituted prebuilt Chiaki library. Shared CMake verifies the pin
-# and complete reviewed patches before compiling the dependency from source.
-$configureExtra += " -DVEYRA_ENABLE_REMOTEPLAY=" + $(if($RemotePlay){"ON"}else{"OFF"})
-if ($RemotePlay) {
-    foreach ($path in @($ChiakiCheckout,$ChiakiStage,$RemotePlayPrefixPath,$ProtocPath,$PkgConfigPath)) {
-        if (-not $path -or -not (Test-Path -LiteralPath $path)) { throw "Remote Play requires existing ChiakiCheckout, ChiakiStage, RemotePlayPrefixPath, ProtocPath and PkgConfigPath." }
-    }
-    $configureExtra += ' -DVEYRA_RP_CHIAKI_VERIFY_DIR="{0}" -DVEYRA_RP_CHIAKI_SOURCE_DIR="{1}" -DCMAKE_PREFIX_PATH="{2}" -DPROTOC="{3}" -DPKG_CONFIG_EXECUTABLE="{4}"' -f $ChiakiCheckout,$ChiakiStage,$RemotePlayPrefixPath,$ProtocPath,$PkgConfigPath
 }
 
 # --- Configure + build inside one vcvars environment, from a temp batch file

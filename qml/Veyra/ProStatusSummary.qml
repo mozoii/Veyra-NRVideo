@@ -11,7 +11,7 @@ ColumnLayout {
         objectName: "run-active-options"
         Layout.fillWidth: true
         visible: veyra.runOptions.length > 0
-        text: qsTr("已开启：%1").arg(veyra.runOptions.join("；"))
+        text: qsTr("Enabled: %1").arg(veyra.runOptions.join("；"))
         color: Theme.t2
         font.family: Theme.fontUi
         font.pixelSize: 11

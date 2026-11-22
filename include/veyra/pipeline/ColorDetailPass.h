@@ -3,7 +3,7 @@
 #include "veyra/pipeline/GpuPassUtils.h"
 
 namespace veyra::pipeline {
-// The colour panel's 效果 group: 纹理 (texture), 清晰度 (clarity) and 去朦胧
+// The colour panel's effect group: texture, clarity and dehaze
 // (dehaze). They need the neighbourhood of a pixel, which the per-pixel grade
 // (ColorGrade.hlsli, fused into input conversion or ColorGradePass) cannot see,
 // so they run as a separate in-place pass right after the grade. Until

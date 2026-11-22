@@ -33,10 +33,6 @@ $applicationFiles = @('veyra.exe','avcodec-63.dll','avformat-63.dll','avutil-61.
 if (Test-Path -LiteralPath (Join-Path $ffmpegBin 'dav1d.dll') -PathType Leaf) {
   $applicationFiles += 'dav1d.dll'
 }
-if ([version]$Version -ge [version]'0.0.5') {
-  $cache = Get-Content -LiteralPath (Join-Path $bin 'CMakeCache.txt') -Raw
-  if ($cache -notmatch 'VEYRA_ENABLE_REMOTEPLAY:BOOL=ON') { throw '0.0.5 package requires the real PS5 backend enabled' }
-}
 $appVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $bin 'veyra.exe'))
 # The display string may carry a label ("1.3.1beta"); the numeric parts still have
 # to match the version the package is built as.
@@ -140,13 +136,6 @@ foreach ($image in Get-ChildItem -LiteralPath (Join-Path $resolvedRoot 'docs/ima
 }
 foreach ($name in @('BUILD.md',"RUNTIME_COMPONENTS_$Version.md","RELEASE_NOTES_$Version.md")) { Copy-Payload (Join-Path $resolvedRoot "docs/$name") "docs/$name" }
 Copy-Payload (Join-Path $resolvedRoot "docs/RELEASE_NOTES_$Version.md") 'RELEASE_NOTES.md'
-# Remote Play is statically linked. Retain all dependency notices and source instructions.
-foreach ($notice in Get-ChildItem -LiteralPath (Join-Path $resolvedRoot 'licenses/remoteplay') -Recurse -File) {
-  $relative = $notice.FullName.Substring((Join-Path $resolvedRoot 'licenses').Length+1).Replace('\','/')
-  Copy-Payload $notice.FullName "licenses/$relative"
-}
-$remoteBuildDoc = if ([version]$Version -ge [version]'1.0.0') {"REMOTEPLAY_BUILD_$Version.md"} else {'REMOTEPLAY_BUILD_0.0.5.md'}
-Copy-Payload (Join-Path $resolvedRoot "docs/$remoteBuildDoc") "docs/$remoteBuildDoc"
 foreach ($shader in Get-ChildItem -LiteralPath (Join-Path $bin 'shaders') -Recurse -File -Filter '*.dxil') {
   $relative=$shader.FullName.Substring((Join-Path $bin 'shaders').Length+1).Replace('\','/')
   Copy-Payload $shader.FullName "shaders/$relative"

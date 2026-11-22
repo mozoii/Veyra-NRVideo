@@ -23,7 +23,7 @@ Item {
         params: root.params
         namePrefix: "t-beauty"
         detection: ({quality: 1, maxFaces: 4, stability: 0.5})
-        status: "检测到 1 张人脸"
+        status: "1 face(s) detected"
         onEdited: (key, amount) => { const next = root.edits.slice(); next.push({key: key, amount: amount}); root.edits = next }
         onPresetPicked: preset => { const next = root.presets.slice(); next.push(preset); root.presets = next }
         onDetectionEdited: (key, amount) => { const next = root.detectionEdits.slice(); next.push({key: key, amount: amount}); root.detectionEdits = next }
@@ -35,7 +35,7 @@ Item {
         params: ({})
         namePrefix: "t-shared"
         detectionOnly: true
-        status: "未检测到人脸"
+        status: "No face detected"
     }
     TestCase {
         name: "BeautyEditor"

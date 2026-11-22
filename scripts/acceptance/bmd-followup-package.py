@@ -31,26 +31,26 @@ payload={'veyra_qml_ui.exe':BUILD/'veyra-bmd-followup.exe','THIRD_PARTY_NOTICES.
 for folder in ('qml/Veyra','shaders'):
  for p in (DONOR/folder).rglob('*'):
   if p.is_file():payload[p.relative_to(DONOR).as_posix()]=p
-readme='''BMD / Blackmagic / DeckLink 2.0.6 兼容测试补丁（非正式发布）
+readme='''BMD / Blackmagic / DeckLink 2.0.6 compatibility test patch (not an official release)
 
-1. 保留原包，另复制/解压一份完整 Veyra 2.0.6 便携包；把本补丁解压覆盖到副本根目录。AMD/NVIDIA 继续用各自原包的运行库。
-2. 关闭 OBS 和其它采集程序，运行 veyra_qml_ui.exe。选原来的 BMD 入口，使用 OBS 能出画时的完全相同分辨率、帧率、像素格式；59.94 与 60、1080p30 与 1080i60 不互换。先关闭增强确认基础画面，再开平时的增强。两个名称不证明物理上有两张卡。
-3. 新兼容模式默认自动应用于 BMD。请测试两个入口、断开后重连。不要用任意模式代替实际输入制式；软件没有声称自动检测 BMD 信号。
-4. 如需收集对照日志，在本目录打开 PowerShell，运行：
+1. Keep the original package; copy/extract a complete Veyra 2.0.6 portable package separately; unpack this patch over the copy root. AMD/NVIDIA keep their own original package runtime libraries.
+2. Close OBS and other capture programs, run veyra_qml_ui.exe. Select the original BMD entry and use exactly the same resolution, frame rate and pixel format as when OBS shows a picture; 59.94 and 60, 1080p30 and 1080i60 are not interchangeable. Disable enhancement first to confirm the basic picture, then turn on the usual enhancement. The two names do not prove two physical cards.
+3. The new compatibility mode defaults to auto-applied for BMD. Please test both entries and reconnect after disconnect. Do not use an arbitrary mode in place of the actual input format; the software does not claim to auto-detect BMD signal.
+4. To collect comparison logs, open PowerShell in this directory and run:
    powershell -NoProfile -ExecutionPolicy Bypass -File .\\Start-BMD-Capture-Test.ps1
-   选择设备/格式，3分钟后自动退出并在 logs 中生成 zip。脚本使用私有配置，不改原设置。
-   旧协商对照：同一命令末尾加 -Variant Legacy。两次请选完全相同的设备/模式/增强设置；不要同时开。
-5. 如仍黑屏，把两次 zip 与 OBS 来源的属性（实际输入制式、卡型号、HDMI/SDI）一起交给开发者。日志中的黑像素统计不是“无信号”判定，正常黑场不会触发切换/丢帧。
+   Select device/format; it exits automatically 3 minutes later and generates a zip in logs. The script uses a private config, does not change original settings.
+   Legacy negotiation comparison: append -Variant Legacy to the same command. For both, choose exactly the same device/mode/enhancement settings; do not run both at the same time.
+5. If still black-screen, deliver the two zips together with the OBS-source properties (actual input format, card model, HDMI/SDI) to the developer. The black-pixel statistic in the log is not a "no signal" determination; a normal black scene does not trigger switch/frame-drop.
 
-本轮修复的是接收端与驱动的分配器/连接格式协商，保留驱动 DIB 方向；同时拒绝静默 subtype/隔行合同变更。已做本机 COM、GPU 像素、普通 USB 采集与 GUI 验证；没有本机 BMD 卡，实卡是否恢复出画仍待反馈。运行库/模型均沿用原包，本补丁不更换驱动。
-基于当前 main dbfceab（包含已合入的 VFG 优化），此包仅为 BMD 本地候选，不是新版本发布。软件内构建字符串沿用缓存构建的 2.0.6-vfg-next，以 bmd-compat-manifest.json 中 EXE SHA 为本候选身份。
+This round fixes the receiver and driver allocator/connection-format negotiation, keeping the driver DIB direction; at the same time it rejects silent subtype/interlaced-format contract changes. Local COM, GPU pixel, normal USB capture and GUI verification done; no local BMD card, so whether the physical card recovers output is still awaiting feedback. Runtime/models reused from the original package, this patch does not replace the driver.
+Based on current main dbfceab (including the already-merged VFG optimization); this package is only a BMD local candidate, not a new version release. The in-software build string reuses the cached build's 2.0.6-vfg-next, with the EXE SHA in bmd-compat-manifest.json as this candidate identity.
 '''
 files={n:{'sha256':sha(p),'bytes':p.stat().st_size} for n,p in payload.items()}
 meta={'schema':1,'version':'2.0.6','candidate':'bmd-followup-20261009','localOnly':True,'releaseReady':False,'baseMain':receipt['baseMain'],'displayVersion':'2.0.6-vfg-next','realBmdHardwareValidated':False,'runtimeChanges':False,'appliesTo':'Blackmagic/DeckLink native raw video; v210 keeps the existing system conversion path','correspondingSource':'Veyra-2.0.6-BMD-compat-source.zip','compiledSources':receipt['sources'],'files':files}
 target=OUT/'Veyra-2.0.6-BMD-compat-test.zip';assert not target.exists()
 with zipfile.ZipFile(target,'x',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
  for name,p in sorted(payload.items()):z.write(p,name)
- z.writestr('使用说明.txt',readme.encode('utf-8-sig'));z.writestr('bmd-compat-manifest.json',json.dumps(meta,ensure_ascii=False,indent=2).encode('utf8'))
+ z.writestr('USAGE.txt',readme.encode('utf-8-sig'));z.writestr('bmd-compat-manifest.json',json.dumps(meta,ensure_ascii=False,indent=2).encode('utf8'))
 with zipfile.ZipFile(target) as z:
  assert z.testzip() is None
  for name,row in files.items():assert hashlib.sha256(z.read(name)).hexdigest()==row['sha256'],name

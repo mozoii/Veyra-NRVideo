@@ -33,12 +33,12 @@ QString QmlPlayerBridge::srStageNote() const {
     const auto& plan = s.metrics.resolution;
     if (!s.running || !plan.output.valid() || plan.settingsRevision != s.applied.revision) return {};
     QStringList notes;
-    if (plan.srPrescaleIneffective) notes << tr("第二次超分未执行：再次降低后的尺寸须小于基础超分结果及第二次目标。");
-    if (plan.srOutputIneffective) notes << tr("超分后缩回未生效：超分须先放大画面，且缩回尺寸要小于超分结果。");
+    if (plan.srPrescaleIneffective) notes << tr("Second SR was not applied: its reduced input must be smaller than the base result and the second target.");
+    if (plan.srOutputIneffective) notes << tr("Shrink after SR was not applied: SR must enlarge the picture, and the shrink size must be smaller than the SR result.");
     // Only the standard family restores a source already at the target size.
     if (s.applied.sr && engine::vfxVideoSr(s.applied.videoSrQuality) && !plan.srApplied)
-        notes << tr("高码率和流媒体只做放大：片源已达到目标尺寸，所以没有运行；同尺寸修复请用标准。");
-    return notes.join(QStringLiteral("；"));
+        notes << tr("High bitrate and Streaming only upscale. The source already reaches the target size, so they did not run; use Standard to restore at the same size.");
+    return notes.join(QStringLiteral("; "));
 }
 
 double QmlPlayerBridge::queuedFrames() const {
@@ -61,7 +61,7 @@ QString QmlPlayerBridge::flowBackend() const {
     // name; report the fact we do have and let it read as unmeasured otherwise.
     const auto& s = impl_->snapshot;
     if (s.flowPerf == 0) return {};
-    return tr("GPU 光流");
+    return tr("GPU optical flow");
 }
 
 int QmlPlayerBridge::opticalFlowChoice() const { return int(settings().opticalFlowBackend); }
@@ -73,7 +73,7 @@ bool QmlPlayerBridge::setOpticalFlowChoice(int backend) {
     next.opticalFlowBackend=engine::OpticalFlowBackend(backend);
     if(next.opticalFlowBackend==before.opticalFlowBackend)return true;
     if(!impl_->commit(next)){
-        emit notice(tr("引擎未接受光流配置，原设置保留"),true);return false;
+        emit notice(tr("The engine did not accept the optical flow settings; previous settings kept"),true);return false;
     }
     emit settingsChanged();return true;
 }
@@ -87,23 +87,23 @@ QVariantList QmlPlayerBridge::stageTimings() const {
     using Stage = diagnostics::GpuStage;
     struct Row { const char* label; Stage stage; const char* color; };
     const Row rows[] = {
-        {"输入", Stage::Color, "#A8A8B8"},
-        {"抗锯齿", Stage::AaNode0, "#7FD4FF"},
-        {"抗锯齿 2", Stage::AaNode1, "#A9E2FF"},
-        {"人脸识别", Stage::BeautyDetect, "#FFB3D1"},
-        {"美颜", Stage::BeautyNode0, "#FF8FBF"},
-        {"美颜 2", Stage::BeautyNode1, "#FF9DC7"},
-        {"美颜 3", Stage::BeautyNode2, "#FFABCF"},
-        {"美颜 4", Stage::BeautyNode3, "#FFB9D7"},
-        {"美颜 5", Stage::BeautyNode4, "#FFC7DF"},
-        {"美颜 6", Stage::BeautyNode5, "#FFD5E7"},
-        {"超分", Stage::Sr, "#6EA8FF"},
-        {"光流", Stage::Flow, "#9A85FF"},
-        {"NR采样", Stage::Nr, "#FF8A3D"},
-        {"残差", Stage::Residual, "#E7B868"},
+        {"Input", Stage::Color, "#A8A8B8"},
+        {"Anti-aliasing", Stage::AaNode0, "#7FD4FF"},
+        {"Anti-aliasing 2", Stage::AaNode1, "#A9E2FF"},
+        {"Face detection", Stage::BeautyDetect, "#FFB3D1"},
+        {"Beauty", Stage::BeautyNode0, "#FF8FBF"},
+        {"Beauty 2", Stage::BeautyNode1, "#FF9DC7"},
+        {"Beauty 3", Stage::BeautyNode2, "#FFABCF"},
+        {"Beauty 4", Stage::BeautyNode3, "#FFB9D7"},
+        {"Beauty 5", Stage::BeautyNode4, "#FFC7DF"},
+        {"Beauty 6", Stage::BeautyNode5, "#FFD5E7"},
+        {"SR", Stage::Sr, "#6EA8FF"},
+        {"Optical flow", Stage::Flow, "#9A85FF"},
+        {"NR", Stage::Nr, "#FF8A3D"},
+        {"Residual", Stage::Residual, "#E7B868"},
         {"FG", Stage::FgBatch, "#3DDC84"},
         {"HDR", Stage::VideoHdr, "#E58BD9"},
-        {"呈现", Stage::Blit, "#58CAD4"},
+        {"Present", Stage::Blit, "#58CAD4"},
     };
     const double budget = stageBudgetMs();
     // Several NR layers: every layer marks the shared NR slot, so it only ever held the last
@@ -113,7 +113,7 @@ QVariantList QmlPlayerBridge::stageTimings() const {
     unsigned measuredLayers = 0;
     for (unsigned i = 0; i < diagnostics::kTimedNrLayers; ++i)
         if (s.metrics.flow.gpuTiming[size_t(diagnostics::nrLayerStage(i))].samples > 0) ++measuredLayers;
-    static const char* const layerLabels[] = {"NR 第1层", "NR 第2层", "NR 第3层", "NR 第4层"};
+    static const char* const layerLabels[] = {"NR layer 1", "NR layer 2", "NR layer 3", "NR layer 4"};
     static const char* const layerColors[] = {"#FF8A3D", "#FFA866", "#FFC28F", "#FFD9B8"};
     for (const auto& r : rows) {
         // Anti-aliasing and beauty rows appear only while those nodes run.
@@ -155,9 +155,9 @@ QVariantList QmlPlayerBridge::cpuTimings() const {
         const bool measured=queuedFramesKnown()&&sample.samples&&sample.p95.has_value();
         return QVariantMap{{"label",label},{"measured",measured},{"p95",measured?*sample.p95:0.0}};
     };
-    return {row(tr("解码"),Stage::Decode),row(tr("提交"),Stage::Submit),
-        row(tr("命令槽等待"),Stage::SlotWait),row(tr("GPU 就绪等待"),Stage::ReadyWait),
-        row(tr("调度等待"),Stage::DeadlineWait),row(tr("呈现"),Stage::Present)};
+    return {row(tr("Decode"),Stage::Decode),row(tr("Submit"),Stage::Submit),
+        row(tr("Command slot wait"),Stage::SlotWait),row(tr("GPU ready wait"),Stage::ReadyWait),
+        row(tr("Scheduling wait"),Stage::DeadlineWait),row(tr("Present"),Stage::Present)};
 }
 
 QVariantMap QmlPlayerBridge::nodeTimings() const {
@@ -353,43 +353,42 @@ void QmlPlayerBridge::updateRunStatus() {
     const auto& rate=i.history.output;
     const auto& f = s.metrics.flow;
     const bool active = s.running && !s.image && s.transport == engine::TransportState::Playing;
-    QString status = tr("待机"), level = QStringLiteral("idle");
-    if (s.failed) { status = tr("错误"); level = QStringLiteral("err"); }
-    else if (s.remoteRecovering) { status = tr("恢复中"); level = QStringLiteral("warn"); }
+    QString status = tr("Standby"), level = QStringLiteral("idle");
+    if (s.failed) { status = tr("Error"); level = QStringLiteral("err"); }
     // Paused to buffer a network source (#48): no pictures are due, so the output rate is not judged.
     else if (s.running && s.network.active && (s.network.holding() || s.network.state == media::NetworkStats::State::Reconnecting)) {
-        status = tr("缓冲中"); level = QStringLiteral("warn");
+        status = tr("Buffering"); level = QStringLiteral("warn");
     }
     else if (active && !s.applying && f.rateWindowReady) {
         // Judged on the engine's own words, shown in the interface language.
         const std::wstring rate = i.history.rateStatus(s);
         status = uiText(rate);
-        level = rate == L"正常" ? QStringLiteral("ok") : QStringLiteral("warn");
+        level = rate == L"Normal" ? QStringLiteral("ok") : QStringLiteral("warn");
     }
-    else if (s.applying && s.running) { status = tr("调整中"); level = QStringLiteral("warn"); }
-    else if (active) status = tr("采样中");
-    else if (s.transport == engine::TransportState::Paused) status = tr("已暂停");
+    else if (s.applying && s.running) { status = tr("Adjusting"); level = QStringLiteral("warn"); }
+    else if (active) status = tr("Sampling");
+    else if (s.transport == engine::TransportState::Paused) status = tr("Paused");
     QStringList options;
     const auto chosen=settings();
     const auto content=engine::currentContentRate(chosen.content);
     if(content!=engine::ContentRate::Transport){
-        const auto cadence=content==engine::ContentRate::Capture60To30?QStringLiteral("60→30"):tr("自动去除");
-        if(s.running&&rate.halfRate)options<<tr("%1 · 当前约 %2 fps").arg(cadence).arg(rate.contentFps,0,'f',0);
-        else if(s.running&&rate.deduplicating)options<<tr("%1 · 去重后约 %2 fps").arg(cadence).arg(rate.contentFps,0,'f',0);
-        else if(s.running&&!s.capture)options<<tr("%1 · 当前来源未去重").arg(cadence);
-        else if(s.running)options<<tr("%1 · 尚未观察到去重").arg(cadence);
+        const auto cadence=content==engine::ContentRate::Capture60To30?QStringLiteral("60→30"):tr("Automatic removal");
+        if(s.running&&rate.halfRate)options<<tr("%1 · currently about %2 fps").arg(cadence).arg(rate.contentFps,0,'f',0);
+        else if(s.running&&rate.deduplicating)options<<tr("%1 · about %2 fps after deduplication").arg(cadence).arg(rate.contentFps,0,'f',0);
+        else if(s.running&&!s.capture)options<<tr("%1 · deduplication inactive for this source").arg(cadence);
+        else if(s.running)options<<tr("%1 · no intentional frame skips observed yet").arg(cadence);
         else options<<cadence;
     }
     if(i.presentation.display!=engine::DisplaySync::Tearing){
-        const auto sync=i.presentation.display==engine::DisplaySync::Vsync?tr("垂直同步"):tr("自动显示同步");
-        options<<((refresh>0)?tr("%1 · 屏幕 %2 Hz").arg(sync).arg(refresh,0,'f',1):sync);
+        const auto sync=i.presentation.display==engine::DisplaySync::Vsync?tr("VSync"):tr("Automatic display sync");
+        options<<((refresh>0)?tr("%1 · display %2 Hz").arg(sync).arg(refresh,0,'f',1):sync);
     }
     // Variable refresh (NVIDIA G-SYNC / G-SYNC Compatible), Windows HDR and the
     // refresh rate: the presenting monitor while playing, otherwise the main
     // window's monitor. They come from the engine's DisplayStateService,
     // queried in the background on events only (startup, another monitor,
-    // WM_DISPLAYCHANGE, the switch turned on, 刷新显示器状态), never on a timer.
-    // The driver and Windows settings are the user's; the 可变刷新 switch decides
+    // WM_DISPLAYCHANGE, the switch turned on, refresh monitor state), never on a timer.
+    // The driver and Windows settings are the user's; the Variable Refresh Rate switch decides
     // how Veyra presents when it is possible.
     auto& displays=i.engine.displayStates();
     if(i.displayChanged){i.displayChanged=false;displays.invalidate("display-change");}
@@ -407,53 +406,53 @@ void QmlPlayerBridge::updateRunStatus() {
         // Answered once the shown monitor has a state of the re-check's generation.
         if(display&&display->generation>=i.displayRecheckGeneration){
             i.displayRecheckPending=false;
-            recheckNotice=tr("已刷新显示器状态：系统 HDR %1 · 可变刷新 %2")
-                .arg(hdr>0?tr("开"):hdr==0?tr("关"):tr("未知"),vrrSummaryText(int(gfx::vrrLevel(display->vrr))));
+            recheckNotice=tr("Display state refreshed: Windows HDR %1 · variable refresh %2")
+                .arg(hdr>0?tr("On"):hdr==0?tr("Off"):tr("Unknown"),vrrSummaryText(int(gfx::vrrLevel(display->vrr))));
         }else if(std::chrono::steady_clock::now()-i.displayRecheckSince>std::chrono::seconds(5)){
-            i.displayRecheckPending=false;recheckNotice=tr("刷新显示器状态没有完成，请稍后再试");recheckFailed=true;
+            i.displayRecheckPending=false;recheckNotice=tr("Refreshing the display state did not finish; try again later");recheckFailed=true;
         }
     }
     const bool displayChecking=i.displayRecheckPending||displays.busy();
     if(i.presentation.variableRefresh){
-        if(vrrLevel>=4)options<<tr("可变刷新 · 生效中");
-        else if(vrrLevel==3)options<<tr("可变刷新 · 等待驱动确认");
-        else options<<tr("可变刷新 · 当前屏幕不可用");
-    }else if(s.running&&vrrLevel>=4)options<<tr("屏幕可变刷新生效中");
+        if(vrrLevel>=4)options<<tr("Variable refresh · active");
+        else if(vrrLevel==3)options<<tr("Variable refresh · awaiting driver confirmation");
+        else options<<tr("Variable refresh · unavailable on this display");
+    }else if(s.running&&vrrLevel>=4)options<<tr("Display variable refresh active");
     if(i.presentation.outputRate!=engine::OutputRateMode::Off){
         if(s.running&&s.presentationEffective.outputRate==engine::OutputRateMode::Off)
-            options<<tr("输出限帧 · 当前未生效");
+            options<<tr("Output cap · currently inactive");
         else if(i.presentation.outputRate==engine::OutputRateMode::FollowDisplay)
-            options<<tr("输出限帧 · 跟随屏幕");
-        else options<<tr("输出限帧 · %1 fps").arg(i.presentation.customFps,0,'f',1);
+            options<<tr("Output cap · follow display");
+        else options<<tr("Output cap · %1 fps").arg(i.presentation.customFps,0,'f',1);
     }
     // On NVIDIA the low-latency choice owns the low queue.
     if(nvidiaLowLatencyAvailable()&&i.presentation.nvidiaLowLatency!=engine::NvidiaLowLatency::Off){
-        if(s.running&&s.presentationEffective.nvidiaLowLatency==engine::NvidiaLowLatency::Off)options<<tr("英伟达低延迟 · 当前未生效");
-        else options<<tr("英伟达低延迟 · 开");
+        if(s.running&&s.presentationEffective.nvidiaLowLatency==engine::NvidiaLowLatency::Off)options<<tr("NVIDIA Low Latency · currently inactive");
+        else options<<tr("NVIDIA Low Latency · On");
     }
-    else if(i.presentation.enabled)options<<(s.running&&!s.presentationEffective.enabled?tr("低延迟队列 · 当前未生效"):tr("低延迟队列"));
-    if(!s.capture&&std::abs(s.playbackRate-1.0)>.001)options<<tr("播放速度 %1×").arg(s.playbackRate,0,'f',2);
-    if(i.compareMode!=0)options<<tr("画面对比 · 补帧暂停");
+    else if(i.presentation.enabled)options<<(s.running&&!s.presentationEffective.enabled?tr("Low-latency queue · currently inactive"):tr("Low-latency queue"));
+    if(!s.capture&&std::abs(s.playbackRate-1.0)>.001)options<<tr("Playback speed %1×").arg(s.playbackRate,0,'f',2);
+    if(i.compareMode!=0)options<<tr("Image comparison · frame generation paused");
     // Ported from PushFPS: frame pacing repair and Live HUD Lock state.
     if(s.running&&!s.image&&s.applied.multiplier>1&&s.applied.pacingRepair){
-        if(s.pacingFrames>0)options<<tr("帧节奏修复 · 已重排 %1%").arg(qRound(100.0*double(s.pacingRepaired)/double(s.pacingFrames)));
-        else options<<tr("帧节奏修复 · 等待去重测出帧率");
+        if(s.pacingFrames>0)options<<tr("Frame pacing repair · %1% re-timed").arg(qRound(100.0*double(s.pacingRepaired)/double(s.pacingFrames)));
+        else options<<tr("Frame pacing repair · waiting for duplicate removal to measure the frame rate");
     }
     if(s.running&&!s.image&&s.applied.multiplier>1&&s.applied.hudLock){
-        if(s.hudLockState==1)options<<tr("HUD 自动锁定");
-        else if(s.hudLockState==2)options<<tr("HUD 自动锁定 · 无法启用");
-        else if(s.hudLockState==3)options<<tr("HUD 自动锁定 · 当前补帧方式不支持");
+        if(s.hudLockState==1)options<<tr("Auto HUD lock");
+        else if(s.hudLockState==2)options<<tr("Auto HUD lock · could not start");
+        else if(s.hudLockState==3)options<<tr("Auto HUD lock · not available with this frame generation");
     }
     QStringList detail;
-    // Live output hint: also shown under the 倍率 control (fgDisplayHint).
+    // Live output hint: also shown under the multiplier control (fgDisplayHint).
     QString fgHint;
     if (s.running && !s.image && s.applied.multiplier > 1 && i.compareMode == 0 && s.displayFgSuggestion > 0 &&
         s.displayFgContentFps > 0 && s.displayFgRefreshHz > 0) {
         const double output = s.displayFgContentFps * s.applied.multiplier;
         fgHint = s.displayFgSuggestion == 1
-            ? tr("当前帧率 %1 fps 超出屏幕刷新率 %2 Hz，建议关闭补帧来获得更好的延迟体验")
+            ? tr("Current frame rate %1 fps exceeds the %2 Hz refresh rate; turn frame generation off for lower latency")
                   .arg(output, 0, 'f', 0).arg(s.displayFgRefreshHz, 0, 'f', 0)
-            : tr("当前帧率 %1 fps 超出屏幕刷新率 %2 Hz，建议降至 %3X 来获得更好的延迟体验")
+            : tr("Current frame rate %1 fps exceeds the %2 Hz refresh rate; lower it to %3X for lower latency")
                   .arg(output, 0, 'f', 0).arg(s.displayFgRefreshHz, 0, 'f', 0).arg(s.displayFgSuggestion);
     }
     if (s.running && !s.image) {
@@ -468,19 +467,19 @@ void QmlPlayerBridge::updateRunStatus() {
             case engine::FrameGenerationBackend::AmdFrc: backend = QStringLiteral("AMD FRC"); break;
             case engine::FrameGenerationBackend::Vfg: backend = QStringLiteral("NVIDIA VFG"); break;
             }
-            detail << tr("补帧 %1X · %2").arg(s.applied.multiplier)
+            detail << tr("Frame generation %1X · %2").arg(s.applied.multiplier)
                           .arg(backend);
             // Adaptive multiplier (from PushFPS): the multiplier the last pair used.
             if (s.applied.fgAdaptive && s.previewFgMultiplier > 1 && s.applied.multiplier > 2)
-                detail << tr("自适应 · 现在 %1X").arg(s.previewFgMultiplier);
+                detail << tr("Adaptive · now %1X").arg(s.previewFgMultiplier);
         }
-        else detail << tr("未补帧");
-        if (s.applied.multiplier > 1 && impl_->compareMode != 0) detail << tr("补帧暂停");
+        else detail << tr("No FG");
+        if (s.applied.multiplier > 1 && impl_->compareMode != 0) detail << tr("Frame generation paused");
         // Live output hint (DisplayFgBudget.h): a suggestion only, the
         // multiplier stays the user's choice.
         else if (!fgHint.isEmpty()) detail << fgHint;
         else if (s.applied.multiplier > 1 && (s.fgBudgetLimited || s.xessGenerationSuppressed) &&
-                 (!rate.policyLimited()||i.history.overloaded)) detail << tr("调度降档");
+                 (!rate.policyLimited()||i.history.overloaded)) detail << tr("Scheduling stepped down");
         // Why VFG cannot hold the requested multiplier. One VFG interpolation
         // costs about the same at any resolution, so what fits follows from its
         // measured cost, the rest of the chain and the source interval; the
@@ -502,15 +501,15 @@ void QmlPlayerBridge::updateRunStatus() {
                 const int generated = budget < *middle ? 0 : 1 + int(std::floor((budget - *middle) / *perRun));
                 const int fits = std::clamp(1 + generated, 1, int(s.applied.multiplier));
                 if (fits < int(s.applied.multiplier)) {
-                    if (mixed) detail << tr("VFG 中间帧约 %1 ms、其余每张约 %2 ms，当前负载约可稳定 %3X").arg(*middle, 0, 'f', 1).arg(*perRun, 0, 'f', 1).arg(fits);
-                    else detail << tr("VFG 每张约 %1 ms，当前负载约可稳定 %2X").arg(*perRun, 0, 'f', 1).arg(fits);
+                    if (mixed) detail << tr("VFG takes about %1 ms for the middle frame and %2 ms for each other frame; about %3X holds at the current load").arg(*middle, 0, 'f', 1).arg(*perRun, 0, 'f', 1).arg(fits);
+                    else detail << tr("VFG takes about %1 ms per frame; about %2X holds at the current load").arg(*perRun, 0, 'f', 1).arg(fits);
                 }
             }
             if (fgHint.isEmpty() && refresh > 1 && source > 1 && source * s.applied.multiplier > refresh * 1.02)
-                detail << tr("屏幕 %1 Hz 最多显示约 %2X").arg(refresh, 0, 'f', 0).arg(std::max(1, int(refresh / source)));
+                detail << tr("A %1 Hz display shows at most about %2X").arg(refresh, 0, 'f', 0).arg(std::max(1, int(refresh / source)));
         }
-        if (s.nominalSourceFps > 0.01) detail << tr("源 %1 fps").arg(s.nominalSourceFps, 0, 'f', 2);
-        if(active&&f.rateWindowReady&&rate.targetFps>0)detail<<tr("有效目标 %1 fps").arg(rate.targetFps,0,'f',1);
+        if (s.nominalSourceFps > 0.01) detail << tr("Source %1 fps").arg(s.nominalSourceFps, 0, 'f', 2);
+        if(active&&f.rateWindowReady&&rate.targetFps>0)detail<<tr("Effective target %1 fps").arg(rate.targetFps,0,'f',1);
         const auto autoState=nrAutoStatus();if(!autoState.isEmpty())detail<<autoState;
     }
     double ratio = -1.0;
@@ -538,8 +537,8 @@ void QmlPlayerBridge::updateRunStatus() {
 
 
 void QmlPlayerBridge::showFormatBadge(const engine::PlayerSnapshot& s) {
-    // 临时停用：格式徽章窗口在开符号构建下必崩（见 FormatBadgeWindow::show），
-    // 它把真正的崩溃信号盖住了。只停调用，代码留着。
+    // Temporarily disabled: the format badge window crashes on an unsigned build (see FormatBadgeWindow::show),
+    // it would mask the real crash signal. Only the call is disabled; the code stays.
     impl_->formatBadgeSession = s.sessionId;
     if (impl_->videoWindow == nullptr) return;
     if (!impl_->formatBadge) {

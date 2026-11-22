@@ -23,10 +23,10 @@ Window {
     property bool dragging: false
     property string failure: ""
     readonly property var sortOptions: [
-        { id: "0", label: qsTr("手动顺序") },
-        { id: "1", label: qsTr("名称 A → Z") }, { id: "2", label: qsTr("名称 Z → A") },
-        { id: "3", label: qsTr("修改时间：新 → 旧") }, { id: "4", label: qsTr("修改时间：旧 → 新") },
-        { id: "5", label: qsTr("文件大小：大 → 小") }, { id: "6", label: qsTr("文件大小：小 → 大") }
+        { id: "0", label: qsTr("Custom order") },
+        { id: "1", label: qsTr("Name A → Z") }, { id: "2", label: qsTr("Name Z → A") },
+        { id: "3", label: qsTr("Modified: newest first") }, { id: "4", label: qsTr("Modified: oldest first") },
+        { id: "5", label: qsTr("Size: largest first") }, { id: "6", label: qsTr("Size: smallest first") }
     ]
     function open() {
         if (!positioned) {
@@ -107,28 +107,28 @@ Window {
                     anchors.fill: parent; spacing: 8
                     VIcon { name: "list"; size: 19; color: Theme.accent }
                     Text {
-                        text: qsTr("播放列表")
+                        text: qsTr("Playlist")
                         font.family: Theme.fontUi; font.pixelSize: 16; font.weight: Font.DemiBold
                         color: Theme.t1
                     }
-                    Text { text: qsTr("%1 项").arg(win.playlist.count); font.pixelSize: 11; color: Theme.t3 }
+                    Text { text: qsTr("%1 items").arg(win.playlist.count); font.pixelSize: 11; color: Theme.t3 }
                     Item { Layout.fillWidth: true }
                     VButton {
                         objectName: "playlist-close"
-                        icon: true; iconName: "x"; ghost: true; tip: qsTr("关闭窗口")
+                        icon: true; iconName: "x"; ghost: true; tip: qsTr("Close window")
                         onClicked: win.hide()
                     }
                 }
             }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
-                VButton { objectName: "playlist-add-folder"; text: qsTr("导入文件夹"); iconName: "folder"; primary: true; onClicked: win.addFolder() }
-                VButton { objectName: "playlist-add-files"; text: qsTr("添加文件"); iconName: "plus"; onClicked: win.addFiles() }
+                VButton { objectName: "playlist-add-folder"; text: qsTr("Import folder"); iconName: "folder"; primary: true; onClicked: win.addFolder() }
+                VButton { objectName: "playlist-add-files"; text: qsTr("Add files"); iconName: "plus"; onClicked: win.addFiles() }
                 Item { Layout.fillWidth: true }
                 VButton {
                     objectName: "playlist-clear"
-                    text: qsTr("清空"); ghost: true; enabled: win.playlist.count > 0 || win.playlist.busy
-                    tip: qsTr("仅清空列表，不删除硬盘文件")
+                    text: qsTr("Clear"); ghost: true; enabled: win.playlist.count > 0 || win.playlist.busy
+                    tip: qsTr("Clear playlist; keep files on disk")
                     onClicked: { win.playlist.clear(); win.selectedPath = ""; win.finishDrag(false) }
                 }
             }
@@ -137,17 +137,17 @@ Window {
                 VSelect {
                     objectName: "playlist-sort"
                     Layout.fillWidth: true
-                    title: qsTr("排序")
+                    title: qsTr("Sort")
                     options: win.sortOptions
                     value: win.sortOptions[win.playlist.sortMode].label
                     enabled: !win.dragging
                     onPicked: id => win.playlist.sortBy(Number(id))
                 }
-                VButton { objectName: "playlist-previous"; icon: true; iconName: "left"; tip: qsTr("上一项"); enabled: win.playlist.count > 0; onClicked: win.playlist.previous() }
-                VButton { objectName: "playlist-next"; icon: true; iconName: "right"; tip: qsTr("下一项"); enabled: win.playlist.count > 0; onClicked: win.playlist.next() }
+                VButton { objectName: "playlist-previous"; icon: true; iconName: "left"; tip: qsTr("Previous item"); enabled: win.playlist.count > 0; onClicked: win.playlist.previous() }
+                VButton { objectName: "playlist-next"; icon: true; iconName: "right"; tip: qsTr("Next item"); enabled: win.playlist.count > 0; onClicked: win.playlist.next() }
                 VButton {
                     objectName: "playlist-locate"
-                    icon: true; iconName: "play"; tip: qsTr("定位正在播放的文件")
+                    icon: true; iconName: "play"; tip: qsTr("Show current file")
                     enabled: win.playlist.currentIndex >= 0
                     onClicked: list.positionViewAtIndex(win.playlist.currentIndex, ListView.Contain)
                 }
@@ -223,13 +223,13 @@ Window {
                                     visible: row.entryCurrent
                                     text: {
                                         switch (row.entryState) {
-                                        case "playing": return qsTr("正在播放")
-                                        case "paused": return qsTr("已暂停")
-                                        case "opening": return qsTr("正在打开")
-                                        case "image": return qsTr("正在查看")
-                                        case "ended": return qsTr("已播完")
-                                        case "failed": return qsTr("播放失败")
-                                        default: return qsTr("已停止")
+                                        case "playing": return qsTr("Playing")
+                                        case "paused": return qsTr("Paused")
+                                        case "opening": return qsTr("Opening")
+                                        case "image": return qsTr("Viewing")
+                                        case "ended": return qsTr("Finished")
+                                        case "failed": return qsTr("Playback failed")
+                                        default: return qsTr("Stopped")
                                         }
                                     }
                                     color: row.entryState === "failed" ? Theme.err : Theme.accent
@@ -241,7 +241,7 @@ Window {
                         VButton {
                             objectName: "playlist-remove-" + row.index
                             anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
-                            icon: true; ghost: true; iconName: "x"; tip: qsTr("从列表移除，不删除文件")
+                            icon: true; ghost: true; iconName: "x"; tip: qsTr("Remove from playlist; keep file")
                             onClicked: win.playlist.remove(row.index)
                         }
                     }
@@ -249,7 +249,7 @@ Window {
                 Text {
                     anchors.centerIn: parent; width: parent.width - 32
                     visible: win.playlist.count === 0
-                    text: win.playlist.busy ? qsTr("正在扫描文件夹…") : qsTr("导入文件夹，或将文件 / 文件夹拖到这里\n支持子文件夹 · 双击播放 · 拖动左侧手柄调整顺序")
+                    text: win.playlist.busy ? qsTr("Scanning folders…") : qsTr("Import a folder, or drop files / folders here\nIncludes subfolders · Double-click to play · Drag the left handle to reorder")
                     color: Theme.t3; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
                     font.family: Theme.fontUi; font.pixelSize: 12; lineHeight: 1.5
                 }
@@ -267,14 +267,14 @@ Window {
             }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
-                Text { text: qsTr("播完后播放下一项"); color: Theme.t2; font.pixelSize: 11 }
+                Text { text: qsTr("Play next when finished"); color: Theme.t2; font.pixelSize: 11 }
                 VSwitch { objectName: "playlist-auto-advance"; checked: win.playlist.autoAdvance; onToggled: checked => win.playlist.autoAdvance = checked }
                 Item { Layout.fillWidth: true }
             }
             Text {
                 objectName: "playlist-status"
                 Layout.fillWidth: true
-                text: win.failure || win.playlist.status || qsTr("拖入只追加列表，不打断当前播放")
+                text: win.failure || win.playlist.status || qsTr("Drops append without interrupting playback")
                 color: win.failure ? Theme.err : Theme.t3; elide: Text.ElideRight; font.pixelSize: 10
             }
         }
@@ -292,7 +292,7 @@ Window {
             anchors.fill: parent; anchors.margins: 2; radius: Theme.rWindow
             visible: filesDrop.containsDrag; color: Theme.accentSoft
             border.width: 2; border.color: Theme.accent
-            Text { anchors.centerIn: parent; text: qsTr("松开以追加到播放列表"); color: Theme.t1; font.pixelSize: 16 }
+            Text { anchors.centerIn: parent; text: qsTr("Drop to append to playlist"); color: Theme.t1; font.pixelSize: 16 }
         }
     }
     Repeater {

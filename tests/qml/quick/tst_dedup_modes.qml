@@ -20,10 +20,10 @@ Item {
         function toggle(prefix) { mouseClick(findChild(fixture,"fixture-"+prefix+"-dedup-enabled")) }
         function test_only_two_modes_are_offered() {
             for(const editor of [list,node]) {
-                compare(editor.label,"去除重复帧")
+                compare(editor.label,"Remove duplicate frames")
                 compare(editor.modes.length,2)
                 compare(editor.modes[0].id,"5");compare(editor.modes[0].label,"60→30")
-                compare(editor.modes[1].id,"1");compare(editor.modes[1].label,"自动去除")
+                compare(editor.modes[1].id,"1");compare(editor.modes[1].label,"Automatic removal")
             }
         }
         function test_default_stays_off_until_enabled() {
@@ -40,7 +40,7 @@ Item {
             compare(selectRow("list").value,"60→30")
             compare(selectRow("node").value,"60→30")
             fakeBridge.contentRate=1
-            compare(selectRow("list").value,"自动去除")
+            compare(selectRow("list").value,"Automatic removal")
             selectRow("list").picked("3")
             compare(fakeBridge.contentRate,1)
         }
@@ -53,7 +53,7 @@ Item {
         function test_legacy_label_and_narrow_layout() {
             for(const legacy of [2,3,4]){
                 fakeBridge.contentRate=legacy
-                compare(selectRow("list").value,"自动去除")
+                compare(selectRow("list").value,"Automatic removal")
             }
             fixture.width=240;wait(50)
             const control=selectRow("node"),point=control.mapToItem(node,0,0)

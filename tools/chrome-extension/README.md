@@ -1,9 +1,9 @@
-# 在 Veyra 播放
+# Play in Veyra
 
-扩展把当前播放的 HTML5 视频的直接 HTTP 或 HTTPS 地址传给 Veyra，也支持打开直接媒体地址的标签页。网页登录、DRM、blob 地址和浏览器专属的视频流需要在浏览器里播放。
+The extension hands the direct HTTP or HTTPS address of the HTML5 video currently playing in the tab to Veyra, and also supports opening a direct media address in a tab. Signed-in web pages, DRM, blob addresses and browser-specific video streams must play in the browser.
 
-1. 在 Chrome 或 Edge 打开扩展管理页，启用开发者模式。
-2. 选择「加载已解压的扩展程序」，选中此目录。
-3. 打开媒体地址，点击扩展按钮，再点击「用 Veyra 打开地址」。
+1. Open the extension management page in Chrome or Edge and enable developer mode.
+2. Choose "Load unpacked" and select this directory.
+3. Open a media address, click the extension button, then click "Open address in Veyra".
 
-Veyra 运行时，扩展通过 `127.0.0.1:18765` 发送地址。若希望从关闭状态启动 Veyra，可先运行本目录中的 `install-protocol.cmd` 注册 `veyra://play`。播放器内也可通过「播放地址」直接粘贴 HTTP、HTTPS 或 RTSP 媒体链接。
+When Veyra is running, the extension sends the address through `127.0.0.1:18765`. To start Veyra from a closed state, first run `install-protocol.cmd` in this directory to register `veyra://play`. In the player you can also paste an HTTP, HTTPS or RTSP media link directly via "Play address".

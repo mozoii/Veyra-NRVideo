@@ -1,4 +1,4 @@
-// 首页, rebuilt from the design (pages-a.js PAGES.home + pages.css .home).
+// Home page, rebuilt from the design (pages-a.js PAGES.home + pages.css .home).
 //
 // The design is: a large logo, a two-line greeting, a 4-up grid of source cards
 // (164x124 each), a "continue last capture" row, and a row of recent chips.
@@ -22,7 +22,7 @@ VPage {
         }
         return null
     }
-    // The coffee line under the title: Main opens 设置 → 赞助作者.
+    // The coffee line under the title: Main opens Settings → Sponsors.
     signal requestSponsor()
     // Main.qml keeps the dusk wordmark hidden while the startup intro (DuskIntro.qml) flies a
     // copy of it in, and aims that copy at this item.
@@ -101,7 +101,7 @@ VPage {
             }
         }
 
-        // 日落: the user's wordmark (tools/qt_probe/make-wordmark-dusk.py) in place of the gamepad
+        // Dusk: the user's wordmark (tools/qt_probe/make-wordmark-dusk.py) in place of the gamepad
         // and the title, a baked glow breathing behind it (the software scene graph draws no
         // MultiEffect). 0.24 of the page height, 130..210 px, so short windows keep the cards.
         Item {
@@ -141,7 +141,7 @@ VPage {
         }
 
         // .hello: .h1 plus a muted line. The line asks for a coffee; the whole of it
-        // opens the sponsor section of 设置.
+        // opens the sponsor section of Settings.
         ColumnLayout {
             id: hello
             Layout.alignment: Qt.AlignHCenter
@@ -166,7 +166,7 @@ VPage {
                     spacing: 5
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: qsTr("本软件开源免费，如果对你有帮助，你可以 →")
+                        text: qsTr("This software is free and open source. If it helps you, you can →")
                         color: sponsorHover.hovered ? Theme.t1 : Theme.t2
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -179,7 +179,7 @@ VPage {
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: qsTr("请作者喝杯咖啡")
+                        text: qsTr("Buy the author a coffee")
                         color: Theme.accent
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -200,7 +200,7 @@ VPage {
         VButton {
             objectName: "home-playlist"
             Layout.alignment: Qt.AlignHCenter
-            text: qsTr("播放列表 · 导入文件夹"); iconName: "list"
+            text: qsTr("Playlist · Import folder"); iconName: "list"
             onClicked: veyra.showPlaylist()
         }
 
@@ -215,30 +215,28 @@ VPage {
                 ? Math.max(1, Math.min(164, Math.floor((Layout.preferredWidth - 5 * spacing) / 6))) : 164
             readonly property int cardHeight: root.compact ? 80 : 124
             // Subtitles name what is really there: the device of the last capture
-            // session and the saved PS5 host; generic wording when there is none.
+            // session and the saved streaming host; generic wording when there is none.
             // Only the subtitle follows the live state. The cards themselves are a fixed
             // list: when the whole array was one binding, every Xbox / PC state change
             // (polling after sign-in) destroyed and rebuilt all six cards, and a click
             // landing during the rebuild was lost (field report 2026-10-02).
             function cardSub(act) {
                 switch (act) {
-                case "file": return qsTr("MP4 · MKV · 图片")
-                case "capture": return veyra.hasCaptureSession ? veyra.captureSessionSummary.split(" · ")[0] : qsTr("HDMI 采集设备")
-                case "ps5": return veyra.remotePlayHost.length > 0 ? qsTr("已保存主机 ") + veyra.remotePlayHost : qsTr("局域网串流")
-                case "moonlight": return veyra.moonlight && veyra.moonlight.state.lastLabel ? veyra.moonlight.state.lastLabel : qsTr("Sunshine 主机")
-                case "xbox": return veyra.xbox && veyra.xbox.state.lastLabel ? veyra.xbox.state.lastLabel : qsTr("账号登录 · 实验")
-                default: return qsTr("窗口或显示器")
+                case "file": return qsTr("MP4 · MKV · images")
+                case "capture": return veyra.hasCaptureSession ? veyra.captureSessionSummary.split(" · ")[0] : qsTr("HDMI capture device")
+                case "moonlight": return veyra.moonlight && veyra.moonlight.state.lastLabel ? veyra.moonlight.state.lastLabel : qsTr("Sunshine host")
+                case "xbox": return veyra.xbox && veyra.xbox.state.lastLabel ? veyra.xbox.state.lastLabel : qsTr("Account sign-in · experimental")
+                default: return qsTr("Window or display")
                 }
             }
             Repeater {
                 id: sourceCards
                 model: [
-                    { glyph: "folder", title: qsTr("打开视频"), act: "file" },
-                    { glyph: "video", title: qsTr("采集卡"), act: "capture" },
-                    { glyph: "gamepad", title: qsTr("PS5 串流"), act: "ps5" },
-                    { glyph: "cast", title: qsTr("PC 串流"), act: "moonlight" },
-                    { glyph: "gamepad", title: qsTr("Xbox 串流"), act: "xbox" },
-                    { glyph: "monitor", title: qsTr("屏幕捕获"), act: "screen" }
+                    { glyph: "folder", title: qsTr("Open video"), act: "file" },
+                    { glyph: "video", title: qsTr("Capture card"), act: "capture" },
+                    { glyph: "cast", title: qsTr("PC streaming"), act: "moonlight" },
+                    { glyph: "gamepad", title: qsTr("Xbox streaming"), act: "xbox" },
+                    { glyph: "monitor", title: qsTr("Screen capture"), act: "screen" }
                 ]
                 // The layout owns the slot's position, so the card inside it is free to
                 // move its own y for the hover lift (a y set on a layout child is
@@ -308,15 +306,6 @@ VPage {
                             }
                         }
                     }
-                    // PS5 手柄控制 is switched on for the capture card.
-                    VTag {
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.margins: 12
-                        visible: modelData.act === "capture" && veyra.ps5Control.enabled === true
-                        text: qsTr("PS5 手柄")
-                        kind: "acc"
-                    }
                     HoverHandler { id: cardHover; cursorShape: Qt.PointingHandCursor }
                     ToolTip.visible: cardHover.hovered && (sourceTitle.truncated || sourceSubtitle.truncated)
                     ToolTip.text: sourceTitle.text + " · " + sourceSubtitle.text
@@ -327,7 +316,6 @@ VPage {
                             switch (modelData.act) {
                             case "file": veyra.openFileDialog(); break
                             case "capture": veyra.openCaptureDialog(); break
-                            case "ps5": veyra.openPs5Dialog(); break
                             case "moonlight": veyra.openMoonlightDialog(); break
                             case "xbox": veyra.openXboxDialog(); break
                             case "screen": veyra.openScreenCaptureDialog(); break
@@ -342,7 +330,7 @@ VPage {
         VButton {
             objectName: "home-network"
             Layout.alignment: Qt.AlignHCenter
-            text: qsTr("播放地址…")
+            text: qsTr("Open media URL…")
             iconName: "cast"
             onClicked: veyra.openNetworkDialog()
         }
@@ -354,7 +342,7 @@ VPage {
             id: resume
             objectName: "home-resume"
             Layout.alignment: Qt.AlignHCenter
-            // The last source actually used: capture card, PS5 or screen capture.
+            // The last source actually used: capture card or screen capture.
             readonly property var last: veyra.lastSource
             visible: last.kind !== undefined
             implicitWidth: srcGrid.width
@@ -385,7 +373,7 @@ VPage {
                     Layout.fillWidth: true
                     spacing: 2
                     Text {
-                        text: qsTr("继续上次")
+                        text: qsTr("Continue last")
                         color: Theme.t1
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsBody
@@ -401,7 +389,7 @@ VPage {
                     }
                 }
                 VButton {
-                    text: qsTr("开始")
+                    text: qsTr("Start")
                     iconName: "play"
                     primary: true
                     onClicked: veyra.resumeLastSource()
@@ -409,11 +397,11 @@ VPage {
             }
         }
 
-        // .recent: 692 wide, left-aligned, wrapping; "最近" in --v-t3 then 28px chips
+        // .recent: 692 wide, left-aligned, wrapping; "Recent" in --v-t3 then 28px chips
         // with a film/image icon. Present only when there are recent files; a chip
         // whose file is gone is dimmed and does nothing (clicking it cannot open it).
-        // Custom: a "清空" action sits at the right edge of this block, so it lines up
-        // with 继续上次's "开始" button above it, and it wears the same primary button.
+        // Custom: a "Clear" action sits at the right edge of this block, so it lines up
+        // with resume-last's "Start" button above it, and it wears the same primary button.
         // Anchored Item rather than a layout: the chips' own width is what a layout
         // would use for its implicit size, and the long file names then widened the
         // whole column and pushed the button out of line.
@@ -435,7 +423,7 @@ VPage {
                 Text {
                     height: 28
                     verticalAlignment: Text.AlignVCenter
-                    text: qsTr("最近")
+                    text: qsTr("Recent")
                     color: Theme.t3
                     font.family: Theme.fontUi
                     font.pixelSize: 12
@@ -476,7 +464,7 @@ VPage {
                         }
                     }
                     ToolTip.visible: chipHover.hovered && (!modelData.exists || chipText.truncated)
-                    ToolTip.text: modelData.exists ? modelData.label : qsTr("文件已不存在")
+                    ToolTip.text: modelData.exists ? modelData.label : qsTr("The file no longer exists")
                     HoverHandler { id: chipHover; cursorShape: modelData.exists ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     TapHandler { onTapped: if (modelData.exists) veyra.openPath(modelData.path) }
                 }
@@ -486,14 +474,14 @@ VPage {
                 id: clearRecent
                 objectName: "home-clear-recent"
                 // Same right inset as the resume card's own row (10), so this button's
-                // right edge lands exactly on 开始's.
+                // right edge lands exactly on Start's.
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.top: parent.top
-                text: qsTr("清空")
+                text: qsTr("Clear")
                 iconName: "trash"
                 primary: true
-                tip: qsTr("只清空这个列表，不会删除文件。")
+                tip: qsTr("Only clears this list; no file is deleted.")
                 onClicked: clearRecentConfirm.open()
             }
         }
@@ -507,7 +495,7 @@ VPage {
         spacing: 4
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: qsTr("第一次使用？")
+            text: qsTr("First time here?")
             color: Theme.t2
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsBody
@@ -515,7 +503,7 @@ VPage {
         VButton {
             id: guideEntry
             objectName: "home-onboarding"
-            text: qsTr("查看新手引导")
+            text: qsTr("Open the quick tour")
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
             Accessible.name: text
@@ -545,10 +533,10 @@ VPage {
         id: clearRecentConfirm
         objectName: "home-clear-recent-confirm"
         glyph: "film"
-        title: qsTr("清空最近播放记录？")
-        text: qsTr("只清空这个列表，不会删除文件。")
-        acceptText: qsTr("清空")
-        rejectText: qsTr("取消")
+        title: qsTr("Clear the recent list?")
+        text: qsTr("Only clears this list; no file is deleted.")
+        acceptText: qsTr("Clear")
+        rejectText: qsTr("Cancel")
         onAccepted: veyra.clearRecentFiles()
     }
 }

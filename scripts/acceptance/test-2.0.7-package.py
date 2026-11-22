@@ -100,21 +100,21 @@ def refresh(flavor):
     write(app/'GPU-PACKAGE.txt',f'Veyra {LABEL} / {flavor}\nLocal test build. Extract the entire package to a new directory and run veyra_qml_ui.exe. Unsupported features remain disabled. No drivers or SDK development files are bundled.\n'.encode('utf8'))
     notes=f'''# Veyra {LABEL} · {flavor}
 
-完整解压到新目录，运行 veyra_qml_ui.exe。不要只替换旧包的 EXE。此为本地测试版，尚未发布 GitHub 正式版。
+Extract the package to a new directory and run veyra_qml_ui.exe. Do not just replace the old package's EXE. This is a local test build, not yet published as a GitHub release.
 
-优先测试：
-- 固定“采集 60→30”恢复隔帧采样，不参与内容去重；自动识别改为全画面逐像素比较，避免旧稀疏采样漏掉小幅运动。只在内容去重开启时增加比较工作；整画面变化都在采集噪声容差内时仍可能被视为重复。T911 NV12/P010 的此前实卡记录见 docs/CONTENT_CADENCE_EXACT_2026-10-12.md。
-- 采集卡先选择分辨率，再选择实际支持的帧率和格式。MJPEG 标红“（不建议使用）”；更换分辨率/帧率后需重新选像素格式。无效组合会弹错误，不自动换格式。已有有效上次设置仍恢复。
-- XeSS + 光流的“边缘神盾”开关（默认开），可关闭对照。包括 NVIDIA 双向检查及 FidelityFX 运动边界修复；开启有计算成本，不保证所有场景画质提升。
-- 源时间戳下补帧持续性、专业模式播放条边界、采集全部设置保存/继续上次/启动恢复。
+Priority tests:
+- Fixed "capture 60→30" restores inter-frame sampling and does not participate in content dedup; automatic detection now compares full-frame pixels, avoiding the old sparse sampling that missed small motion. Only when content dedup is on does the comparison work increase; a whole-frame change still within capture-noise tolerance may be treated as a duplicate. The earlier T911 NV12/P010 hardware record is in docs/CONTENT_CADENCE_EXACT_2026-10-12.md.
+- Capture card first selects resolution, then the actually supported frame rate and format. MJPEG is marked red "(not recommended)"; after changing resolution/frame rate, the pixel format must be reselected. Invalid combinations raise an error rather than silently switching format. An existing valid previous setting is still restored.
+- XeSS + motion-flow "edge shield" switch (on by default), can be turned off for comparison. Includes the NVIDIA two-way check and the FidelityFX motion-boundary fix; enabling it has a compute cost and does not guarantee quality gains in every scene.
+- Frame-generation persistence with source timestamps, pro-mode playback-bar boundary, capture-settings save/continue-last/at-startup restore.
 
-保留字幕、播放列表/文件夹导入、DLSS SR K/M/L、VFG 混合质量档等主线修复。HDR 补帧兼容和 Blackmagic 原生采集仍是默认关闭的开关；需用户实卡验证。UI 统计33ms/状态250ms及GPU默认优先级保持。
-本次构建和回归见 {VALIDATION}；此前完整整合记录见 docs/TEST_2.0.7_REPORT_2026-10-12.md。AMD包完成内容/启动检查不代表AMD实卡增强验证。NV长期显存增长尚未根治。
+Retains subtitles, playlist/folder import, DLSS SR K/M/L and VFG mixed quality tiers from the main line. HDR frame-generation compatibility and native Blackmagic capture remain default-off switches; real-hardware validation is needed. UI stats stay at 33 ms / state refresh at 250 ms and the default GPU priority is kept.
+Build and regression for this build: {VALIDATION}; the earlier full integration record is in docs/TEST_2.0.7_REPORT_2026-10-12.md. The AMD package completed content and launch checks, which does not mean AMD hardware enhancement validation. NVIDIA long-run VRAM growth remains unresolved.
 
-对应源码在上一级 Veyra-{LABEL}-source.zip；同时提供原样依赖源 Veyra-2.0.6-dependency-source.zip 和新增字幕FFmpeg源 FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip。保留PS5 slices256和zlib字幕支持。构建见 docs/BUILD_2.0.7_TEST.md。
-runtime清单记录原版/社区身份；社区HashMismatch/NotSigned如实保留，不锁定用户自行替换的兼容DLL。运行库、SDK、模型和私有素材未混入应用源码。
+Corresponding source in the parent directory: Veyra-{LABEL}-source.zip; also provides the unchanged dependency source Veyra-2.0.6-dependency-source.zip and the new subtitle FFmpeg source FFmpeg-9.0.1-slices256-dav1d-zlib-source.zip. Retains the H.264 slices256 patch and zlib subtitle support. Build: docs/BUILD_2.0.7_TEST.md.
+The runtime manifest records author-original and community identities; community HashMismatch/NotSigned is recorded as-is, without locking user-replaced compatibility DLLs. No runtime libraries, SDKs, models or private media are bundled into the application source.
 '''
-    write(app/'README-TEST.zh-CN.md',notes.encode('utf8'))
+    write(app/'README-TEST.en.md',notes.encode('utf8'))
 def manifest(flavor,source=False):
     app=stagepath(flavor);build=json.loads(Path(json.loads((REPORT/'build.json').read_text('utf8'))['receipt']).read_text('utf8'))
     data=dict(schema=3,version='2.0.7',candidate=LABEL,displayVersion=LABEL,gpuPackage=flavor,localOnly=True,releaseReady=False,

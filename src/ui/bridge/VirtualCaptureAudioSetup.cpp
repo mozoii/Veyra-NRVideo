@@ -27,11 +27,11 @@ VirtualCaptureAudioSetup::VirtualCaptureAudioSetup(QObject* parent) : QObject(pa
     });
     connect(&extractor_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart)
-            finish(tr("无法启动 Windows 解压工具"), true);
+            finish(tr("Could not start the Windows archive tool"), true);
     });
     connect(&extractor_, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
         if (code == 0 && status == QProcess::NormalExit) launchInstaller();
-        else finish(tr("虚拟扬声器安装包解压失败"), true);
+        else finish(tr("Could not extract the virtual speaker package"), true);
     });
     connect(&installer_, &QWinEventNotifier::activated, this, [this] {
         DWORD code = 0;
@@ -42,8 +42,8 @@ VirtualCaptureAudioSetup::VirtualCaptureAudioSetup(QObject* parent) : QObject(pa
         installer_.setHandle(nullptr);
         CloseHandle(process);
         const bool ok = read && (code == 0 || code == ERROR_SUCCESS_REBOOT_REQUIRED);
-        finish(ok ? tr("安装器已关闭。若已完成安装或卸载，请按 VB-Audio 提示重启 Windows")
-                  : tr("VB-Audio 安装器未完成操作（%1）").arg(code), !ok);
+        finish(ok ? tr("Setup closed. If installation or removal completed, follow VB-Audio’s instructions to restart Windows.")
+                  : tr("VB-Audio Setup did not complete the operation (%1)").arg(code), !ok);
     });
 }
 
@@ -66,34 +66,34 @@ void VirtualCaptureAudioSetup::start(const QString& dataDirectory) {
     if (busy()) return;
     QFile package(QString::fromLatin1(packageResource));
     if (!package.open(QIODevice::ReadOnly)) {
-        emit completed(tr("此构建未内置 VB-CABLE 安装包"), true);
+        emit completed(tr("This build does not include the VB-CABLE setup package"), true);
         return;
     }
     const auto bytes = package.read(packageLimit + 1);
     if (QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex() != packageHash) {
-        emit completed(tr("内置 VB-CABLE 安装包校验失败"), true);
+        emit completed(tr("Bundled VB-CABLE package verification failed"), true);
         return;
     }
     if (!QDir().mkpath(dataDirectory)) {
-        emit completed(tr("无法创建虚拟扬声器安装目录"), true);
+        emit completed(tr("Could not create the virtual speaker setup folder"), true);
         return;
     }
     staging_ = std::make_unique<QTemporaryDir>(QDir(dataDirectory).filePath(QStringLiteral("vb-cable-XXXXXX")));
     if (!staging_->isValid()) {
-        finish(tr("无法创建虚拟扬声器安装目录"), true);
+        finish(tr("Could not create the virtual speaker setup folder"), true);
         return;
     }
     const auto archive = staging_->filePath(QStringLiteral("driver.zip"));
     QFile file(archive);
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.flush()) {
         file.close();
-        finish(tr("无法保存虚拟扬声器安装包"), true);
+        finish(tr("Could not save the virtual speaker package"), true);
         return;
     }
     file.close();
     const auto tar = systemProgram(QStringLiteral("tar.exe"));
     if (tar.isEmpty()) {
-        finish(tr("找不到 Windows 解压工具"), true);
+        finish(tr("Windows archive tool not found"), true);
         return;
     }
     deadline_.start(15000);
@@ -108,7 +108,7 @@ void VirtualCaptureAudioSetup::launchInstaller() {
     QCryptographicHash hash(QCryptographicHash::Sha256);
     if (!file.open(QIODevice::ReadOnly) || !hash.addData(&file) || hash.result().toHex() != installerHash) {
         file.close();
-        finish(tr("VB-Audio 安装器校验失败"), true);
+        finish(tr("VB-Audio Setup verification failed"), true);
         return;
     }
     file.close();
@@ -124,8 +124,8 @@ void VirtualCaptureAudioSetup::launchInstaller() {
     request.nShow = SW_SHOWNORMAL;
     if (!ShellExecuteExW(&request) || !request.hProcess) {
         const DWORD error = GetLastError();
-        finish(error == ERROR_CANCELLED ? tr("已取消管理员授权")
-                                       : tr("无法打开 VB-Audio 安装器（%1）").arg(error), error != ERROR_CANCELLED);
+        finish(error == ERROR_CANCELLED ? tr("Administrator approval cancelled")
+                                       : tr("Could not open VB-Audio Setup (%1)").arg(error), error != ERROR_CANCELLED);
         return;
     }
     installer_.setHandle(request.hProcess);

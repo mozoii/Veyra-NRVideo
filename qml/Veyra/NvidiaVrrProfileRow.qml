@@ -6,7 +6,7 @@ VRow {
     property var backend: null
     objectName: "presentation-gsync-profile"
     visible: backend !== null
-    label: qsTr("NVIDIA G-SYNC 配置")
+    label: qsTr("NVIDIA G-SYNC setup")
     hintBelow: true
     hint: backend ? backend.summary + "\n" + backend.detail : ""
     Flow {
@@ -19,7 +19,7 @@ VRow {
             id: checkButton
             objectName: "presentation-gsync-check"
             width: Math.min(implicitWidth, row.width)
-            text: qsTr("检查")
+            text: qsTr("Check")
             enabled: row.backend !== null && !row.backend.busy
             onClicked: row.backend.check()
         }
@@ -27,7 +27,7 @@ VRow {
             id: repairButton
             objectName: "presentation-gsync-repair"
             width: Math.min(implicitWidth, row.width)
-            text: qsTr("修复")
+            text: qsTr("Repair")
             visible: row.backend !== null && row.backend.canRepair
             onClicked: row.backend.repair()
         }
@@ -35,7 +35,7 @@ VRow {
             id: restoreButton
             objectName: "presentation-gsync-restore"
             width: Math.min(implicitWidth, row.width)
-            text: qsTr("恢复原设置")
+            text: qsTr("Restore original")
             visible: row.backend !== null && row.backend.canRestore
             ghost: true
             onClicked: row.backend.restore()

@@ -74,30 +74,30 @@ struct ColourParam {
 };
 // Names match ColorSettings' own members; the mixer bands are indexed.
 const ColourParam kColourParams[] = {
-    {"exposure",      "曝光（EV）",    "亮",       -5,     5,   0.05f},
-    {"contrast",      "对比度",        "亮",      -100,   100,   1},
-    {"highlights",    "高光",          "亮",      -100,   100,   1},
-    {"shadows",       "阴影",          "亮",      -100,   100,   1},
-    {"whites",        "白色",          "亮",      -100,   100,   1},
-    {"blacks",        "黑色",          "亮",      -100,   100,   1},
-    {"texture",       "纹理",          "效果",    -100,   100,   1},
-    {"clarity",       "清晰度",        "效果",    -100,   100,   1},
-    {"dehaze",        "去朦胧",        "效果",    -100,   100,   1},
-    {"temperature",   "色温（相对）",  "颜色",    -100,   100,   1},
-    {"tint",          "色调",          "颜色",    -100,   100,   1},
-    {"vibrance",      "自然饱和度",    "颜色",    -100,   100,   1},
-    {"saturation",    "饱和度",        "颜色",    -100,   100,   1},
-    {"paramHighlights","参数化高光",   "曲线",    -100,   100,   1},
-    {"paramLights",   "参数化亮调",    "曲线",    -100,   100,   1},
-    {"paramDarks",    "参数化暗调",    "曲线",    -100,   100,   1},
-    {"paramShadows",  "参数化阴影",    "曲线",    -100,   100,   1},
-    {"splitHighlights","分离高光",     "曲线", -100,  100,   1},
-    {"splitMidtones", "分离中间调",    "曲线", -100,  100,   1},
-    {"splitShadows",  "分离阴影",      "曲线", -100,  100,   1},
-    {"gradingBlending","混合",         "颜色分级",   0,   100,   1},
-    {"gradingBalance","平衡",          "颜色分级", -100,   100,   1},
-    {"calibrationShadowTint","阴影色调","校准",    -100,   100,   1},
-    {"lutStrength",   "LUT 强度",      "LUT",        0,   100,   1},
+    {"exposure",      "Exposure (EV)",    "Bright",       -5,     5,   0.05f},
+    {"contrast",      "Contrast",        "Bright",      -100,   100,   1},
+    {"highlights",    "Highlights",          "Bright",      -100,   100,   1},
+    {"shadows",       "Shadows",          "Bright",      -100,   100,   1},
+    {"whites",        "White",          "Bright",      -100,   100,   1},
+    {"blacks",        "Blacks",          "Bright",      -100,   100,   1},
+    {"texture",       "Texture",          "Effects",    -100,   100,   1},
+    {"clarity",       "Clarity",        "Effects",    -100,   100,   1},
+    {"dehaze",        "Dehaze",        "Effects",    -100,   100,   1},
+    {"temperature",   "Temperature (relative)",  "Color",    -100,   100,   1},
+    {"tint",          "Tint",          "Color",    -100,   100,   1},
+    {"vibrance",      "Vibrance",    "Color",    -100,   100,   1},
+    {"saturation",    "Saturation",        "Color",    -100,   100,   1},
+    {"paramHighlights","Parametric highlights",   "Curves",    -100,   100,   1},
+    {"paramLights",   "Parametric lights",    "Curves",    -100,   100,   1},
+    {"paramDarks",    "Parametric darks",    "Curves",    -100,   100,   1},
+    {"paramShadows",  "Parametric shadows",    "Curves",    -100,   100,   1},
+    {"splitHighlights","Split highlights",     "Curves", -100,  100,   1},
+    {"splitMidtones", "Split midtones",    "Curves", -100,  100,   1},
+    {"splitShadows",  "Split shadows",      "Curves", -100,  100,   1},
+    {"gradingBlending","Blending",         "Color grading",   0,   100,   1},
+    {"gradingBalance","Balance",          "Color grading", -100,   100,   1},
+    {"calibrationShadowTint","Shadow tint","Calibrate",    -100,   100,   1},
+    {"lutStrength",   "LUT strength",      "LUT",        0,   100,   1},
 };
 
 float* colourScalar(engine::ColorSettings& c, const char* name) {
@@ -206,7 +206,7 @@ double QmlPlayerBridge::colourParameter(const QString& name) const {
 }
 
 bool QmlPlayerBridge::setColourParameter(const QString& name, double value) {
-    if(!std::isfinite(value)){emit notice(tr("调色值必须是有限数值"),true);return false;}
+    if(!std::isfinite(value)){emit notice(tr("Color values must be finite numbers"),true);return false;}
     auto c = selectedColourSettings();
     const auto utf8 = name.toUtf8();
     float* field = colourScalar(c, utf8.constData());
@@ -240,9 +240,9 @@ engine::ColorSettings QmlPlayerBridge::selectedColourSettings() const {
 }
 bool QmlPlayerBridge::commitColour(const engine::ColorSettings& colour){
     const int index=impl_->colourIndex();
-    if(index<0){emit notice(tr("处理链中没有调色节点，未更改设置"),true);return false;}
+    if(index<0){emit notice(tr("The chain has no color node; settings unchanged"),true);return false;}
     if(const auto error=colour.validate();!error.empty()){
-        emit notice(tr("调色参数被拒绝：%1").arg(uiText(error)),true);return false;
+        emit notice(tr("Color settings rejected: %1").arg(uiText(error)),true);return false;
     }
     auto& node=impl_->chain.nodes[index];
     if(node.color==colour&&node.enabled==colour.enabled)return true;
@@ -363,23 +363,23 @@ QVariantList QmlPlayerBridge::colourLooks() const {
     return out;
 }
 void QmlPlayerBridge::importLutDialog() {
-    const QString path = QFileDialog::getOpenFileName(nullptr, tr("导入 .cube LUT"), QString(),
-                                                      tr("Cube LUT (*.cube);;所有文件 (*.*)"));
+    const QString path = QFileDialog::getOpenFileName(nullptr, tr("Import .cube LUT"), QString(),
+                                                      tr("Cube LUT (*.cube);;All files (*.*)"));
     if (!path.isEmpty()) importLut(path);
 }
 bool QmlPlayerBridge::importLut(const QString& path) {
-    if (impl_->colourIndex() < 0) { emit notice(tr("处理链中没有调色节点，无法使用 LUT"), true); return false; }
+    if (impl_->colourIndex() < 0) { emit notice(tr("The chain has no color node, so a LUT cannot be used"), true); return false; }
     const engine::ColorLutStore store(runtime::userDataDirectory());
     std::wstring name; std::string error;
     if (!store.importFile(std::filesystem::path(path.toStdWString()), name, error) || name.empty()) {
         veyra::log::warn("ui-colour", std::format("lut import rejected path={} error={}", path.toStdString(), error));
-        emit notice(tr("LUT 导入失败：%1").arg(uiText(std::string_view(error))), true);
+        emit notice(tr("LUT import failed: %1").arg(uiText(std::string_view(error))), true);
         return false;
     }
     veyra::log::info("ui-colour", std::format("lut imported name={}", QString::fromStdWString(name).toStdString()));
     emit colourLibraryChanged();
     const bool applied = setColourLut(QString::fromStdWString(name));
-    if (applied) emit notice(tr("已导入并使用 LUT：%1").arg(QString::fromStdWString(name)), false);
+    if (applied) emit notice(tr("LUT imported and in use: %1").arg(QString::fromStdWString(name)), false);
     return applied;
 }
 bool QmlPlayerBridge::setColourLut(const QString& name) {
@@ -388,43 +388,43 @@ bool QmlPlayerBridge::setColourLut(const QString& name) {
     const engine::ColorLutStore store(runtime::userDataDirectory());
     engine::ColorLutData data;
     if (!store.validName(name.toStdWString()) || !store.resolve(name.toStdWString(), data) || !data.valid()) {
-        emit notice(tr("LUT 不可用：%1").arg(name), true);
+        emit notice(tr("LUT unavailable: %1").arg(name), true);
         return false;
     }
-    if (!c.setLutName(name.toStdWString())) { emit notice(tr("LUT 名称过长"), true); return false; }
+    if (!c.setLutName(name.toStdWString())) { emit notice(tr("LUT name is too long"), true); return false; }
     if (c.lutStrength <= 0.0f) c.lutStrength = 100.0f;
     c.enabled = true;
     return commitColour(c);
 }
 bool QmlPlayerBridge::saveColourLook(const QString& name, bool replace) {
     const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty() || trimmed.size() > 48) { emit notice(tr("颜色预设名称需为 1–48 个字符"), true); return false; }
-    if (impl_->colourIndex() < 0) { emit notice(tr("处理链中没有调色节点"), true); return false; }
+    if (trimmed.isEmpty() || trimmed.size() > 48) { emit notice(tr("Color preset names must be 1–48 characters"), true); return false; }
+    if (impl_->colourIndex() < 0) { emit notice(tr("The chain has no color node"), true); return false; }
     engine::ColorLookStore store(impl_->dataDir);
-    if (!store.load()) { emit notice(tr("颜色预设库无法读取：%1").arg(veyra::ui::i18n::text(store.error())), true); return false; }
+    if (!store.load()) { emit notice(tr("The color preset library cannot be read: %1").arg(veyra::ui::i18n::text(store.error())), true); return false; }
     const bool exists = std::any_of(store.entries().begin(), store.entries().end(),
                                     [&](const auto& e) { return e.name == trimmed.toStdWString(); });
-    if (exists && !replace) { emit notice(tr("已存在同名颜色预设"), true); return false; }
+    if (exists && !replace) { emit notice(tr("A color preset with this name already exists"), true); return false; }
     auto colour = selectedColourSettings(); colour.enabled = true;
     if (!store.put(trimmed.toStdWString(), colour, replace) || !store.save()) {
-        emit notice(tr("颜色预设保存失败：%1").arg(veyra::ui::i18n::text(store.error())), true); return false;
+        emit notice(tr("Could not save the color preset: %1").arg(veyra::ui::i18n::text(store.error())), true); return false;
     }
     veyra::log::info("ui-colour", std::format("look saved name={} layer={}", trimmed.toStdString(), impl_->colourIndex()));
     emit colourLibraryChanged();
-    emit notice(tr("已保存颜色预设：%1").arg(trimmed), false);
+    emit notice(tr("Color preset saved: %1").arg(trimmed), false);
     return true;
 }
 bool QmlPlayerBridge::applyColourLook(int index) {
     engine::ColorLookStore store(impl_->dataDir);
     if (!store.load() || index < 0 || size_t(index) >= store.entries().size()) {
-        emit notice(tr("颜色预设不存在"), true); return false;
+        emit notice(tr("The color preset does not exist"), true); return false;
     }
     auto colour = store.entries()[size_t(index)].color; colour.enabled = true;
     if (colour.hasLut()) {
         const engine::ColorLutStore luts(runtime::userDataDirectory());
         engine::ColorLutData data;
         if (!luts.resolve(colour.lutNameString(), data)) {
-            emit notice(tr("预设引用的 LUT 不存在：%1，未应用").arg(QString::fromStdWString(colour.lutNameString())), true);
+            emit notice(tr("The LUT the preset refers to does not exist: %1; not applied").arg(QString::fromStdWString(colour.lutNameString())), true);
             return false;
         }
     }
@@ -435,37 +435,37 @@ bool QmlPlayerBridge::applyColourLook(int index) {
 bool QmlPlayerBridge::deleteColourLook(int index) {
     engine::ColorLookStore store(impl_->dataDir);
     if (!store.load() || index < 0 || !store.erase(size_t(index)) || !store.save()) {
-        emit notice(tr("删除颜色预设失败"), true); return false;
+        emit notice(tr("Could not delete the color preset"), true); return false;
     }
     emit colourLibraryChanged();
     return true;
 }
 void QmlPlayerBridge::importColourLookDialog() {
-    const QString path = QFileDialog::getOpenFileName(nullptr, tr("导入颜色预设"), QString(),
-                                                      tr("Veyra 颜色预设 (*.vpcolor);;所有文件 (*.*)"));
+    const QString path = QFileDialog::getOpenFileName(nullptr, tr("Import color preset"), QString(),
+                                                      tr("Veyra color preset (*.vpcolor);;All files (*.*)"));
     if (!path.isEmpty()) importColourLook(path);
 }
 bool QmlPlayerBridge::importColourLook(const QString& path) {
     engine::ColorLookStore store(impl_->dataDir);
     std::wstring name;
     if (!store.load() || !store.importFile(std::filesystem::path(path.toStdWString()), name)) {
-        emit notice(tr("导入颜色预设失败：%1").arg(veyra::ui::i18n::text(store.error())), true); return false;
+        emit notice(tr("Could not import the color preset: %1").arg(veyra::ui::i18n::text(store.error())), true); return false;
     }
     emit colourLibraryChanged();
-    emit notice(tr("已导入颜色预设：%1").arg(QString::fromStdWString(name)), false);
+    emit notice(tr("Color preset imported: %1").arg(QString::fromStdWString(name)), false);
     return true;
 }
 void QmlPlayerBridge::exportColourLookDialog(int index) {
-    const QString path = QFileDialog::getSaveFileName(nullptr, tr("导出颜色预设"), QString(),
-                                                      tr("Veyra 颜色预设 (*.vpcolor)"));
+    const QString path = QFileDialog::getSaveFileName(nullptr, tr("Export color preset"), QString(),
+                                                      tr("Veyra color preset (*.vpcolor)"));
     if (!path.isEmpty()) exportColourLook(index, path);
 }
 bool QmlPlayerBridge::exportColourLook(int index, const QString& path) {
     engine::ColorLookStore store(impl_->dataDir);
     if (!store.load() || index < 0 || !store.exportFile(size_t(index), std::filesystem::path(path.toStdWString()))) {
-        emit notice(tr("导出颜色预设失败：%1").arg(veyra::ui::i18n::text(store.error())), true); return false;
+        emit notice(tr("Could not export the color preset: %1").arg(veyra::ui::i18n::text(store.error())), true); return false;
     }
-    emit notice(tr("已导出颜色预设"), false);
+    emit notice(tr("Color preset exported"), false);
     return true;
 }
 
@@ -497,8 +497,8 @@ void QmlPlayerBridge::setDoviP7Compose(bool on){
     // picture. Say that explicitly instead of leaving the viewer to wonder why
     // the switch did nothing.
     if (i.snapshot.running) {
-        emit notice(on ? tr("增强层已开启：重新打开当前文件后生效")
-                       : tr("增强层已关闭：重新打开当前文件后生效"), false);
+        emit notice(on ? tr("Enhancement layer enabled; reopen the current file to apply")
+                       : tr("Enhancement layer disabled; reopen the current file to apply"), false);
     }
 }
 

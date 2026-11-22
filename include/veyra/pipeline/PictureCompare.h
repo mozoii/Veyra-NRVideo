@@ -19,7 +19,7 @@
 //
 // One differing component used to make a new picture. At 3840x2160 NV12 the
 // T911 now and then moves a single component of a repeated frame 4 levels, at
-// bright HUD text edges: 5 of 2700 repeats in 90 s of a 30 fps PS5 game
+// bright HUD text edges: 5 of 2700 repeats in 90 s of a 30 fps game
 // (tests/claude-dedup-precise-20261102). Each became a 16.7 ms frame
 // generation pair that VFG High could not fit; the user's session kept up to
 // 18 extra samples a second (field log 2026-11-02).

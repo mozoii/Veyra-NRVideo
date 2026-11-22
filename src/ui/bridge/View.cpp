@@ -68,7 +68,7 @@ bool QmlPlayerBridge::editProtection(const std::function<bool(engine::ChainNode&
         else emitParameterChanged(&QmlPlayerBridge::protectionChanged,wasValid);
         return accepted;
     }
-    emit notice(tr("处理链中没有 NR 保护节点，未更改设置"), true);
+    emit notice(tr("The chain has no NR protection node; settings unchanged"), true);
     return false;
 }
 
@@ -82,12 +82,12 @@ bool QmlPlayerBridge::beginMaskDraw(bool allEffects,const QString& shape) {
         return true;
     }
     if (shape != QLatin1String("rect") && shape != QLatin1String("ellipse")) return false;
-    if (!i.snapshot.running || !i.videoWindow) { emit notice(tr("请先打开视频，再在画面上绘制保护区域"), true); return false; }
+    if (!i.snapshot.running || !i.videoWindow) { emit notice(tr("Open a video first, then draw protected areas on the picture"), true); return false; }
     bool space = false;
     const auto* node=i.chain.firstOf(allEffects?engine::EffectType::Exclusion:engine::EffectType::Protection);
     const auto parameters=node?node->protection:engine::ProtectionSettings{};
     for(const auto& q:parameters.regions)space|=q.empty();
-    if (!space) { emit notice(tr("最多 4 个保护区域，请先删除一个"), true); return false; }
+    if (!space) { emit notice(tr("At most 4 protected areas; delete one first"), true); return false; }
     endExclusionMove(false);
     if(allEffects)setExclusionOverlayVisible(true);
     i.protDraw = shape;i.protExclusion=allEffects;
@@ -130,7 +130,7 @@ bool QmlPlayerBridge::commitProtectionDraw(double x0, double y0, double x1, doub
     const bool ok = editProtection([&](engine::ChainNode& node) {
         for (auto& slot : node.protection.regions)
             if (slot.empty()) { slot = q; node.enabled = true; node.protection.enabled = true; return true; }
-        emit notice(tr("最多 4 个保护区域，请先删除一个"), true);
+        emit notice(tr("At most 4 protected areas; delete one first"), true);
         return false;
     },allEffects);
     veyra::log::info("ui-protection", std::format("{} accepted={} bounds={:.3f},{:.3f},{:.3f},{:.3f} allEffects={} source-normalized",
@@ -291,9 +291,9 @@ void QmlPlayerBridge::setCompareMode(int value) {
     veyra::log::info("ui-compare", std::format("mode={} base={} split={:.3f}", value, impl_->compareBase, impl_->compareSplit));
     // Comparison shows real frames only (a generated frame has no original to set beside
     // it), so frame generation pauses while it is on. A field user left split compare on
-    // for 24 minutes and reported "补帧无效" (logs9, 2026-10-01): say so.
+    // for 24 minutes and reported "Frame generation ineffective" (logs9, 2026-10-01): say so.
     if (value != 0 && impl_->snapshot.running && impl_->snapshot.applied.multiplier > 1)
-        emit notice(tr("对比模式下补帧暂停（对比只能用真实帧），关闭对比后自动恢复"), false);
+        emit notice(tr("Frame generation pauses in compare mode (comparison can only use real frames) and resumes automatically when it is off"), false);
     emit compareChanged();
 }
 bool QmlPlayerBridge::compareBase() const { return impl_->compareBase; }
@@ -369,16 +369,16 @@ QString QmlPlayerBridge::exportSizeEstimate() const {
         const double progress = exportProgress();
         const QFileInfo partial(exportTarget() + QStringLiteral(".partial"));
         if (progress > 0.02 && partial.exists() && partial.size() > 0)
-            return tr("预计约 %1（按已写入 %2 推算）").arg(gb(partial.size() / progress)).arg(gb(double(partial.size())));
-        return tr("开始写入后按已写入量推算");
+            return tr("About %1 (estimated from %2 written)").arg(gb(partial.size() / progress)).arg(gb(double(partial.size())));
+        return tr("Estimated from what has been written once writing starts");
     }
     const double end = impl_->exportTrimEndSeconds > 0 ? impl_->exportTrimEndSeconds : impl_->snapshot.duration;
     const double seconds = std::max(0.0, end - impl_->exportTrimStartSeconds);
     if (seconds <= 0) return QString();
     if (impl_->exportBitrateMbps > 0)
-        return tr("约 %1（视频 %2 Mbps × %3，音轨另计）").arg(gb(impl_->exportBitrateMbps * 1e6 / 8.0 * seconds))
+        return tr("About %1 (video %2 Mbps × %3, audio extra)").arg(gb(impl_->exportBitrateMbps * 1e6 / 8.0 * seconds))
             .arg(impl_->exportBitrateMbps).arg(formatTime(seconds));
-    return tr("恒定质量：大小取决于画面，开始后按已写入量推算");
+    return tr("Constant quality: size depends on the picture; estimated from what has been written once started");
 }
 
 QVariantMap QmlPlayerBridge::lastSource() const {
@@ -389,14 +389,12 @@ QVariantMap QmlPlayerBridge::lastSource() const {
     } else if (kind == QLatin1String("capture")) {
         if (!hasCaptureSession()) return {};
         saved[QStringLiteral("summary")] = captureSessionSummary();
-    } else if (kind == QLatin1String("ps5")) {
-        saved[QStringLiteral("summary")] = tr("PS5 串流 · %1").arg(saved.value(QStringLiteral("label")).toString());
     } else if (kind == QLatin1String("moonlight")) {
-        saved[QStringLiteral("summary")] = tr("PC 串流 · %1").arg(saved.value(QStringLiteral("label")).toString());
+        saved[QStringLiteral("summary")] = tr("PC streaming · %1").arg(saved.value(QStringLiteral("label")).toString());
     } else if (kind == QLatin1String("xbox")) {
-        saved[QStringLiteral("summary")] = tr("Xbox 串流 · %1").arg(saved.value(QStringLiteral("label")).toString());
+        saved[QStringLiteral("summary")] = tr("Xbox streaming · %1").arg(saved.value(QStringLiteral("label")).toString());
     } else if (kind == QLatin1String("screen")) {
-        saved[QStringLiteral("summary")] = tr("屏幕捕获 · %1").arg(saved.value(QStringLiteral("label")).toString());
+        saved[QStringLiteral("summary")] = tr("Screen capture · %1").arg(saved.value(QStringLiteral("label")).toString());
     } else if (hasCaptureSession()) {
         // Before this was recorded, only capture sessions were remembered.
         return QVariantMap{{"kind", "capture"}, {"summary", captureSessionSummary()}};
@@ -424,38 +422,29 @@ void QmlPlayerBridge::resumeLastSource() {
     veyra::log::info("ui-resume-source", "kind=" + kind.toStdString());
     if(kind==QLatin1String("file")){
         const QString path=last.value(QStringLiteral("label")).toString();
-        if(!QFileInfo(path).isFile()){emit notice(tr("上次的视频文件不存在：%1").arg(path),true);return;}
+        if(!QFileInfo(path).isFile()){emit notice(tr("The previous video file does not exist: %1").arg(path),true);return;}
         openPath(path);return;
     }
     if (kind == QLatin1String("capture")) { resumeCaptureSession(); return; }
-    if (kind == QLatin1String("ps5")) {
-#ifdef VEYRA_ENABLE_REMOTEPLAY
-        ps5Load();
-        if (!ps5Connect()) emit notice(tr("没能继续上次的 PS5 串流：%1").arg(impl_->ps5Status), true);
-#else
-        emit notice(tr("此版本不含 PS5 串流"), true);
-#endif
-        return;
-    }
     if (kind == QLatin1String("xbox")) {
 #ifdef VEYRA_ENABLE_XBOX
         if (!impl_->xbox || !impl_->xbox->resumeLast()) {
-            emit notice(tr("没能继续上次的 Xbox 串流，请在 Xbox 串流窗口里重新选择"), true);
+            emit notice(tr("Could not continue the last Xbox stream; choose again in the Xbox streaming window"), true);
             emit navigate(QStringLiteral("xbox"));
         }
 #else
-        emit notice(tr("此版本不含 Xbox 串流"), true);
+        emit notice(tr("This version does not include Xbox streaming"), true);
 #endif
         return;
     }
     if (kind == QLatin1String("moonlight")) {
 #ifdef VEYRA_ENABLE_MOONLIGHT
         if (!impl_->moonlight || !impl_->moonlight->resumeLast()) {
-            emit notice(tr("没能继续上次的 PC 串流，请在 PC 串流窗口里重新选择"), true);
+            emit notice(tr("Could not continue the last PC stream; choose again in the PC streaming window"), true);
             emit navigate(QStringLiteral("moonlight"));
         }
 #else
-        emit notice(tr("此版本不含 PC 串流"), true);
+        emit notice(tr("This version does not include PC streaming"), true);
 #endif
         return;
     }
@@ -472,11 +461,11 @@ void QmlPlayerBridge::resumeLastSource() {
                 return;
             }
         }
-        emit notice(tr("上次的捕获目标「%1」已不在，请重新选择").arg(label), true);
+        emit notice(tr("The last capture target \"%1\" is gone; choose again").arg(label), true);
         emit navigate(QStringLiteral("screen"));
         return;
     }
-    emit notice(tr("还没有可以继续的片源"), true);
+    emit notice(tr("No source to continue yet"), true);
 }
 
 bool QmlPlayerBridge::resetNrLayer(int index) {

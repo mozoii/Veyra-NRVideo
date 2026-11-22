@@ -37,38 +37,6 @@ changed (renamed, wired into Veyra's settings, engine and interface):
   raised to 4 GiB for VFG kernels (9e9a4340); NVENC two-pass and adaptive
   quantization for recordings (e6d3e5c8).
 
-## Remote Play adaptive trigger request (2026-11-19)
-
-`scripts/remoteplay/patches/0004-chiaki-pad-proc-no.patch` backports chiaki-ng
-`27ab96fd000bd0904f8ea3953c81f3ddb75b188b` ("Ask a PS5 for trigger effects the
-controller can apply", chiaki-ng issue #759) onto the unchanged
-`0e16950165f06e5c3291537c2eeba6e852be7120` pin after patches 0001-0003. The PS5 ctrl
-request now carries `RP-PadProcNo: 3`; without it the console sends some adaptive
-trigger effects in a form the DualSense does not apply, so L2/R2 have no resistance.
-
-Source: https://github.com/chiaki-ng/chiaki-ng . License remains
-`LicenseRef-AGPL-3.0-only-OpenSSL`; see `licenses/remoteplay` and the upstream
-`COPYING`. The patch is an otherwise unchanged backport of the upstream change.
-
-## Remote Play feedback history backport (2026-11-17)
-
-`scripts/remoteplay/patches/0003-chiaki-feedback-history.patch` backports four
-chiaki-ng changes onto Veyra's unchanged `0e16950165f06e5c3291537c2eeba6e852be7120`
-dependency pin, including the upstream regression tests:
-
-- `4382c1c718271c0e2427196d13863a28d57c2038`: one packet per history event.
-- `bfbb2968a01238c4ee1611ceb79ee0025ca31267`: bounded tail resends and larger history.
-- `c938844a2fa7bbb9052656d83837cf98baff9ba5`: history event count in the Takion header.
-- `bc397a728bb430f28666129ef006f7a8ac0e6081`: count-minus-one header and event
-  sequence numbers; retransmits retain the same sequence.
-
-Source: https://github.com/chiaki-ng/chiaki-ng . License remains
-`LicenseRef-AGPL-3.0-only-OpenSSL`; see `licenses/remoteplay` and the upstream
-`COPYING`. The patch is a consolidated, otherwise unchanged backport. Local
-sender regression tests additionally exercise strike/modifier combinations,
-16-bit sequence wrap and a lost final release packet. Offline test results do
-not establish behavior on a physical PS5.
-
 ## RX 7000 experimental NR provider (2026-10-30, development branch)
 
 RedDukeDev/dlss5-nr-amd-custom, fixed commit `ab455d179922adc11f65675d399e1d553bf423f0`: MIT network layer and NR kernels; ZLUDA at `b135e233bb7a6ff7f8690e49701f87f4944adcee`, MIT OR Apache-2.0. Original notices, exact file selection, modifications and proprietary component boundaries are in [third_party/redduke/VEYRA_ORIGIN.md](third_party/redduke/VEYRA_ORIGIN.md) and its LICENSE. The five external source files are fetched and Git-blob verified by `scripts/amd-nr/prepare-rdna3-source.py`; no SDK, runtime DLL, model or translation cache enters source Git.
@@ -167,7 +135,7 @@ existing attributed libdshowcapture adaptations below.
 ## Compressed Matroska subtitles (2026-10-09)
 
 The subtitle candidate rebuilds the existing LGPL FFmpeg n9.0.1 with zlib
-enabled, retaining the Veyra PS5 H.264 slices256 patch and dav1d 1.5.4.
+enabled, retaining the Veyra high-slice-capacity H.264 patch (kept for the shared build; high-slice streams are not tied to any specific source backend) and dav1d 1.5.4.
 It statically links zlib 1.3.2 (zlib license; Jean-loup Gailly, Mark Adler and
 contributors), using the existing external dependency built with the dynamic
 MSVC CRT. FFmpeg handles compressed Matroska PGS/DVD and text subtitle packets;
@@ -308,7 +276,7 @@ The nvEncodeAPI.h header itself has NVIDIA's permissive MIT-style notice (Copyri
 
 FFmpeg: dynamically linked 9.0.1#1 vcpkg build. The portable package carries five FFmpeg DLLs, the complete copyright/license notices and SPDX provenance. Corresponding upstream source and the vcpkg patch/build recipe are listed in `docs/BUILD.md`. No FFmpeg command-line executable or test-media toolchain is shipped.
 
-The PS5 H.264 repair build additionally applies `scripts/ffmpeg/ps5-h264-slices.patch` to FFmpeg's LGPL `libavcodec/h264dec.h`, increasing the bounded slice capacity from 32 to 256. This is a Veyra modification, not an upstream release claim. Its corresponding source, patch, configuration and DLL identity record must accompany any future binary release; the previously published 0.0.5 package is unchanged by this local repair.
+The high-slice-capacity H.264 patch additionally applies `scripts/ffmpeg/ps5-h264-slices.patch` to FFmpeg's LGPL `libavcodec/h264dec.h`, increasing the bounded slice capacity from 32 to 256. This is a Veyra modification, not an upstream release claim. Its corresponding source, patch, configuration and DLL identity record must accompany any future binary release; the previously published 0.0.5 package is unchanged by this local repair.
 
 ## Intel XeSS / XeLL
 
@@ -410,7 +378,7 @@ The sponsor page (2026-10-19) adds Lucide `coffee` and `external-link` (as `exte
 
 ## Simple Icons brand glyphs (sponsor page, 2026-10-19)
 
-设置 → 赞助作者 draws the TikTok (Douyin uses the same mark), X, GitHub, YouTube, Ko-fi, WeChat and Alipay
+Settings → Sponsor draws the TikTok (Douyin uses the same mark), X, GitHub, YouTube, Ko-fi, WeChat and Alipay
 glyphs from [Simple Icons](https://github.com/simple-icons/simple-icons) 16.34.0 (npm `simple-icons`, CC0-1.0).
 `tools/qt_probe/make-sponsor-icons.py` places the unmodified path data on coloured tiles in `qml/Veyra/sponsor/*.svg`;
 the Ko-fi glyph is split into its subpaths to colour the cup the way Ko-fi's own button does. CC0 covers the
@@ -428,34 +396,6 @@ User-provided official SDK from https://developer.nvidia.com/rtx-video-sdk/getti
 ## NVIDIA FRUC
 
 FRUC was evaluated during development and has been removed from the product. No FRUC runtime, worker, SDK headers, or binaries are built or packaged.
-
-## PS5 Remote Play / chiaki-ng (0.0.5)
-
-The optional `VEYRA_ENABLE_REMOTEPLAY` build compiles chiaki-ng at
-`0e16950165f06e5c3291537c2eeba6e852be7120` from https://github.com/streetpea/chiaki-ng,
-with the two reviewed patches in `scripts/remoteplay/patches/`. Chiaki code and
-these derived patches retain AGPL-3.0-only with the upstream OpenSSL exception;
-see `licenses/remoteplay/CHIAKI_AGPL3_OPENSSL.txt`. The metadata patch was adapted
-from the user-supplied Code 01 change description and checked against this pin.
-No Chiaki binary or third-party SDK is committed. The 0.0.5 distribution provides its corresponding complete source,
-these patches, dependency pins, build instructions and upstream notices; the
-existing Veyra GPL file alone is not the combined program's license record.
-
-Gamepad input uses SDL 3.4.14 (https://github.com/libsdl-org/SDL/tree/release-3.4.14),
-statically built using vcpkg. SDL provides DualSense and other controller device
-support; Veyra maps its public gamepad API to Chiaki semantic input. SDL also routes DualSense haptic audio; media playback remains in the shared Veyra engine. Retained notices: `licenses/remoteplay/SDL3_NOTICES.txt`.
-The 0.0.5 Release contains the combined executable. Its application source is the release tag; the RemotePlay-source asset supplies pinned upstream sources and build recipes.
-# Remote Play controller additions (2026-09-12)
-
-Veyra calls the pinned Chiaki orientation tracker API (AGPL-3.0-only with OpenSSL exception). DualSense SDL report offsets and 3 kHz stereo to four-channel haptic routing were checked against chiaki-ng gui/src/controllermanager.cpp and streamsession.cpp. Existing Chiaki and SDL license notices apply. No third-party binary was added.
-
-### PSN browser authorization adapter (2026-09-12)
-
-Historical attribution: this adapter was removed on 2026-11-11. Current Veyra opens the user-selected PSNTools website for manual Account ID lookup; it does not implement the old OAuth/token flow. Existing Chiaki protocol and dependency notices below still apply.
-
-`src/remoteplay/PsnAuth.cpp` adapts the OAuth request contract and public client identifiers from chiaki-ng, commit `0e16950165f06e5c3291537c2eeba6e852be7120`, `gui/src/psnaccountid.cpp`, `gui/include/psnaccountid.h`, and `gui/src/psntoken.cpp`. Upstream credits the Account ID script to grill2010. License: AGPL-3.0-only with the upstream OpenSSL exception. The Windows HTTP, protected storage and UI integration are Veyra code. This is an unofficial client, not Sony endorsement. json-c remains an existing Chiaki dependency; its license/notice must remain in binary distributions.
-
-Static dependency notices and installed SPDX records: licenses/remoteplay/{json-c,libevent,miniupnpc,openssl,opus,sdl3}/. Upstream curl, nanopb, Jerasure and gf-complete notices are in the same directory. Their corresponding sources and port recipes accompany the RemotePlay-source release asset.
 
 ## GPU DIS optical flow (experimental)
 
@@ -477,10 +417,9 @@ Thank you to these projects and their contributors. Integrated code, dependencie
 
 | Project | Contribution to Veyra |
 | --- | --- |
-| [chiaki-ng](https://github.com/streetpea/chiaki-ng) | PS5 Remote Play protocol, pairing and sessions; controller and haptics integration; historical PSN authorization adapter. Also credit to grill2010 for the upstream Account ID approach. |
 | [XeSS-GPU-Motion](https://github.com/gggz114514-oss/XeSS-GPU-Motion) / [OpenCV](https://github.com/opencv/opencv) | Ported GPU DIS provider and shaders, retaining attribution and licenses for the OpenCV DIS-derived portions. |
 | [FFmpeg](https://github.com/FFmpeg/FFmpeg) / [nv-codec-headers](https://github.com/FFmpeg/nv-codec-headers) | Media demuxing, decoding, muxing and NVENC API declarations. Releases provide the actual FFmpeg patches and corresponding source. |
-| [SDL](https://github.com/libsdl-org/SDL) | PC controller input, DualSense support and haptic audio output. |
+| [SDL](https://github.com/libsdl-org/SDL) | PC controller input and haptic audio output. |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) | Optical flow and its D3D12 backend. |
 | [Lucide](https://github.com/lucide-icons/lucide) | UI icons, retaining Lucide and Feather-derived license notices. |
 | [Simple Icons](https://github.com/simple-icons/simple-icons) | Brand glyphs on the sponsor page (CC0; the logos stay their owners' trademarks). |
@@ -488,7 +427,7 @@ Thank you to these projects and their contributors. Integrated code, dependencie
 | [NVIDIA DLSS](https://github.com/NVIDIA/DLSS), [RTX Video SDK](https://developer.nvidia.com/rtx-video-sdk), [Optical Flow SDK](https://developer.nvidia.com/opticalflow-sdk), [Video Codec SDK](https://developer.nvidia.com/video-codec-sdk) | Upscaling, optical flow, encoding and enhancement interfaces. Experimental NR components have separate identities and boundaries in [Runtime Components](docs/history/reports/RUNTIME_COMPONENTS_1.1.0.md); this is not vendor certification. |
 | [vcpkg](https://github.com/microsoft/vcpkg) | Dependency builds, version records and license provenance. |
 
-Remote Play also depends on **OpenSSL, Opus, json-c, libevent, miniupnpc, curl, nanopb, Jerasure and gf-complete**. Their attribution and license notices are retained in [licenses/remoteplay](licenses/remoteplay), with corresponding source supplied in Releases.
+
 
 ### Architecture, Implementation Ideas and Comparisons
 
@@ -577,7 +516,7 @@ project's rule against driver-cache binaries. It ships only as a Release runtime
 asset (never in Git), listed in `release-runtime-manifest.json` by
 `scripts/package-portable.ps1` from 2.0.8.
 
-Veyra's "DLSS 性能模式" switch adds this directory ahead of
+Veyra's "DLSS performance mode" switch adds this directory ahead of
 `runtime/experimental` in the NGX feature path and creates DLSS-G with NVIDIA's
 create-time parameter `DLSSG.LiteCandidateBlendingEnabled = 1`. The switch is
 off by default, export keeps the standard model, and RTX 40/30 (whose
@@ -800,21 +739,16 @@ Create/Evaluate preflight, with inherited mapping, process job, exact adapter
 selection and cancellation; it is not upstream wrapper code or a quality gate.
 
 
-## Media Foundation encoder（系统硬件编码路径，移植自 FFmpeg mfenc.c）
+## Media Foundation encoder (system hardware-encode path, ported from FFmpeg mfenc.c)
 
-Source: FFmpeg n9.0.1 `libavcodec/mfenc.c` 与 `libavcodec/mf_utils.c`
-（LGPL-2.1-or-later；本地源码 `C:\veyra-deps\ffmpeg-ps5-slices-source`）。
-`src/sink/MfVideoEncoder.cpp` 移植了其中被证明可用的部分：`MFTEnumEx` 硬件枚举与激活、
-`MF_TRANSFORM_ASYNC_UNLOCK` 异步解锁、输入/输出媒体类型协商、`ICodecAPI`
-（码率/低延迟/GOP/B 帧/质量）设置、事件驱动的 `ProcessInput`/`ProcessOutput` 循环、
-`MFT_MESSAGE_COMMAND_DRAIN` 收尾，以及 `MF_MT_MPEG_SEQUENCE_HEADER`（SPS/PPS）
-作为封装 extradata。
+Source: FFmpeg n9.0.1 `libavcodec/mfenc.c` and `libavcodec/mf_utils.c`
+(LGPL-2.1-or-later; local source `C:/veyra-deps/ffmpeg-ps5-slices-source`).
+`src/sink/MfVideoEncoder.cpp` ports the verified parts: `MFTEnumEx` hardware enumeration and activation,
+`MF_TRANSFORM_ASYNC_UNLOCK` async unlock, input/output media-type negotiation, `ICodecAPI`
+(bitrate / low-latency / GOP / B-frames / quality) settings, the event-driven `ProcessInput` / `ProcessOutput` loop,
+`MFT_MESSAGE_COMMAND_DRAIN` finalization, and `MF_MT_MPEG_SEQUENCE_HEADER` (SPS/PPS) as the container extradata.
 
-Veyra 的差异（非上游代码）：输入不是 AVFrame，而是 Veyra 自己 D3D12 图渲染出的 NV12
-经 readback 打包；枚举结果按当前显卡厂商优选并对每个候选做完整契约协商（一台机器上可能
-同时装着多家驱动的编码 MFT）；首个样本与 GOP 边界强制关键帧；码流直接交给 Veyra 的
-MP4 封装路径。MFT 本身属于 Windows 与显卡驱动，不随包分发。FFmpeg 采用
-LGPL-2.1-or-later，与 Veyra 的 GPLv3 兼容；上游作者归属见上。
+Veyra's differences (not upstream code): the input is not an AVFrame but Veyra's own D3D12-rendered NV12 packed via readback; enumeration results are preferred per current GPU vendor and each candidate is fully contract-negotiated (a machine may have encoder MFTs from more than one driver); the first sample and GOP boundary force keyframes; bitstreams go directly to Veyra's MP4 muxing path. The MFT itself belongs to Windows and the graphics driver and ships with neither. FFmpeg is LGPL-2.1-or-later, compatible with Veyra's GPLv3; upstream attribution is above.
 
 ## RTX Video HDR (local integration, 2026-09-18)
 
@@ -853,7 +787,7 @@ files, the QueryInterface IDs of NvAPI_DISP_GetDisplayIdByDisplayName,
 NvAPI_Disp_GetVRRInfo and NvAPI_DISP_GetMonitorCapabilities and renamed
 NV_GET_VRR_INFO_V1 and NV_MONITOR_CAPABILITIES_V1 (generic capability bits)
 layouts (checked against the commit above). It only reads the monitor's
-variable-refresh support and state, for diagnostics and to enable the 可变刷新
+variable-refresh support and state, for diagnostics and to enable the variable-refresh
 switch; this monitor query never changes driver settings. Same loading rules and the same
 license as above.
 
@@ -923,7 +857,7 @@ https://github.com/moonlight-stream/moonlight-qt, commit `8369d1a0e11b999d4d1598
 `app/backend/nvhttp.cpp`, `nvpairingmanager.cpp`, `identitymanager.cpp`, `nvcomputer.cpp` and the default
 bitrate table of `app/streaming/session.cpp`, with the Qt types replaced by standard C++, OpenSSL and Winsock.
 Nothing from the moonlight-qt tree is compiled. The OpenSSL (Apache-2.0) and Opus (BSD-3-Clause) libraries come
-from the same vcpkg tree as the PS5 build. Veyra is GPL-3.0, which is compatible with all of the above.
+from the same vcpkg tree as the Moonlight build. Veyra is GPL-3.0, which is compatible with all of the above.
 License texts: `licenses/moonlight/ENET_MIT.txt`, `licenses/moonlight/NANORS_MIT.txt`; the GPL-3.0 text is Veyra's own `LICENSE`.
 
 The streamed machine runs **Sunshine** (GPL-3.0, https://github.com/LizardByte/Sunshine), which users install
@@ -1121,7 +1055,7 @@ and local validation details are in `docs/PR44_HDR_DISPLAY_REPORT_2026-10-16.md`
 
 The user supplied `veyra-2.0.8-local-changes.patch` (16,129 bytes, SHA256
 `f0c74f69c37c82f3efeb4e7d89d972352fad12258328dc01d0e09237e7612b1c`)
-and `Veyra-2.0.8-源码改动说明.md` (SHA256
+and `Veyra-2.0.8-source-changes.md` (SHA256
 `a06ee46d6df240b2380ee08283b23088577c0ac28f4d313e236c0166aca53c16`),
 based on Veyra `33b22b9138a00ffc9a5e5077215d997ce328a2d1` (GPL-3.0).
 The supplied files contain no author name; none is invented here. Originals and

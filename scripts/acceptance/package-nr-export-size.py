@@ -20,19 +20,19 @@ for folder in ['qml','i18n']:
         if p.is_file():copy(p,Path(folder)/p.relative_to(R/folder))
 for name in ['EXPORT_NR_SCALE_PLAN_2026-10-25.md','EXPORT_NR_SCALE_REPORT_2026-10-25.md','FG_SCHEDULING_REPAIR_REPORT_2026-10-24.md']:copy(R/'docs'/name,Path('docs')/name)
 for name in ['LICENSE','THIRD_PARTY_NOTICES.md']:copy(R/name,name)
-note='''# Veyra 2.1.0-nre1 NVIDIA 本地测试更新
+note='''# Veyra 2.1.0-nre1 NVIDIA local test update
 
-需要已有完整2.1.0 NVIDIA便携包。关闭播放器，将本目录文件复制到原包根目录（veyra_qml_ui.exe所在目录），覆盖同名文件，再启动。
-本更新仅含EXE、QML、翻译与说明，不含DLL/模型/SDK/日志/用户配置。原package-manifest记录完整底包；更新后程序/UI的身份以LOCAL_UPDATE.json为准。
+Requires the existing complete 2.1.0 NVIDIA portable package. Close the player, copy this directory's files to the original package root (where veyra_qml_ui.exe lives), overwrite same-name files, then start.
+This update contains only EXE, QML, translations and the note; no DLL/model/SDK/log/user config. The original package-manifest records the complete base package; after the update, the program/UI identity is authoritative in LOCAL_UPDATE.json.
 
-- 视频导出NR内部处理尺寸遵循每层固定档和手动25%–100%，不再强制原生。50%同时缩放宽高，约为四分之一像素量；最终输出尺寸仍由导出设置决定。
-- 例：4K选1080p或50%，NR按1920x1080处理并合成回4K；8K选25%，NR按1920x1080处理并输出8K。
-- Auto在视频任务快照中固定最高1440p，AMD保留1080p预算；AMD手动比例先受现有预算限制再缩放。图片仍完整处理。节点视频导出仍维持原有不支持状态，请使用列表预设。
-- 导出选择的预设独立于当前预览参数，任务冻结后改滑条不会改变正在导出的任务。降低内部尺寸可能改变NR效果，不能等同原生尺寸画质。
-- 包含此前NR手动滑条、fg1后台VRR查询、旋转与录制修复。Lecram暂停。本轮未改补帧调度、NR模型或运行库。
-- 本机RTX5070/SF runtime已验证4K/8K合成短片真实导出、每层NR创建尺寸、NVENC编码、输出尺寸/帧数/非黑解码、界面保存37%预设实际导出和图片全尺寸GPU探针。AMD实卡、真实8K黑场素材、HDR、长期画质未在本轮验收；8K短片导出使用零运动输入，另有4K真实NVOF导出用例。
+- Video export NR internal processing size follows per-layer fixed tiers and manual 25%-100%, no longer forced native. 50% scales both width and height, about a quarter of the pixels; the final output size is still decided by the export settings.
+- Example: 4K chooses 1080p or 50%, NR processes at 1920x1080 and composites back to 4K; 8K chooses 25%, NR processes at 1920x1080 and outputs 8K.
+- Auto fixes a maximum of 1440p in the video-task snapshot, AMD keeps the 1080p budget; AMD manual ratio first respects the existing budget then scales. Images are still fully processed. Node video export still stays unsupported, use list presets.
+- The export's selected preset is independent of the current preview parameters; changing the slider after the task freezes does not change the in-flight task. Lowering the internal size may change NR effects, cannot be equated to native-size picture quality.
+- Includes the earlier NR manual slider, fg1 background VRR query, rotation and recording fixes. Lecram is paused. This round did not change frame-generation scheduling, NR models or runtime libraries.
+- This machine RTX5070/SF runtime verified 4K/8K composite short-film real export, per-layer NR creation size, NVENC encoding, output size/frame count/non-black decode, UI-saved 37% preset actual export and full-size image GPU probe. AMD physical card, real 8K black-scene material, HDR, long-term picture quality not accepted this round; the 8K short-film export uses zero-motion input, with a separate 4K real NVOF export case.
 
-显示版本2.1.0-nre1，PE数值2.1.0.0。隔离分支本地交付，未合main、未push或公开发布。
+Display version 2.1.0-nre1, PE numeric 2.1.0.0. Isolated branch local delivery, not merged to main, not pushed or published.
 '''
 (P/'README-NRE1.zh-CN.md').write_text(note,'utf8')
 files=[dict(path=p.relative_to(P).as_posix(),bytes=p.stat().st_size,sha256=sha(p)) for p in sorted(P.rglob('*')) if p.is_file()]

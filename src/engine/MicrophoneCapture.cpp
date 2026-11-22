@@ -54,11 +54,11 @@ std::wstring friendlyName(IMMDevice* device){
     return name;
 }
 std::wstring describe(HRESULT hr){
-    if(hr==E_ACCESSDENIED)return L"Windows 不允许 Veyra 使用麦克风，请在 设置 → 隐私和安全性 → 麦克风 中允许桌面应用访问";
+    if(hr==E_ACCESSDENIED)return L"Windows does not let Veyra use the microphone; allow desktop apps in Settings → Privacy & security → Microphone";
     if(hr==HRESULT_FROM_WIN32(ERROR_NOT_FOUND)||hr==AUDCLNT_E_DEVICE_INVALIDATED||hr==E_NOTFOUND)
-        return L"找不到所选麦克风，请插回设备或重新选择";
-    if(hr==AUDCLNT_E_DEVICE_IN_USE)return L"麦克风被其他程序独占，请关闭独占模式后再试";
-    return std::format(L"麦克风无法录音（0x{:08X}）",uint32_t(hr));
+        return L"The chosen microphone is not found; plug it back in or choose another";
+    if(hr==AUDCLNT_E_DEVICE_IN_USE)return L"Another program holds the microphone exclusively; turn off its exclusive mode and try again";
+    return std::format(L"The microphone cannot record (0x{:08X})",uint32_t(hr));
 }
 
 // Mix-format packets to interleaved float stereo at the endpoint's rate.

@@ -338,7 +338,7 @@ bool D3D12DeviceContext::reportDeviceFailure(std::string_view operation,uint64_t
     const auto completed=fence_?fence_->GetCompletedValue():0;
     veyra::log::error("gpu-failure",std::format("operation={} alive={} removedReason=0x{:X} requestedFence={} completedFence={} sentinel={} adapter={} device=0x{:X} luid={} driver={}",operation,alive,reason,requestedFence,completed,completed==UINT64_MAX,narrow(adapterInfo_.description),adapterInfo_.deviceId,adapterInfo_.luidString,narrow(adapterInfo_.driverVersion)));
     // Which capture and overlay tools shared the GPU (once per run): the 2026-10-15 hangs
-    // came with 抖音直播伴侣 running, and the log could not show it.
+    // came with the Douyin live companion running, and the log could not show it.
     static bool reportedCompany=false;
     if(!reportedCompany){
         reportedCompany=true;

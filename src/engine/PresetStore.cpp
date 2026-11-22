@@ -191,23 +191,23 @@ bool PresetStore::parse(const std::string& data,std::vector<UserPreset>& out,std
     return def.empty()||std::any_of(out.begin(),out.end(),[&](auto& a){return a.name==def;});
 }
 bool PresetStore::load(){
-    error_.clear();if(!std::filesystem::exists(path_))return true;if(std::filesystem::file_size(path_)>kMaxPresetBytes){corrupt_=true;error_=L"预设文件超过2MiB，原文件保留";return false;}std::ifstream f(path_,std::ios::binary);std::string data((std::istreambuf_iterator<char>(f)),{});std::vector<UserPreset> loaded;std::wstring def;
-    if(!f||!parse(data,loaded,def)){corrupt_=true;error_=L"预设文件损坏或版本不支持；原文件已保留，禁止覆盖。当前使用内建设置。";return false;}
+    error_.clear();if(!std::filesystem::exists(path_))return true;if(std::filesystem::file_size(path_)>kMaxPresetBytes){corrupt_=true;error_=L"The preset file is larger than 2 MiB; the original file is kept";return false;}std::ifstream f(path_,std::ios::binary);std::string data((std::istreambuf_iterator<char>(f)),{});std::vector<UserPreset> loaded;std::wstring def;
+    if(!f||!parse(data,loaded,def)){corrupt_=true;error_=L"The preset file is damaged or an unsupported version; the original file is kept and not overwritten. Using built-in settings for now.";return false;}
     entries_=std::move(loaded);default_=std::move(def);corrupt_=false;return true;
 }
 bool PresetStore::save(){
-    if(corrupt_){error_=L"损坏原文件受保护，未写入任何设置；请先备份并移走该文件";return false;}
-    const auto data=serialize();std::vector<UserPreset> check;std::wstring def;if(!parse(data,check,def)){error_=L"预设校验失败";return false;}
-    std::error_code ec;std::filesystem::create_directories(path_.parent_path(),ec);if(ec){error_=L"无法创建预设目录";return false;}
+    if(corrupt_){error_=L"The damaged file is protected and no settings were written; back it up and move it away first";return false;}
+    const auto data=serialize();std::vector<UserPreset> check;std::wstring def;if(!parse(data,check,def)){error_=L"Preset validation failed";return false;}
+    std::error_code ec;std::filesystem::create_directories(path_.parent_path(),ec);if(ec){error_=L"Could not create the preset folder";return false;}
     auto tmp=path_;tmp+=L".tmp-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
-    HANDLE h=CreateFileW(tmp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE){error_=L"无法创建预设临时文件";return false;}
+    HANDLE h=CreateFileW(tmp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE){error_=L"Could not create the preset temporary file";return false;}
     DWORD written=0;bool ok=WriteFile(h,data.data(),DWORD(data.size()),&written,nullptr)&&written==data.size()&&FlushFileBuffers(h);CloseHandle(h);
     std::ifstream verify(tmp,std::ios::binary);std::string back((std::istreambuf_iterator<char>(verify)),{});verify.close();check.clear();ok=ok&&back==data&&parse(back,check,def);
     if(ok)ok=MoveFileExW(tmp.c_str(),path_.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
-    if(!ok){error_=L"预设原子保存失败，原文件未替换；临时文件保留";return false;}error_.clear();return true;
+    if(!ok){error_=L"Atomic save of the preset failed; the original file was not replaced and the temporary file is kept";return false;}error_.clear();return true;
 }
-bool PresetStore::put(std::wstring name,EnhancementSettings s,bool replace){name=trim(name);if(!nameOk(name)||!s.validate().empty()){error_=L"预设名称或参数无效（名称最多48字）";return false;}auto old=entries_;auto i=std::find_if(entries_.begin(),entries_.end(),[&](auto& p){return p.name==name;});if(i!=entries_.end()){if(!replace){error_=L"预设名称已存在";return false;}i->settings=s;}else{if(entries_.size()>=64){error_=L"最多保存64套预设";return false;}entries_.push_back({name,s});}if(save())return true;entries_=old;return false;}
-bool PresetStore::rename(size_t i,std::wstring name){name=trim(name);if(i>=entries_.size()||!nameOk(name)||std::any_of(entries_.begin(),entries_.end(),[&](auto& p){return p.name==name;})){error_=L"名称无效或重复";return false;}auto old=entries_;auto d=default_;if(default_==entries_[i].name)default_=name;entries_[i].name=name;if(save())return true;entries_=old;default_=d;return false;}
+bool PresetStore::put(std::wstring name,EnhancementSettings s,bool replace){name=trim(name);if(!nameOk(name)||!s.validate().empty()){error_=L"Invalid preset name or settings (name up to 48 characters)";return false;}auto old=entries_;auto i=std::find_if(entries_.begin(),entries_.end(),[&](auto& p){return p.name==name;});if(i!=entries_.end()){if(!replace){error_=L"A preset with this name already exists";return false;}i->settings=s;}else{if(entries_.size()>=64){error_=L"At most 64 presets can be saved";return false;}entries_.push_back({name,s});}if(save())return true;entries_=old;return false;}
+bool PresetStore::rename(size_t i,std::wstring name){name=trim(name);if(i>=entries_.size()||!nameOk(name)||std::any_of(entries_.begin(),entries_.end(),[&](auto& p){return p.name==name;})){error_=L"Name is invalid or already used";return false;}auto old=entries_;auto d=default_;if(default_==entries_[i].name)default_=name;entries_[i].name=name;if(save())return true;entries_=old;default_=d;return false;}
 bool PresetStore::erase(size_t i){if(i>=entries_.size())return false;auto old=entries_;auto d=default_;if(default_==entries_[i].name)default_.clear();entries_.erase(entries_.begin()+i);if(save())return true;entries_=old;default_=d;return false;}
 bool PresetStore::setDefault(size_t i){if(i>=entries_.size())return false;auto old=default_;default_=entries_[i].name;if(save())return true;default_=old;return false;}
 EnhancementSettings PresetStore::defaultSettings()const{for(auto& p:entries_)if(p.name==default_)return p.settings;return {};}

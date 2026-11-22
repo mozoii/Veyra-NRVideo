@@ -26,7 +26,7 @@ options.update(VEYRA_DECKLINK_SDK_DIR=str(BASE/'deps/decklink-sdk-obs31-20261009
     VEYRA_AMD_NR_TEST_GRAPH_SOURCE=str(ROOT/'src/pipeline/EnhanceGraph.cpp'),
     VEYRA_FFMPEG_ROOT=str(BASE/'deps/ffmpeg-filter-issues41-45-20261016'),
     VEYRA_DISPLAY_VERSION=LABEL,Python3_EXECUTABLE=os.sys.executable)
-assert all(options['VEYRA_ENABLE_'+f]=='ON' for f in ('REMOTEPLAY','MOONLIGHT','XBOX'))
+assert all(options['VEYRA_ENABLE_'+f]=='ON' for f in ('MOONLIGHT','XBOX'))
 env={k:v for k,v in os.environ.items() if not k.upper().startswith(('VEYRA_','QT_','QSG_','QML_'))}
 env.update(TEMP=str(TMP),TMP=str(TMP),VSLANG='1033',PYTHONDONTWRITEBYTECODE='1')
 setup=subprocess.run(['cmd.exe','/u','/d','/c',r'call C:\PROGRA~2\MICROS~3\2022\BUILDT~1\VC\Auxiliary\Build\vcvars64.bat >nul && set'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding='utf-16-le',errors='replace',env=env,check=True)
@@ -59,7 +59,7 @@ targets=['veyra_qml_ui','veyra_xess_motion_contract_tests','veyra_xess_motion_qu
     'veyra_playlist_tests','veyra_qml_data_tests','veyra_bitmap_subtitle_tests','veyra_subtitle_format_tests','veyra_capture_tests',
     # Added or changed by the branches merged for 2.0.8.
     'veyra_update_checker_tests','veyra_realtime_preview_tests','veyra_screen_capture_tests','veyra_preview_geometry_tests',
-    'veyra_experimental_backend_tests','veyra_remoteplay_boundary_tests','veyra_ui_i18n_tests','veyra_fg_presentation_tests']
+    'veyra_experimental_backend_tests','veyra_ui_i18n_tests','veyra_fg_presentation_tests']
 assert all(re.fullmatch(r'veyra_[a-z0-9_]+',target) for target in args.extra_target)
 targets=list(dict.fromkeys(targets+args.extra_target))
 inputs={p.relative_to(ROOT).as_posix():sha(p) for folder in ('include','src','apps','shaders','qml','tests','cmake','i18n') for p in (ROOT/folder).rglob('*') if p.is_file()}

@@ -26,7 +26,7 @@ options.update(VEYRA_DECKLINK_SDK_DIR=str(BASE/'deps/decklink-sdk-obs31-20261009
     VEYRA_AMD_NR_TEST_GRAPH_SOURCE=str(ROOT/'src/pipeline/EnhanceGraph.cpp'),
     VEYRA_FFMPEG_ROOT=str(BASE/'deps/ffmpeg-subtitle-formats-20261009/installed'),
     VEYRA_DISPLAY_VERSION=LABEL,Python3_EXECUTABLE=os.sys.executable)
-assert all(options['VEYRA_ENABLE_'+f]=='ON' for f in ('REMOTEPLAY','MOONLIGHT','XBOX'))
+assert all(options['VEYRA_ENABLE_'+f]=='ON' for f in ('MOONLIGHT','XBOX'))
 env={k:v for k,v in os.environ.items() if not k.upper().startswith(('VEYRA_','QT_','QSG_','QML_'))}
 env.update(TEMP=str(TMP),TMP=str(TMP),VSLANG='1033',PYTHONDONTWRITEBYTECODE='1')
 setup=subprocess.run(['cmd.exe','/u','/d','/c',r'call C:\PROGRA~2\MICROS~3\2022\BUILDT~1\VC\Auxiliary\Build\vcvars64.bat >nul && set'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding='utf-16-le',errors='replace',env=env,check=True)

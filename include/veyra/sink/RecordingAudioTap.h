@@ -1,6 +1,6 @@
 #pragma once
 // Live recording takes the PCM the player renders - every source that plays
-// through AudioRenderer: files, capture-card monitoring, PS5/Moonlight/Xbox
+// through AudioRenderer: files, capture-card monitoring, Moonlight/Xbox
 // streaming - before volume and mute, stamped with the steady-clock time at
 // which its first frame reaches the endpoint. While no recording takes audio
 // the renderer only reads one atomic flag.

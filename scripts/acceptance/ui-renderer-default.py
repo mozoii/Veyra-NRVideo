@@ -1,11 +1,11 @@
-"""设置 → 界面绘制 across real launches (claude-software-ui-default-20261026).
+"""Settings -> interface rendering across real launches (claude-software-ui-default-20261026).
 
 Four launches of the task build on one fresh private profile, in a hard-linked copy of
 the 2.1.0 NVIDIA runtime base with this tree's QML/i18n; no media, capture or user
-package. ui-renderer-default.qml picks values through the real 设置 control.
+package. ui-renderer-default.qml picks values through the real Settings control.
   1 fresh profile          -> software by default; picking GPU asks to restart
-  2 preference GPU         -> D3D12 interface; picking 软件 asks to restart (GPU kept)
-  3 GPU + --overlay-compat-restart -> software (compatibility); picking 软件 needs no restart
+  2 preference GPU         -> D3D12 interface; picking Software asks to restart (GPU kept)
+  3 GPU + --overlay-compat-restart -> software (compatibility); picking Software needs no restart
   4 preference software    -> software by default
 usage: py -3.11 -X utf8 -B -I scripts/acceptance/ui-renderer-default.py
 """
@@ -102,6 +102,6 @@ finally:
     replace(A/'qml/Veyra/Main.qml', (R/'qml/Veyra/Main.qml').read_bytes())
 passed = all(r['passed'] for r in results) and len(results) == 4
 (OUT/'launches.json').write_text(json.dumps(dict(passed=passed, exeSha256=sha(A/'veyra_qml_ui.exe'), launches=results,
-    scope='four real launches on one private profile; 设置 control picked through its own signal; renderer read from the app log'),
+    scope='four real launches on one private profile; Settings control picked through its own signal; renderer read from the app log'),
     ensure_ascii=False, indent=1), 'utf8')
 assert passed, 'see ' + str(OUT/'launches.json')

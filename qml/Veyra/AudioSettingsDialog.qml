@@ -6,18 +6,18 @@ import QtQuick.Layouts
 DialogLayer {
     key: "audio"
     glyph: "music"
-    title: qsTr("音频设置")
+    title: qsTr("Audio settings")
     dialogWidth: 560
-    actions: [{ label: qsTr("完成"), primary: true }]
+    actions: [{ label: qsTr("Done"), primary: true }]
     onActionTriggered: dialogHost.close()
 
-    DialogSection { text: qsTr("音轨") }
+    DialogSection { text: qsTr("Audio tracks") }
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 6
         Text {
             visible: veyra.audioTracks.length === 0
-            text: qsTr("当前源没有可选音轨。")
+            text: qsTr("This source has no selectable audio tracks.")
             color: Theme.t3
             font.family: Theme.fontUi
             font.pixelSize: Theme.fsSmall
@@ -52,7 +52,7 @@ DialogLayer {
                             font.pixelSize: Theme.fsBody
                         }
                         Text {
-                            text: modelData.channels > 0 ? modelData.channels + qsTr(" 声道") : ""
+                            text: modelData.channels > 0 ? modelData.channels + qsTr(" ch") : ""
                             color: Theme.t3
                             font.family: Theme.fontUi
                             font.pixelSize: 11
@@ -69,10 +69,10 @@ DialogLayer {
             }
         }
     }
-    DialogSection { text: qsTr("输出") }
+    DialogSection { text: qsTr("Output") }
     DialogGroup {
         VRow {
-            label: qsTr("音量")
+            label: qsTr("Volume")
             value: Math.round(veyra.volume * 100) + "%"
             VSlider {
                 implicitWidth: 170
@@ -82,7 +82,7 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("静音")
+            label: qsTr("Mute")
             VSwitch {
                 checked: veyra.muted
                 onToggled: checked => veyra.muted = checked
@@ -92,8 +92,8 @@ DialogLayer {
     DialogGroup {
         visible: veyra.sourceKind === "capture"
         VRow {
-            label: qsTr("本机音频监听")
-            hint: qsTr("关闭后仍可录制和保存回放；本机不播放采集声音")
+            label: qsTr("Local audio monitoring")
+            hint: qsTr("When off, recording and replay still receive audio; capture sound is not played locally.")
             VSwitch {
                 objectName: "audio-capture-monitor"
                 checked: veyra.preferences.captureAudioMonitor !== false
@@ -101,21 +101,21 @@ DialogLayer {
             }
         }
     }
-    DialogSection { text: qsTr("音画同步") }
+    DialogSection { text: qsTr("Audio/video sync") }
     DialogGroup {
         VRow {
-            label: qsTr("声音同步")
-            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("软件估算补偿 ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("自动估算 · 采集卡 / PS5 实时输入时生效"))
-                  : veyra.audioSyncMode === 1 ? qsTr("手动偏移 · 实时输入时生效") : qsTr("关闭补偿")
+            label: qsTr("Audio sync")
+            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+                  : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
             VSeg {
-                options: [{ id: "0", label: qsTr("自动估算") }, { id: "1", label: qsTr("手动") }, { id: "2", label: qsTr("关闭", "off") }]
+                options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]
                 current: String(veyra.audioSyncMode)
                 onPicked: id => veyra.audioSyncMode = Number(id)
             }
         }
         VRow {
-            label: qsTr("手动偏移")
-            hint: qsTr("负值 = 声音提前")
+            label: qsTr("Manual offset")
+            hint: qsTr("Negative = sound earlier")
             value: veyra.audioOffsetMs + " ms"
             VSlider {
                 implicitWidth: 170
@@ -125,28 +125,28 @@ DialogLayer {
             }
         }
         VRow {
-            label: qsTr("当前偏差")
-            hint: qsTr("软件内测得的音画偏差，不是扬声器实测；只在采集卡 / PS5 实时输入时有")
-            value: veyra.audioSkewKnown ? (veyra.audioSkewMs >= 0 ? "+" : "") + veyra.audioSkewMs.toFixed(0) + " ms" : qsTr("未测")
+            label: qsTr("Current offset")
+            hint: qsTr("Software-measured audio/video skew, not speaker-tested; only exists for real-time capture-card input")
+            value: veyra.audioSkewKnown ? (veyra.audioSkewMs >= 0 ? "+" : "") + veyra.audioSkewMs.toFixed(0) + " ms" : qsTr("N/A")
         }
     }
-    DialogSection { text: qsTr("输出设备") }
+    DialogSection { text: qsTr("Output device") }
     DialogGroup {
         VRow {
-            label: qsTr("输出设备")
+            label: qsTr("Output device")
             hint: veyra.audioOutputStatus
             VSelect {
                 objectName: "audio-device"
                 implicitWidth: 240
                 readonly property string chosen: veyra.preferences.audioDevice || ""
-                value: { const d = veyra.audioDevices.find(x => x.id === chosen); return d ? d.label : qsTr("跟随系统默认") }
+                value: { const d = veyra.audioDevices.find(x => x.id === chosen); return d ? d.label : qsTr("Follow the system default") }
                 options: veyra.audioDevices
                 onPicked: id => veyra.setPreference("audioDevice", id)
             }
         }
         VRow {
-            label: qsTr("立体声下混")
-            hint: qsTr("多声道片源混成双声道再输出（耳机）；关闭时按设备声道布局映射")
+            label: qsTr("Stereo downmix")
+            hint: qsTr("Mix multichannel sources down to stereo (headphones); when off, channels follow the device layout")
             VSwitch {
                 objectName: "audio-stereo"
                 checked: veyra.preferences.audioForceStereo === true
