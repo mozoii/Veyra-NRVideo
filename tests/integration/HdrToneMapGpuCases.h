@@ -1,5 +1,6 @@
 #pragma once
 #include "veyra/pipeline/HdrToneMap.h"
+#include "GpuReadbackCases.h"
 #include <limits>
 namespace hdrToneTests {
 // Independent BT.2390 reference: cubic Bezier evaluated by de Casteljau,
@@ -62,7 +63,7 @@ inline int run(veyra::gfx::D3D12DeviceContext& ctx,veyra::gfx::CommandSlotRing& 
         pipeline::EnhanceGraph graph(ctx,ring);pipeline::EnhanceGraphDesc gd;gd.sourceWidth=gd.workWidth=width;gd.sourceHeight=gd.workHeight=height;gd.hdrInput=true;gd.enableNr=gd.enableSr=gd.enableFg=false;gd.noFeatures=true;
         pipeline::ColorDescription color;color.hdrMaxCllNits=float(declared);
         pipeline::EnhanceGraph::FrameOutputs out;std::vector<float> actual;
-        bool ok=graph.initialize(gd)&&graph.createViews()&&graph.process(f,0,true,out,1,&color)&&captureReadFp16(ctx,ring,graph.diagnosticLinearInput(),actual);
+        bool ok=graph.initialize(gd)&&graph.createViews()&&graph.process(f,0,true,out,1,&color)&&readFp16(ctx,ring,graph.diagnosticLinearInput(),actual);
         double yError=0,hueError=0,last=-1;bool bounded=true,monotone=true,neutral=true;
         if(ok)for(unsigned i=0;i<count;++i){
             const auto* p=actual.data()+(i*4+2)*4;const auto& c=linear[i];const double sourceY=.212639*c[0]+.715169*c[1]+.072192*c[2];
@@ -82,7 +83,7 @@ inline int run(veyra::gfx::D3D12DeviceContext& ctx,veyra::gfx::CommandSlotRing& 
             // Static metadata must not pump the picture across seeks/cuts in
             // the same graph. A new source gets a fresh graph and selection.
             out={};color.hdrMaxCllNits=4000;std::vector<float> second;
-            const bool stable=graph.process(f,33.333,true,out,2,&color)&&captureReadFp16(ctx,ring,graph.diagnosticLinearInput(),second)&&actual==second;
+            const bool stable=graph.process(f,33.333,true,out,2,&color)&&readFp16(ctx,ring,graph.diagnosticLinearInput(),second)&&actual==second;
             std::cout<<"HDR_TONE_STATIC_RESET pass="<<stable<<std::endl;ok&=stable;
         }
         failures+=!ok;out={};ring.drainQueue();graph.shutdown();av_frame_free(&f);

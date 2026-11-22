@@ -1,9 +1,19 @@
 #pragma once
 #include <algorithm>
+#include <limits>
 #include <cmath>
 #include "veyra/pipeline/FramePacket.h"
 
 namespace veyra::engine {
+// Live packet duration: a complete sample timestamp wins, otherwise the
+// nominal rate, otherwise unknown (never a made-up zero).
+inline pipeline::Rational sampleDuration(int64_t start,int64_t end,bool completeSampleTime,int64_t nominal100ns){
+    if(completeSampleTime&&end>start){
+        const auto delta=uint64_t(end)-uint64_t(start);
+        if(delta<=uint64_t((std::numeric_limits<int64_t>::max)()))return {int64_t(delta),10000000};
+    }
+    return nominal100ns>0?pipeline::Rational{nominal100ns,10000000}:pipeline::Rational::unknown();
+}
 inline int64_t liveSourceInterval100ns(pipeline::Rational duration,double nominalFps){
     if(!duration.isUnknown()&&duration.den>0&&duration.num>0)return int64_t(std::clamp(static_cast<long double>(duration.num)*10000000.L/duration.den,10000.L,1000000.L)+.5L);
     if(std::isfinite(nominalFps)&&nominalFps>=10&&nominalFps<=1000)return int64_t(std::llround(10000000.0/nominalFps));

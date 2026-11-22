@@ -11,7 +11,6 @@
 #include "veyra/engine/FrameFlowWindow.h"
 #include "veyra/engine/EnhancementDelayEstimate.h"
 #include "veyra/ThunkHook.h"
-#include "veyra/source/CaptureFormatRank.h"
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -36,7 +35,6 @@ int thunkReplacementFunction(int value) { ++thunkHookCalls; return thunkOriginal
 #include "veyra/sink/CaptureSyncTarget.h"
 #include "veyra/source/DolbyVision.h"
 #include "veyra/source/DolbyVisionRpu.h"
-#include "veyra/source/AudioInputRecovery.h"
 #include "veyra/engine/Subtitles.h"
 #include "veyra/engine/PresentationSettings.h"
 #include "veyra/engine/PresentationGeometry.h"
@@ -92,13 +90,6 @@ int main(){
     for(bool lowQueue:{false,true})for(bool fullscreen:{false,true})for(auto sync:{engine::DisplaySync::Tearing,engine::DisplaySync::Vsync,engine::DisplaySync::Automatic}) {
         engine::PresentationSettings s;s.enabled=lowQueue;s.fullscreen=fullscreen;s.display=sync;
         check(engine::presentationVsync(s)==(sync==engine::DisplaySync::Vsync)&&engine::presentationTearing(s)==(sync==engine::DisplaySync::Tearing),"Automatic neither waits for VSync nor tears (Present(0,0) replaces unshown frames), independently of low queue/fullscreen; only explicit Vsync waits and only explicit Tearing tears");
-    }
-    {
-        source::AudioInputRecovery retry;retry.reset(1000);
-        check(!retry.due(0,3999)&&retry.due(0,4000),"missing initial PCM retries after bounded startup grace");
-        check(!retry.due(0,4500)&&retry.due(0,5000),"audio retry has bounded backoff instead of every video frame");
-        check(!retry.due(1,5100)&&!retry.due(2,8100),"silent PCM packet progress prevents reconnect");
-        check(!retry.due(2,11099)&&retry.due(2,11100),"audio-only PCM stall is detected while video may continue");
     }
     {
         engine::EnhancementSettings s;s.nr=s.sr=true;s.multiplier=2;
@@ -596,52 +587,6 @@ int main(){
         check(!settings.validate().empty(),"video SR quality above the AMD FSR slot is rejected");
         settings.videoSrQuality=0;
         check(settings.validate().empty(),"DLSS SR quality remains valid");
-    }
-    {
-        engine::EnhancementSettings settings;
-        check(settings.captureAudio==engine::CaptureAudioIngress::Auto,"capture audio ingress defaults to automatic");
-        check(!settings.captureFlipVertical,"capture vertical flip defaults off");
-        for(auto mode:{engine::CaptureAudioIngress::Auto,engine::CaptureAudioIngress::PcmOnly,engine::CaptureAudioIngress::BitstreamPreferred}){
-            settings.captureAudio=mode;
-            check(settings.validate().empty(),"capture audio ingress modes validate");
-        }
-        settings.captureAudio=static_cast<engine::CaptureAudioIngress>(3);
-        check(!settings.validate().empty(),"capture audio ingress outside the enum is rejected");
-    }
-    {
-        engine::EnhancementSettings settings;
-        check(settings.captureBuffer==veyra::source::CaptureBufferMode::Auto,"capture buffer mode defaults to auto");
-        for(auto mode:{veyra::source::CaptureBufferMode::Auto,veyra::source::CaptureBufferMode::Minimum,veyra::source::CaptureBufferMode::DriverDefault}){
-            settings.captureBuffer=mode;
-            check(settings.validate().empty(),"capture buffer modes validate");
-        }
-        settings.captureBuffer=static_cast<veyra::source::CaptureBufferMode>(3);
-        check(!settings.validate().empty(),"capture buffer mode outside the enum is rejected");
-        check(veyra::source::captureDesiredVideoBuffers(veyra::source::CaptureBufferMode::Auto,1920,1080)==2&&
-            veyra::source::captureDesiredVideoBuffers(veyra::source::CaptureBufferMode::Auto,3840,2160)==3&&
-            veyra::source::captureDesiredVideoBuffers(veyra::source::CaptureBufferMode::Minimum,3840,2160)==1&&
-            veyra::source::captureDesiredVideoBuffers(veyra::source::CaptureBufferMode::DriverDefault,1920,1080)==0,
-            "capture buffer policy: auto 2/3 by size, minimum 1, driver default none");
-    }
-    {
-        using veyra::source::CaptureFormatTier;
-        using veyra::source::CapturePacking;
-        check(veyra::source::captureFormatRank(CapturePacking::Nv12)<veyra::source::captureFormatRank(CapturePacking::Yuy2)&&
-            veyra::source::captureFormatRank(CapturePacking::Yuy2)<veyra::source::captureFormatRank(CapturePacking::Bgr24)&&
-            veyra::source::captureFormatRank(CapturePacking::Bgr24)<veyra::source::captureFormatRank(CapturePacking::Rgb565)&&
-            veyra::source::captureFormatRank(CapturePacking::Rgb565)<veyra::source::captureFormatRank(CapturePacking::Unknown),
-            "format rank: NV12 < YUY2 < RGB24 < RGB565 < decoded");
-        check(veyra::source::captureFormatTier(CapturePacking::Nv12)==CaptureFormatTier::Low&&
-            veyra::source::captureFormatTier(CapturePacking::Bgr24)==CaptureFormatTier::Medium&&
-            veyra::source::captureFormatTier(CapturePacking::Rgb565)==CaptureFormatTier::High&&
-            veyra::source::captureFormatTier(CapturePacking::Unknown)==CaptureFormatTier::Decoded,
-            "format tiers: low/medium/high/decoded");
-        check(veyra::source::captureFormatNeedsCostHint(CaptureFormatTier::High)&&veyra::source::captureFormatNeedsCostHint(CaptureFormatTier::Decoded)&&
-            !veyra::source::captureFormatNeedsCostHint(CaptureFormatTier::Medium),"cost hint only for high/decoded formats");
-        std::vector<CapturePacking> order{CapturePacking::Rgb565,CapturePacking::Unknown,CapturePacking::Yuy2,CapturePacking::Nv12};
-        std::stable_sort(order.begin(),order.end(),[](CapturePacking a,CapturePacking b){return veyra::source::captureFormatRank(a)<veyra::source::captureFormatRank(b);});
-        check(order[0]==CapturePacking::Nv12&&order[1]==CapturePacking::Yuy2&&order[2]==CapturePacking::Rgb565&&order[3]==CapturePacking::Unknown,
-            "recommended order: a device offering YUY2 and RGB565 lists YUY2 first");
     }
     check(engine::opticalFlowBackendName(engine::OpticalFlowBackend::Nvidia)=="NVIDIA_NVOF"&&engine::opticalFlowBackendName(engine::OpticalFlowBackend::AmdFidelityFx)=="AMD_FIDELITYFX_OF","optical-flow backend names identify every backend");
     s.model.intensity=std::numeric_limits<float>::quiet_NaN();check(!s.validate().empty(),"reject NaN transaction");

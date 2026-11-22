@@ -29,11 +29,7 @@ Window {
     // The software scene graph cannot draw the Shape background. Keep the native
     // window opaque as well, including while its first frame is being produced.
     color: typeof vySoftwareUi !== "undefined" && vySoftwareUi ? (cinema ? Theme.videoBlack : Theme.bgOuter) : "transparent"
-    // Game mode click-through (ui/GamePassthrough.h): Qt's own flags, so Qt keeps the
-    // window's layered/transparent/no-activate styles in both interface renderers.
     flags: Qt.Window | Qt.FramelessWindowHint
-           | (veyra.passthroughActive ? Qt.WindowTransparentForInput : 0)
-           | (veyra.gameInputActive ? Qt.WindowDoesNotAcceptFocus : 0)
     title: "Veyra " + veyra.version
 
     // Page ids match the prototype's PAGES keys so a design screenshot and an
@@ -79,7 +75,6 @@ Window {
     // 16:9 until a source reports its own shape: a streaming / capture session has no
     // aspect while it connects, and 2.39 then left a thin black strip.
     property real filmAspect: 16 / 9
-    readonly property bool gameAligned: fullscreen && veyra.gameMode && !veyra.gameScaledPreview
     readonly property real reportedAspect: veyra.previewAspect
     onReportedAspectChanged: if (reportedAspect < 0.2) fitToFilm(16 / 9)
     property string lastPage: "home"
@@ -227,9 +222,6 @@ Window {
     // numbers rather than read from a laid-out child. A child reports 0x0 on the
     // frame the user opens a file, and that once produced a 1x1 swapchain.
     function videoRect() {
-        if (fullscreen && veyra.gameMode &&
-            veyra.gameVideoRect.width > 0 && veyra.gameVideoRect.height > 0)
-            return veyra.gameVideoRect
         // Fullscreen is a video-only viewport (AppShell): the picture is the screen
         // and the controls float above it in their own window (FullscreenBar).
         if ((fullscreen || (maximized && page === "min")) && page !== "home" && page !== "set")
@@ -331,14 +323,6 @@ Window {
         // The dialogs open the source through the bridge; show the picture.
         onStartMoonlight: if (root.page === "home") root.goPage("min")
         onStartXbox: if (root.page === "home") root.goPage("min")
-        onStartScreen: {
-            if (root.page === "home") root.goPage("min")
-            if (veyra.screenOptions.passthrough === true) root.enterGameFullscreen()
-        }
-        onStartScreenCrop: {
-            root.goPage("min")
-            screenCrop.begin(veyra.screenOptions)
-        }
     }
 
     OnboardingGuide {
@@ -346,16 +330,10 @@ Window {
         parent: root.contentItem
         z: 1100
         property var savedProView
-        property real savedCaptureScroll
         property real savedHomeScroll
-        targetFor: key => {
-            if (key === "capture") return { item: homePage.captureCard(), viewport: homePage.sourceViewport }
-            if (dialogs.dialog === "capture") return dialogs.captureSettings.onboardingTarget(key)
-            return proPage.onboardingTarget(key)
-        }
+        targetFor: key => proPage.onboardingTarget(key)
         onAboutToShow: {
             savedProView = proPage.saveOnboardingView()
-            savedCaptureScroll = dialogs.captureSettings.bodyViewport.contentY
             savedHomeScroll = homePage.sourceViewport.contentY
         }
         onStepRequested: step => {
@@ -367,12 +345,10 @@ Window {
                 root.shownPage = "pro"
             } else {
                 root.shownPage = "home"
-                dialogs.dialog = step.target === "capture" ? "" : "capture"
             }
         }
         onAboutToHide: {
             dialogs.close()
-            dialogs.captureSettings.bodyViewport.contentY = savedCaptureScroll
             homePage.sourceViewport.contentY = savedHomeScroll
             root.shownPage = "home"
             proPage.restoreOnboardingView(savedProView)
@@ -485,7 +461,6 @@ Window {
     }
     onQuickPanelShownChanged: {
         veyra.logUi("ui-fullscreen", "quick panel shown=" + quickPanelShown)
-        veyra.setGamePanelOpen(quickPanelShown)
     }
     FullscreenTimingPanel {
         anchors.right: parent.right
@@ -497,47 +472,8 @@ Window {
         onCloseRequested: root.closeQuickPanel()
         z: 75
     }
-    // Game mode (screen capture → game mode): fullscreen on the captured monitor (or the
-    // monitor of the captured window); the bridge then makes the picture click-through
-    // so the program underneath keeps the keyboard, mouse and gamepad.
-    function enterGameFullscreen() {
-        const i = veyra.gameModeScreenIndex()
-        const screens = Qt.application.screens
-        if (i >= 0 && i < screens.length) {
-            const s = screens[i]
-            const inside = x + width / 2 >= s.virtualX && x + width / 2 < s.virtualX + s.width &&
-                           y + height / 2 >= s.virtualY && y + height / 2 < s.virtualY + s.height
-            if (!inside) {
-                if (fullscreen) toggleFullscreen()
-                x = s.virtualX + Math.max(0, Math.round((s.width - width) / 2))
-                y = s.virtualY + Math.max(0, Math.round((s.height - height) / 2))
-            }
-        }
-        if (!fullscreen) toggleFullscreen()
-        veyra.logUi("game-mode", "fullscreen for game mode on screen " + i)
-    }
     Connections {
         target: veyra
-        // Home: the adjust panel takes the input back / gives it to the program again.
-        // Ctrl+Alt+Home: leave the fullscreen picture (and with it the click-through).
-        function onGameHotkey(which) {
-            if (which === 1) {
-                root.closeQuickPanel()
-                if (root.fullscreen) root.toggleFullscreen()
-                return
-            }
-            if (!root.fullscreen) return
-            root.fullLocked = false
-            root.toggleQuickPanel()
-        }
-        function onGameModeStopped(reason) {
-            if (root.fullscreen) root.toggleFullscreen()
-            toast.show(reason, true)
-        }
-        function onGameModeChanged() {
-            videoHost.syncRect()
-            if (veyra.gameInputActive && playlistWindow.visible) playlistWindow.hide()
-        }
     }
     onFullscreenChanged: {
         veyra.setPresentationFullscreen(fullscreen)
@@ -620,20 +556,6 @@ Window {
             }
         }
     }
-    // Shared mask input follows the exact native host across list/node/cinema/fullscreen.
-    ScreenCropEditor {
-        id: screenCrop
-        z: 94
-        hostRect: Qt.rect(videoHost.x, videoHost.y, videoHost.width, videoHost.height)
-        onCancelled: {
-            veyra.stopPlayback()
-            dialogs.open("screen")
-        }
-    }
-    Connections {
-        target: veyra
-        function onMediaOpenRequested() { screenCrop.editing = false }
-    }
     MouseArea {
         id: maskInput
         objectName: "mask-edit-input"
@@ -641,7 +563,7 @@ Window {
         z: 80
         visible: veyra.hasSource && videoHost.width > 0 && videoHost.height > 0
                  && (veyra.protectionDrawShape.length > 0 || veyra.exclusionOverlayVisible)
-        enabled: visible && !screenCrop.editing && !veyra.gameInputActive && dialogs.dialog === ""
+        enabled: visible && dialogs.dialog === ""
         preventStealing: true
         cursorShape: veyra.protectionDrawShape.length > 0 ? Qt.CrossCursor : pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
         property point start
@@ -704,7 +626,7 @@ Window {
         id: pictureTap
         // Scaled game input deliberately catches mouse events instead of
         // forwarding wrong coordinates; they must not control the player either.
-        enabled: !root.fullLocked && !screenCrop.editing && !veyra.gameInputActive
+        enabled: !root.fullLocked
         // Judged where the press landed: by the release the page may already have changed.
         property bool pressOnCover: false
         property bool pressOnPicture: false
@@ -721,8 +643,6 @@ Window {
             if (root.page !== "min" && root.page !== "pro" && root.page !== "node" && !root.fullscreen) return
             if (dialogs.dialog !== "" || !veyra.hasSource) return
             if (root.fullscreen && root.quickPanelShown && (proPage.overlayContains(p.x, p.y) || nodePage.overlayContains(p.x, p.y))) return
-            // Game mode: a click on the picture beside the panel returns to the game.
-            if (root.fullscreen && root.quickPanelShown && veyra.gameMode) { root.closeQuickPanel(); return }
             // Do not re-test geometry on release: a picture double click may
             // already have left fullscreen before this second tap restores play.
             root.contentItem.forceActiveFocus()
@@ -732,7 +652,7 @@ Window {
         }
     }
     TapHandler {
-        enabled: !root.fullLocked && !veyra.gameInputActive
+        enabled: !root.fullLocked
         property bool pressOnCover: false
         property bool pressOnPicture: false
         onPressedChanged: if (pressed) {
@@ -801,7 +721,7 @@ Window {
         // an open dialog, which lives in the main window below it.
         cinema: root.cinema && !root.fullscreen
         pillTop: (root.maximized ? root.height : root.pictureHeight) - 46
-        shown: !root.onboardingActive && veyra.hasSource && !screenCrop.editing && !root.pillHidden && !veyra.gameInputActive && (root.fullscreen ? root.fullControls && !root.fullLocked
+        shown: !root.onboardingActive && veyra.hasSource && !root.pillHidden && (root.fullscreen ? root.fullControls && !root.fullLocked
                                                    : root.cinema && root.shownPage === "min"
                                                      && root.leavingPage === "" && dialogs.dialog === ""
                                                      && root.visibility !== Window.Minimized)
@@ -833,11 +753,9 @@ Window {
     Binding { target: veyra; property: "subtitleBottomInset"; value: fullBar.shown ? (root.fullscreen ? 84 : 56) : 0 }
     // Rebindable (Settings → Shortcuts); the hold-to-compare key is handled by the bridge's
     // application event filter because it needs the key release too.
-    Shortcut { sequence: veyra.shortcuts.playPause; enabled: !screenCrop.editing; onActivated: veyra.togglePlayPause() }
+    Shortcut { sequence: veyra.shortcuts.playPause; onActivated: veyra.togglePlayPause() }
     Shortcut { sequence: veyra.shortcuts.fullscreen; onActivated: root.toggleFullscreen() }
     Shortcut { sequence: veyra.shortcuts.screenshot; onActivated: veyra.takeScreenshot() }
-    Shortcut { sequence: veyra.shortcuts.record; autoRepeat: false; onActivated: veyra.toggleRecording("shortcut") } // a held key must not toggle at the repeat rate
-    Shortcut { sequence: veyra.shortcuts.replay; autoRepeat: false; onActivated: veyra.saveReplay("shortcut") }
     Shortcut {
         sequence: veyra.shortcuts.toggleMode
         enabled: dialogs.dialog === ""
@@ -847,7 +765,7 @@ Window {
     // In game mode, Esc closes the adjust panel and gives the input back to the game.
     Shortcut {
         sequence: "Esc"
-        enabled: root.fullscreen && !screenCrop.editing && !maskInput.moving && !dialogs.captureGuideOpen
+        enabled: root.fullscreen && !maskInput.moving
         onActivated: {
             // Visible editing operations own the first Escape. Hidden pages and
             // the hidden playlist must never compete with fullscreen's shortcut.
@@ -856,7 +774,6 @@ Window {
             else if (root.quickPanelShown && root.page === "node" &&
                      (nodePage.wireFrom >= 0 || nodePage.marked.length > 0))
                 nodePage.clearSelection()
-            else if (veyra.gameMode && root.quickPanelShown) root.closeQuickPanel()
             else root.toggleFullscreen()
         }
     }
@@ -864,14 +781,14 @@ Window {
     Shortcut {
         sequence: "Home"
         enabled: root.fullscreen && !root.fullLocked && dialogs.dialog === "" &&
-                 !veyra.gameMode && (root.page === "min" || root.page === "pro" || root.page === "node")
+                 (root.page === "min" || root.page === "pro" || root.page === "node")
         onActivated: root.toggleQuickPanel()
     }
     // 5 s steps (field request 2026-10-02).
     Shortcut { sequence: "Left"; onActivated: veyra.seekBy(-5) }
     Shortcut { sequence: "Right"; onActivated: veyra.seekBy(5) }
-    Shortcut { sequence: "Up"; enabled: !dialogs.captureGuideOpen; onActivated: veyra.volume = Math.min(veyra.maximumVolume, veyra.volume + 0.05) }
-    Shortcut { sequence: "Down"; enabled: !dialogs.captureGuideOpen; onActivated: veyra.volume = Math.max(0, veyra.volume - 0.05) }
+    Shortcut { sequence: "Up"; onActivated: veyra.volume = Math.min(veyra.maximumVolume, veyra.volume + 0.05) }
+    Shortcut { sequence: "Down"; onActivated: veyra.volume = Math.max(0, veyra.volume - 0.05) }
     Shortcut { sequence: "Ctrl+O"; onActivated: veyra.openFileDialog() }
     Shortcut { sequence: "Ctrl+U"; onActivated: veyra.openNetworkDialog() }
     Shortcut { sequence: "Ctrl+E"; onActivated: root.page = "exp" }
@@ -972,7 +889,7 @@ Window {
         function onNavigate(p) {
             onboarding.close()
             // A dialog key opens the dialog; anything else is a page.
-            if (p === "network" || p === "capture" || p === "moonlight" || p === "xbox" || p === "screen"
+            if (p === "network" || p === "moonlight" || p === "xbox"
                 || p === "subtitle" || p === "translation" || p === "audio" || p === "save" || p === "manage") {
                 dialogs.open(p)
                 return
@@ -1022,7 +939,7 @@ Window {
             else if (name === "page") { root.page = "pro"; probe.t0 = Date.now() + 150; probe.running = true; return }
             else if (name === "switch") probeSwitch.item.checked = true
             else if (name === "menu") proPage.openTestMenu("source")
-            else if (name === "dialog") dialogs.open("capture")
+            else if (name === "dialog") dialogs.open("audio")
             else if (name === "seg") { probe.x0 = probeSeg.item.indicatorX; probeSeg.item.current = "c"; probe.x1 = probeSeg.item.targetX }
             probe.t0 = Date.now()
             probe.running = true

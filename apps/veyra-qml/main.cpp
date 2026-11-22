@@ -513,7 +513,6 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     // preference file is read here, from the same data directory the bridge uses.
     // "Auto" leaves Qt following the Windows display scale.
     int uiScale = 0;
-    bool obsGameCapture = false;
     bool overlayCompatAuto = true;   // Settings -> monitoring software compatibility: "auto" (default) or "off"
     bool overlayCompatRestart = false;
     bool gpuUiChosen = false;        // Settings -> interface rendering: "software" (default) or "gpu"
@@ -521,10 +520,8 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         int count = 0;
         LPWSTR* args = CommandLineToArgvW(GetCommandLineW(), &count);
         std::filesystem::path dir = veyra::runtime::userDataDirectory() / L"user-data-2.0.0";
-        bool obsGameCaptureArg = false;
         for (int i = 1; args && i < count; ++i) {
             if (std::wstring(args[i]) == L"--data-dir" && i + 1 < count) dir = args[++i];
-            else if (std::wstring(args[i]) == L"--obs-game-capture") obsGameCaptureArg = true;
             else if (std::wstring(args[i]) == L"--overlay-compat-restart") overlayCompatRestart = true;
         }
         if (args) LocalFree(args);
@@ -532,11 +529,9 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         if (prefs.open(QIODevice::ReadOnly)) {
             const auto saved = QJsonDocument::fromJson(prefs.readAll()).object();
             uiScale = saved.value(QStringLiteral("uiScale")).toInt();
-            obsGameCapture = saved.value(QStringLiteral("obsGameCapture")).toBool();
             overlayCompatAuto = saved.value(QStringLiteral("overlayCompat")).toString() != QStringLiteral("off");
             gpuUiChosen = saved.value(QStringLiteral("uiRenderer")).toString() == QStringLiteral("gpu");
         }
-        obsGameCapture = obsGameCapture || obsGameCaptureArg;
         if (uiScale == 100 || uiScale == 125 || uiScale == 150) {
             qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
             qputenv("QT_SCALE_FACTOR", QByteArray::number(uiScale / 100.0));
@@ -580,7 +575,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     const bool douyin = !GetEnvironmentVariableW(L"VEYRA_TEST_IGNORE_DOUYIN", nullptr, 0) && veyra::gfx::douyinLiveCompanionRunning();
     // Settings -> interface rendering (software unless GPU is chosen) together with the compatibility
     // rules above, which are unchanged: veyra/ui/InterfaceRenderer.h.
-    const auto renderer = veyra::ui::decideInterfaceRenderer({gpuUiChosen, obsGameCapture, overlayCompatAuto,
+    const auto renderer = veyra::ui::decideInterfaceRenderer({gpuUiChosen, overlayCompatAuto,
         rivaTuner || nvidiaOverlay || gamePP || douyin, overlayCompatRestart, forcedRenderer[0] != 0});
     const bool overlayCompat = renderer.overlayCompat;
     const bool softwareUi = renderer.software;
@@ -589,9 +584,7 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         veyra::log::info("app", "software UI: cached raster paths; normal partial updates; no additional frame requests");
     }
     using Reason = veyra::ui::InterfaceRendererReason;
-    if (renderer.reason == Reason::ObsGameCapture)
-        veyra::log::info("app", "OBS game capture compatibility: software UI; native D3D12 video unchanged");
-    else if (renderer.reason == Reason::OverlayCompat)
+    if (renderer.reason == Reason::OverlayCompat)
         veyra::log::info("app", std::format("RTSS compatibility: software UI; activeServer={} nvidiaOverlay={} gamePP={} douyinCompanion={} acceptedRestart={}; native D3D12 video unchanged",
                                           rivaTuner, nvidiaOverlay, gamePP, douyin, overlayCompatRestart));
     else if (renderer.reason == Reason::Default)
@@ -658,7 +651,6 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
     }
     app.setProperty("veyraLogFile", QString::fromStdWString(logPath.wstring()));
     app.setProperty("veyraUiScale", uiScale);
-    app.setProperty("veyraObsGameCapture", obsGameCapture);
     app.setProperty("veyraOverlayCompat", overlayCompat);
     app.setProperty("veyraSoftwareUi", softwareUi);
     app.setProperty("veyraUiRendererForced", forcedRenderer[0] != 0);
@@ -985,7 +977,6 @@ static int runApplication(int argc, char** argv, QString& restartProgram, QStrin
         return 1;
     }
     if (testSize.isValid()) window->resize(testSize);
-    bridge.attachMainWindow(static_cast<qulonglong>(window->winId()));
 
     // Fullscreen must own the whole monitor. Without telling the shell, the taskbar
     // stayed above the fullscreen picture on some systems (field report with the

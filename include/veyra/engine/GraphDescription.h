@@ -86,7 +86,7 @@ inline pipeline::SrOutput runningSrOutput(const EnhancementSettings& s,bool nvid
 }
 
 // Fills the stage, size and parameter fields of `desc` from `settings`.
-// Source-format fields (hdrInput, rgbInput, packedInput, ...), hdrOutput and
+// Source-format fields (hdrInput, rgbInput, ...), hdrOutput and
 // host hooks are left untouched: the caller owns those.
 inline pipeline::ResolutionPlan describeStages(const StageRequest& request,const EnhancementSettings& savedSettings,
                                                pipeline::EnhanceGraphDesc& desc) {

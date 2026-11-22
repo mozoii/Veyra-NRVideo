@@ -338,7 +338,7 @@ ColumnLayout {
             }
             Text {
                 Layout.fillWidth:true;visible:section.index===1
-                text:qsTr("Temperature is relative; a capture card has no shooting white balance.")
+                text:qsTr("Temperature is relative; a video source has no shooting white balance.")
                 color:Theme.t3;font.pixelSize:11;wrapMode:Text.WordWrap
             }
             Loader {

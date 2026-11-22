@@ -439,12 +439,12 @@ void testExistingChainContracts() {
         }
         check(restored, "50 mode switches preserve independent chain parameters and layout");
         EnhancementSettings live;
-        live.captureCompatible = true; live.captureFlipVertical = true;
+        live.captureCompatible = true;
         live.audioOffsetMs = 73; live.exportBitrateMbps = 81; live.forceSdrPreview = true;
         edited.apply(live);
         check(live.videoSrQuality == 3 && live.model.tone == .123f && live.color.exposure == 1.25f,
               "configuration restores chain and non-payload SR parameters");
-        check(live.captureCompatible && live.captureFlipVertical && live.audioOffsetMs == 73 &&
+        check(live.captureCompatible && live.audioOffsetMs == 73 &&
               live.exportBitrateMbps == 81 && live.forceSdrPreview, "mode change preserves global settings");
         const auto before = session;
         check(!session.select(ChainMode(2)) && session == before, "invalid mode leaves session untouched");

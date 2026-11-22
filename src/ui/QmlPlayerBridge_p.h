@@ -9,7 +9,6 @@
 #include "veyra/media/FormatBadgeWindow.h"
 #include "veyra/ngx/DlssgLite.h"
 #include "veyra/RuntimePaths.h"
-#include "veyra/ui/GamePassthrough.h"
 #include <QAbstractNativeEventFilter>
 #include <QGuiApplication>
 #include <QScreen>
@@ -74,13 +73,6 @@
 #include "veyra/engine/Subtitles.h"
 #include "veyra/engine/PlaybackRate.h"
 #include "veyra/sink/WasapiAudioSink.h"
-#include "veyra/source/CaptureFormatSelection.h"
-#include "veyra/source/CaptureCapabilityRange.h"
-#include "veyra/source/CaptureFormatRank.h"
-#include "veyra/source/CaptureColorOverride.h"
-#include "veyra/source/CaptureFrameRate.h"
-#include "veyra/source/MagewellCapture.h"
-#include "CapturePreferenceStore.h"
 // SDL3-static's system libraries (see CMakeLists: kept off the link line).
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "imm32.lib")
@@ -126,13 +118,7 @@ namespace Gdiplus { using std::min; using std::max; }
 #include <wrl/client.h>
 #include "veyra/ngx/NrArchitecturePolicy.h"
 #include "veyra/ngx/FgCompatibilitySession.h"
-#include "veyra/source/CaptureCardSource.h"
-#include "veyra/source/DeckLinkCapture.h"
-#include "veyra/source/CaptureSignalProbe.h"
-#include "veyra/source/ScreenCaptureSource.h"
-
 namespace veyra::ui {
-class VirtualCaptureAudioSetup;
 namespace bridge_detail {
 inline QString utf8Of(std::string_view s) { return QString::fromUtf8(s.data(), int(s.size())); }
 inline QString utf8Of(const std::wstring& w) { return QString::fromWCharArray(w.c_str(), int(w.size())); }
@@ -322,10 +308,6 @@ struct QmlPlayerBridge::Impl {
     std::wstring exportPresetName;
     QString initialPageOverride;
     QString currentPage;
-    std::wstring captureDevice;
-    QString screenTarget;
-    bool screenCropPreview = false;
-
     QTimer* timer = nullptr;
 
     // Canvas positions of the fixed input / optical-flow / output boxes. They are
@@ -367,14 +349,6 @@ struct QmlPlayerBridge::Impl {
     // Declared after everything the worker touches, so it is joined first.
     std::jthread subAlignWorker;
     QVariantMap prefs;
-    // Live recording state published by the engine (see LiveRecorder.h).
-    QVariantMap recordingState;
-    QVariantMap virtualCameraState;
-    uint64_t recordingSaved = 0;   // LiveRecorder's finished-file counter already announced
-    QVariantMap replayState;       // the instant replay buffer (#103)
-    uint64_t replaySaved = 0;      // its saved-clip counter already announced
-    QVariantList microphones;      // recording endpoints, {id, label}
-    QString microphoneNotice;      // the microphone failure last announced
   // Custom: the display whose HDR curve is currently applied (see syncHdrDisplayProfile).
   QString hdrProfileDisplay;
   // Custom: the title whose curve is currently applied (see syncHdrTitleProfile).
@@ -389,75 +363,22 @@ struct QmlPlayerBridge::Impl {
     QString pendingScreenshot;
     qint64 pendingScreenshotDeadline=0;
     bool holdKeyDown = false;
-    // The last key the shortcut map was offered (ShortcutOverride), named in the
-    // record trigger log: field report 2026-11-08 of recording that toggled on
-    // and off with nothing in the log saying which key or button did it.
-    struct ShortcutKeySeen {
-        int key = 0, modifiers = 0;
-        quint32 virtualKey = 0, scanCode = 0;
-        bool autoRepeat = false;
-        qint64 atMs = 0;
-        QString window;
-    } lastShortcutKey;
     int positionTicks = 0;
+    int uiDeviceGeneration = 0;   // interface scene graphs recreated after a lost device
     // A reopened file resumes here once its session is running.
     uint64_t resumeSession = 0;
     double resumeAt = 0;
     std::vector<sink::RenderEndpoint> audioEndpoints;
-    // --- capture connection (P4-e) ---
-    struct CaptureQuery { int kind = 0; std::wstring device,requestedResolution; std::vector<source::CaptureDevice> video, audio; std::vector<source::CaptureFormat> formats;source::CaptureFormatQueryInfo info; };
-    std::future<CaptureQuery> captureQuery;
-    std::optional<std::pair<int,std::wstring>> captureNextQuery;
-    bool captureBusy = false, captureListed = false, captureResumePending = false;
-    bool captureDriverSettingsOpen = false;
-    std::wstring captureDriverFormatKey;
-    int captureQueryKind = 0;   // 0 device list, 1 formats, 2 formats then connect (continue)
-    std::vector<source::CaptureDevice> captureVideo, captureAudio;
-    std::vector<source::CaptureFormat> captureFormatList;
-    // The capture dialog's lists are built once per input. QML re-reads a list property on
-    // every element access (Qt 6 sequence references), so a getter that rebuilt the list
-    // made `.find()` and VSelect quadratic: 15474 formats hung the interface (logs(18)).
-    // Each cache is checked against what it was built from, not reset by captureChanged:
-    // QML bindings receive a notify signal before any ordinary connection does.
-    uint64_t captureFormatGeneration = 0;   // bumped whenever captureFormatList is replaced
-    int uiDeviceGeneration = 0;   // interface scene graphs recreated after a lost device
-    // One automatic capture-card reconnect after the GPU stopped completing work. Field
-    // logs 56: after the hang and driver reset the session just ended; reconnecting by hand
-    // ran smoothly again. A second GPU failure within ten minutes is left to the user.
-    uint64_t gpuReconnectSession = 0;
-    std::chrono::steady_clock::time_point gpuReconnectDue{}, gpuReconnectLast{};
     // Network sources (#48): damaged data is concealed or skipped without a word per packet;
     // the user hears about it once in a while, and about a successful reconnect.
     uint64_t netNoticeSession = 0, netLossReported = 0;
     uint32_t netReconnectsReported = 0;
     std::chrono::steady_clock::time_point netLossNoticeAt{};
-    struct CaptureListCache { bool valid = false; uint64_t generation = 0; QString language; std::wstring a, b; QVariantList list; };
-    CaptureListCache captureFormatsCache, captureResolutionCache, captureRateCache, capturePixelCache;
     // Settings -> Components and licences. Read once and on refreshComponentList(): the property used to
     // notify with every engine snapshot, so each 60 Hz tick re-read the manifest and
     // rebuilt the page's 49 rows (audit 2026-10-15 B5).
     QVariantList componentList; bool componentListRead = false;
     bool liveCompanionCap = false;   // updateLiveCompanionCompat
-    int captureHiddenRates = 0;   // set with captureRateCache
-    template <class Build> const QVariantList& captureList(CaptureListCache& cache, const std::wstring& a, const std::wstring& b, Build&& build) {
-        const QString language = i18n::current();
-        if (!cache.valid || cache.generation != captureFormatGeneration || cache.language != language || cache.a != a || cache.b != b) {
-            cache.list = build();
-            cache.valid = true; cache.generation = captureFormatGeneration; cache.language = language; cache.a = a; cache.b = b;
-        }
-        return cache.list;
-    }
-    std::wstring captureFormatKey;
-    std::wstring captureResolutionChoice, captureRateChoice;
-    std::wstring captureRequestedResolution;
-    int captureAudioChoice = source::kCaptureAudioDisabled;
-    bool captureVirtualAudioInstalled = false;
-    VirtualCaptureAudioSetup* captureVirtualAudioSetup = nullptr;
-    bool captureAudioMissing = false;
-    unsigned captureColor = 0;
-    double captureFps = 0;
-    QString captureStatus;
-    ui::CapturePreferences capturePrefs;
     // One SDL pad reader shared by PC and Xbox streaming. Each user acquires it
     // and only the last release stops it, so the timer of a source that just
     // ended never cuts off the pad the next source started using.
@@ -473,11 +394,6 @@ struct QmlPlayerBridge::Impl {
         padUsers &= ~user;
         if (!padUsers) controller.stop();
     }
-    // --- screen capture ---
-    std::vector<source::ScreenCaptureTarget> screenList;
-    bool screenFillActive = false;
-    QSize screenFitClient, screenFitImage;
-    double screenFitAspect = -1;
     // --- image batch ---
     QStringList imageFiles;
     QString imageFolder, imageTarget, imageStatus;
@@ -564,15 +480,6 @@ struct QmlPlayerBridge::Impl {
                 id.toStdString(), uint32_t(d.AdapterLuid.HighPart), d.AdapterLuid.LowPart, d.DedicatedVideoMemory >> 20));
         }
     }
-    // Game mode: the native side, the capture it belongs to and what the UI reported.
-    ui::GamePassthrough game;
-    std::wstring gameModeUri;          // the screen URI startScreenCapture opened in game mode
-    uint64_t gameModeSessionId = 0;    // its engine session once the open ran
-    bool gameModeLive = false, gamePanelOpen = false, gameRefused = false;
-    bool gameModeShown = false, passthroughShown = false, gameInputShown = false;
-    QRectF gameVideoRect;
-    QPointer<QWindow> gameWindow;
-    HMONITOR gameMonitor = nullptr;
     // The monitored GPU also computes when Settings -> "use this GPU for compute" is on
     // and a specific GPU (not "auto") is chosen; otherwise the default order.
     QString computeGpuName;
@@ -606,6 +513,8 @@ struct QmlPlayerBridge::Impl {
     bool compareBase = false;
     double compareSplit = 0.5;
     int aspectMode = 0, aspectApplied = 0;
+    QSize appliedClient, appliedImage;
+    double appliedSourceAspect = -1;
     uint64_t aspectSession = 0;
     std::jthread gpuSampler;                 // joined before gpuUtil goes away
     std::filesystem::path prefsFile() const { return dataDir / L"qml-preferences.v1.json"; }
@@ -646,45 +555,6 @@ struct QmlPlayerBridge::Impl {
     int prefInt(const char* key, int fallback) const { return prefs.contains(key) ? prefs.value(key).toInt() : fallback; }
     bool prefBool(const char* key, bool fallback) const { return prefs.contains(key) ? prefs.value(key).toBool() : fallback; }
     QString prefString(const char* key) const { return prefs.value(key).toString(); }
-    void restoreCaptureForm() {
-        captureFps=capturePrefs.requestedFps;
-        captureColor=capturePrefs.colorForDevice(captureDevice);
-        captureAudioChoice=source::kCaptureAudioDisabled;
-        captureAudioMissing=false;
-        if(capturePrefs.audioMode==source::kCaptureAudioFromVideoDevice)captureAudioChoice=source::kCaptureAudioFromVideoDevice;
-        else if(!capturePrefs.audioPath.empty()){
-            captureAudioMissing=true;
-            for(size_t k=0;k<captureAudio.size();++k)
-                if(captureAudio[k].path==capturePrefs.audioPath&&captureAudio[k].audioMode()==capturePrefs.audioMode){
-                    captureAudioChoice=int(k);captureAudioMissing=false;break;
-                }
-        }
-    }
-    bool persistCaptureSelection(bool explicitFormat = false) {
-        if(captureDevice.empty())return true; // Disconnecting a card must retain it.
-        const bool sameDevice=capturePrefs.videoPath==captureDevice;
-        capturePrefs.videoPath=captureDevice;
-        // An unavailable saved type has no active selection. Editing another
-        // control must retain its key until the user explicitly picks a new type.
-        if(explicitFormat||!captureFormatKey.empty()||!sameDevice)capturePrefs.formatKey=captureFormatKey;
-        if(explicitFormat){
-            // A partial form is a deliberate choice too. Keep it without
-            // upgrading capture-preferences.v1 or inventing a concrete format.
-            prefs["captureDraftDevice"]=utf8Of(captureDevice);
-            prefs["captureDraftResolution"]=utf8Of(captureResolutionChoice);
-            prefs["captureDraftRate"]=utf8Of(captureRateChoice);
-            if(!savePrefs())return false;
-        }
-        capturePrefs.colorOverride=captureColor;capturePrefs.requestedFps=captureFps;
-        if(capturePrefs.deviceColors.size()<128||capturePrefs.deviceColors.contains(captureDevice))capturePrefs.deviceColors[captureDevice]=captureColor;
-        if(!captureAudioMissing){
-            const auto* audio=captureAudioChoice>=0&&size_t(captureAudioChoice)<captureAudio.size()?&captureAudio[size_t(captureAudioChoice)]:nullptr;
-            capturePrefs.audioPath=audio?audio->path:std::wstring{};
-            capturePrefs.audioMode=audio?audio->audioMode():captureAudioChoice;
-        }
-        if(ui::CapturePreferenceStore(dataDir).save(capturePrefs))return true;
-        veyra::log::error("capture-ui","capture settings could not be saved");return false;
-    }
     Impl(engine::EngineController& e, std::filesystem::path dataDirectory)
         : engine(e), facade(e, dataDirectory),
           dataDir(dataDirectory.empty() ? runtime::localDataDirectory() : dataDirectory) {

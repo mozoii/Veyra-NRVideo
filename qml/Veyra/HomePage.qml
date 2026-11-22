@@ -1,7 +1,7 @@
 // Home page, rebuilt from the design (pages-a.js PAGES.home + pages.css .home).
 //
 // The design is: a large logo, a two-line greeting, a 4-up grid of source cards
-// (164x124 each), a "continue last capture" row, and a row of recent chips.
+// (164x124 each), a "continue last session" row, and a row of recent chips.
 // The logo in the dock returns here; there is no other home affordance.
 import QtQuick
 import QtQuick.Controls
@@ -15,13 +15,6 @@ VPage {
     readonly property Item onboardingEntry: guideEntry
     readonly property alias sourceViewport: homeScroll
     readonly property bool compact: height < 500
-    function captureCard() {
-        for (let i = 0; i < sourceCards.count; ++i) {
-            const slot = sourceCards.itemAt(i)
-            if (slot && slot.modelData.act === "capture") return slot.card
-        }
-        return null
-    }
     // The coffee line under the title: Main opens Settings → Sponsors.
     signal requestSponsor()
     // Main.qml keeps the dusk wordmark hidden while the startup intro (DuskIntro.qml) flies a
@@ -214,8 +207,8 @@ VPage {
             readonly property int cardWidth: root.compact
                 ? Math.max(1, Math.min(164, Math.floor((Layout.preferredWidth - 5 * spacing) / 6))) : 164
             readonly property int cardHeight: root.compact ? 80 : 124
-            // Subtitles name what is really there: the device of the last capture
-            // session and the saved streaming host; generic wording when there is none.
+            // Subtitles name what is really there: the saved streaming host;
+            // generic wording when there is none.
             // Only the subtitle follows the live state. The cards themselves are a fixed
             // list: when the whole array was one binding, every Xbox / PC state change
             // (polling after sign-in) destroyed and rebuilt all six cards, and a click
@@ -223,20 +216,18 @@ VPage {
             function cardSub(act) {
                 switch (act) {
                 case "file": return qsTr("MP4 · MKV · images")
-                case "capture": return veyra.hasCaptureSession ? veyra.captureSessionSummary.split(" · ")[0] : qsTr("HDMI capture device")
                 case "moonlight": return veyra.moonlight && veyra.moonlight.state.lastLabel ? veyra.moonlight.state.lastLabel : qsTr("Sunshine host")
                 case "xbox": return veyra.xbox && veyra.xbox.state.lastLabel ? veyra.xbox.state.lastLabel : qsTr("Account sign-in · experimental")
-                default: return qsTr("Window or display")
+                default: return qsTr("Network stream")
                 }
             }
             Repeater {
                 id: sourceCards
                 model: [
                     { glyph: "folder", title: qsTr("Open video"), act: "file" },
-                    { glyph: "video", title: qsTr("Capture card"), act: "capture" },
                     { glyph: "cast", title: qsTr("PC streaming"), act: "moonlight" },
                     { glyph: "gamepad", title: qsTr("Xbox streaming"), act: "xbox" },
-                    { glyph: "monitor", title: qsTr("Screen capture"), act: "screen" }
+                    { glyph: "cast", title: qsTr("Network stream"), act: "network" }
                 ]
                 // The layout owns the slot's position, so the card inside it is free to
                 // move its own y for the hover lift (a y set on a layout child is
@@ -320,10 +311,8 @@ VPage {
                             veyra.logUi("ui-source", "home card act=" + modelData.act)
                             switch (modelData.act) {
                             case "file": veyra.openFileDialog(); break
-                            case "capture": veyra.openCaptureDialog(); break
                             case "moonlight": veyra.openMoonlightDialog(); break
                             case "xbox": veyra.openXboxDialog(); break
-                            case "screen": veyra.openScreenCaptureDialog(); break
                             }
                         }
                     }
@@ -341,13 +330,13 @@ VPage {
         }
 
         // .resume: 692 wide, an accent-tinted gradient plate, shown only when a
-        // capture session was actually used before. Nothing invented: the text is
-        // the recorded session, and the row is absent when there is none.
+        // source was actually used before. Nothing invented: the text is the
+        // remembered session, and the row is absent when there is none.
         Rectangle {
             id: resume
             objectName: "home-resume"
             Layout.alignment: Qt.AlignHCenter
-            // The last source actually used: capture card or screen capture.
+            // The last source actually used: a file, a stream or a network address.
             readonly property var last: veyra.lastSource
             visible: last.kind !== undefined
             implicitWidth: srcGrid.width
@@ -370,7 +359,7 @@ VPage {
                     color: Theme.accentSoft
                     VIcon {
                         anchors.centerIn: parent
-                        name: resume.last.kind === "screen" ? "monitor" : resume.last.kind === "capture" ? "video" : "gamepad"
+                        name: resume.last.kind === "file" ? "folder" : resume.last.kind === "network" ? "link" : "gamepad"
                         color: Theme.accent
                     }
                 }

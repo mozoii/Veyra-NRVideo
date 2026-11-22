@@ -10,17 +10,9 @@ Item {
     anchors.fill: parent
     z: 100
 
-    // Active dialog: network/capture/moonlight/xbox/screen/subtitle/audio/save/manage.
+    // Active dialog: network/moonlight/xbox/subtitle/audio/save/manage.
     property string dialog: ""
     property bool onboardingActive: false
-    readonly property alias captureSettings: captureDialog
-    readonly property bool captureGuideOpen: captureGuide.visible
-    onDialogChanged: {
-        if (dialog !== "capture") {
-            legacyCapturePicker.close()
-            captureGuide.close()
-        }
-    }
 
     function open(key) {
         if (key === "save") saveDialog.resetForOpen()
@@ -33,23 +25,9 @@ Item {
     }
     function close() { host.dialog = "" }
 
+    // The dialogs ask the shell to move to the picture once a source starts.
     signal startMoonlight()
     signal startXbox()
-    signal startScreen()
-    signal startScreenCrop()
-
-    CaptureGuideDialog { id: captureGuide }
-
-    CaptureLegacyPicker {
-        id: legacyCapturePicker
-        formats: visible ? veyra.captureFormats : []
-        selectedKey: veyra.captureFormatKey
-        onSelected: key => { if (!veyra.captureQueryBusy) veyra.captureFormatKey = key }
-    }
-    Connections {
-        target: veyra
-        function onCaptureChanged() { if (veyra.captureQueryBusy) legacyCapturePicker.close() }
-    }
 
     // Scrim (M16): the design dims the page behind the dialog, opacity .2s linear.
     // The native video window cannot be dimmed from QML; only the dialog panel is cut
@@ -72,19 +50,6 @@ Item {
         dialogHost: host
     }
 
-    // --- Capture card -------------------------------------------------------------
-    // The 1.4.4 capture panel, in the new design: device details and formats are
-    // queried asynchronously, only an explicitly chosen audio input is opened,
-    // and the choice is remembered for "resume the last capture". Resolution, frame rate and
-    // pixel format are three views of that one saved format key.
-    CaptureSourceDialog {
-        id: captureDialog
-        dialogHost: host
-        onboardingActive: host.onboardingActive
-        legacyPicker: legacyCapturePicker
-        onGuideRequested: captureGuide.open()
-    }
-
     // --- PC streaming (Sunshine / GameStream) ------------------------------------
     // Hosts, pairing, the host's apps and the stream-core settings. The effect chain is not here: once
     // connected, the picture goes through the software's own pages like any other source.
@@ -99,12 +64,6 @@ Item {
     XboxSourceDialog {
         id: xbDialog
         dialogHost: host    }
-
-    // --- Screen capture ---------------------------------------------------
-    ScreenSourceDialog {
-        id: screenDialog
-        dialogHost: host
-    }
 
     // --- Subtitle settings --------------------------------------------------
     SubtitleSettingsDialog {

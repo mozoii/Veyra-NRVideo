@@ -3,15 +3,12 @@
 #include "../../apps/veyra/ui/WorkspaceTransition.h"
 #include "../../apps/veyra/ui/TransportLayout.h"
 #include "../../apps/veyra/ui/UiPreferenceStore.h"
-#include "../../apps/veyra/ui/CapturePreferenceStore.h"
 #include "../../apps/veyra/ui/SourceTitle.h"
 #include "veyra/engine/EngineController.h"
 #include "veyra/engine/EffectChain.h"
 #include "../../apps/veyra/ui/LiveStatusHistory.h"
 #include "veyra/sink/AudioGain.h"
 #include "veyra/engine/PreviewView.h"
-#include "veyra/source/CaptureAudioClock.h"
-#include "veyra/source/DeckLinkInputConnection.h"
 #include "veyra/ui/InterfaceRenderer.h"
 #include <iostream>
 #include <vector>
@@ -101,35 +98,31 @@ void outputRateContracts(){
     require(std::wstring(h.rateStatus(s))==L"Frame generation stepped down","uncapped FG admission shortfall retains its own warning");
     std::cout<<"PASS output-rate policy: dedup, static, half-rate, display sync, caps, provider, speed, comparison, real deficits and resets\n";
 }
-// Settings → interface rendering (2026-10-26): software unless GPU is chosen; the OBS and overlay-compat
-// rules and VEYRA_UI_RHI keep the meaning they had before the default changed.
+// Settings → interface rendering (2026-10-26): software unless GPU is chosen; the overlay-compat
+// rule and VEYRA_UI_RHI keep the meaning they had before the default changed.
 static void interfaceRendererContracts(){
     using namespace veyra::ui;
     using R=InterfaceRendererReason;
-    auto decide=[](bool gpu,bool obs,bool autoCompat,bool overlay,bool restart,bool forced){
-        return decideInterfaceRenderer({gpu,obs,autoCompat,overlay,restart,forced});
+    auto decide=[](bool gpu,bool autoCompat,bool overlay,bool restart,bool forced){
+        return decideInterfaceRenderer({gpu,autoCompat,overlay,restart,forced});
     };
-    auto d=decide(false,false,true,false,false,false);
+    auto d=decide(false,true,false,false,false);
     require(d.software&&d.reason==R::Default&&!d.overlayCompat,"a fresh profile draws the interface in software");
-    d=decide(true,false,true,false,false,false);
+    d=decide(true,true,false,false,false);
     require(!d.software&&d.reason==R::Gpu,"GPU chosen and nothing to stay compatible with: GPU interface");
-    d=decide(true,false,true,true,false,false);
+    d=decide(true,true,true,false,false);
     require(d.software&&d.reason==R::OverlayCompat&&d.overlayCompat,"GPU chosen, an overlay at start and overlay compatibility auto: software as before");
-    d=decide(true,false,false,true,false,false);
+    d=decide(true,false,true,false,false);
     require(!d.software&&!d.overlayCompat,"GPU chosen with overlay compatibility off stays GPU next to an overlay, as before");
-    d=decide(true,false,true,false,true,false);
+    d=decide(true,true,false,true,false);
     require(d.software&&d.reason==R::OverlayCompat,"an accepted compatibility restart draws in software");
-    for(bool gpu:{false,true})for(bool forced:{false,true}){
-        d=decide(gpu,true,true,true,false,forced);
-        require(d.software&&d.reason==R::ObsGameCapture&&!d.overlayCompat,"OBS game capture always draws in software");
-    }
-    d=decide(false,false,true,true,false,false);
+    d=decide(false,true,true,false,false);
     require(d.software&&d.reason==R::OverlayCompat&&d.overlayCompat,"software default with an overlay still reports the compatibility rule");
     for(bool gpu:{false,true})for(bool overlay:{false,true}){
-        d=decide(gpu,false,true,overlay,false,true);
+        d=decide(gpu,true,overlay,false,true);
         require(!d.software&&d.reason==R::Gpu&&!d.overlayCompat,"VEYRA_UI_RHI picks a GPU renderer and skips the compatibility rule");
     }
-    std::cout<<"PASS interface renderer: software default, GPU choice, OBS / overlay compatibility and VEYRA_UI_RHI precedence\n";
+    std::cout<<"PASS interface renderer: software default, GPU choice, overlay compatibility and VEYRA_UI_RHI precedence\n";
 }
 int wmain(int argc,wchar_t** argv){try{
     using namespace veyra;
@@ -164,7 +157,6 @@ int wmain(int argc,wchar_t** argv){try{
         v.zoom=3;v.centerX=.2f;v.rotateClockwise();
         require(v.zoom==1&&v.centerX==.5f&&v.centerY==.5f,"rotation recentres a zoomed picture");
     }
-    {source::CaptureAudioClock c;require(c.observe({},100,10,false)==100,"untimed audio anchors to arrival");require(c.observe({},170,10,false)==110,"driver arrival jitter cannot stretch untimed PCM");require(c.observe(120,180,10,false)==120,"valid driver timestamp takes precedence");require(c.observe({},190,10,false)==130,"missing timestamps continue from valid samples");require(c.observe({},500,10,true)==500,"discontinuity reanchors untimed audio");require(c.observe(0,510,10,true)==0,"timestamp zero remains valid");}
     {
         ui::live_status::DashboardHistory history;engine::PlayerSnapshot s;
         s.running=s.capture=true;s.transport=engine::TransportState::Playing;s.sessionId=1;s.applied.revision=1;
@@ -202,7 +194,7 @@ int wmain(int argc,wchar_t** argv){try{
     for(bool input:{false,true})for(bool display:{false,true})for(bool force:{false,true}){engine::EnhancementSettings s;s.forceSdrPreview=force;require(s.useHdrPreview(input,display)==(input&&display&&!force),"HDR output policy");}
     ui::ChromeLayout daily(1440,900,false,false);require(daily.left==0&&daily.top==0&&daily.viewWidth==1440&&daily.viewHeight==812&&daily.bottom==812,"daily video owns all space above transport");
     for(int width:{688,768,868,928,1008,1040,1148,1248,1888,2528}){
-        ui::TransportLayout t(width,true);std::vector<ui::TransportSlot> slots={t.open,t.capture,t.recent,t.master,t.sr,t.stop,t.play,t.mute,t.volume,t.subtitle,t.fullscreen,t.mode,t.minimize,t.close};
+        ui::TransportLayout t(width,true);std::vector<ui::TransportSlot> slots={t.open,t.recent,t.master,t.sr,t.stop,t.play,t.mute,t.volume,t.subtitle,t.fullscreen,t.mode,t.minimize,t.close};
         for(size_t i=0;i<slots.size();++i){require(slots[i].width>0&&slots[i].x>=0&&slots[i].x+slots[i].width<=width,"all daily actions visible and contained");for(size_t j=0;j<i;++j)require(slots[i].x>=slots[j].x+slots[j].width||slots[j].x>=slots[i].x+slots[i].width,"direct daily actions do not overlap");}
     }
     for(int width:{290,400,480,508,700,1000}){ui::TransportLayout t(width,false);require(t.play.x+t.play.width<=t.mute.x&&t.stop.x+t.stop.width<=t.mute.x,"compact professional transport leaves room for audio and subtitle controls");}
@@ -218,63 +210,7 @@ int wmain(int argc,wchar_t** argv){try{
         auto portrait=ResolutionPlan::make({1080,1920},false,policy,false).nr;
         require(std::abs(double(portrait.width)/portrait.height-1080.0/1920)<.005,"NR portrait aspect retained");
     }
-    if(argc>1){
-        ui::CapturePreferenceStore store(argv[1]);ui::CapturePreferences p{L"\\\\?\\usb#video-\u91c7\u96c6",L"1920:1080:166833:{SUBTYPE}:RGB32",L"{audio-endpoint}",-3,2};
-        require(store.load().videoPath.empty(),"fresh capture preference empty");require(store.save(p),"capture preference atomic save");
-        const auto restored=store.load();require(restored.videoPath==p.videoPath&&restored.formatKey==p.formatKey&&restored.audioPath==p.audioPath&&restored.audioMode==p.audioMode&&restored.colorOverride==p.colorOverride,"capture stable identifiers and Unicode round trip");
-        auto virtualSpeaker=p;
-        virtualSpeaker.audioMode=source::kCaptureAudioVirtualSpeaker;
-        require(store.save(virtualSpeaker),"save explicit virtual speaker audio");
-        const auto virtualRestored=store.load();
-        require(virtualRestored.audioMode==source::kCaptureAudioVirtualSpeaker&&virtualRestored.audioPath==virtualSpeaker.audioPath,
-                "virtual speaker transport and endpoint survive reopening preferences");
-        for(uint32_t connection:{1u,2u}){
-            auto native=p;native.videoPath=source::decklink::inputConnectionPath(L"decklink-native:p:0000000000000123:0",connection);native.formatKey=L"decklink:auto";
-            require(store.save(native),"save BMD explicit connection using existing preference format");
-            const auto resumed=store.load();require(resumed.videoPath==native.videoPath&&resumed.formatKey==native.formatKey&&source::decklink::inputConnectionSelection(resumed.videoPath).connection==connection,"resume keeps exact HDMI or SDI connection and automatic signal mode");
-        }
-        for(double fps:{0.0,29.97,30.0,40.0,50.0,60.0}){p.requestedFps=fps;require(store.save(p)&&store.load().requestedFps==fps,"device capture rate survives restart");}
-        p.requestedFps=-1;require(!store.save(p),"invalid capture rate not persisted");
-        p.requestedFps=0;p.colorOverride=5;p.deviceColors={{L"card-A",5},{L"card-B",10}};
-        require(store.save(p),"per-device capture color save");
-        const auto profiles=store.load();
-        require(profiles.colorForDevice(L"card-A")==5&&profiles.colorForDevice(L"card-B")==10&&profiles.colorForDevice(L"new-card")==0,"independent device PQ limited and HLG full survive restart");
-        p.colorOverride=12;require(!store.save(p),"invalid packed color rejected");
-        for(unsigned space=0;space<4;++space)for(unsigned range=0;range<3;++range){
-            const unsigned packed=source::captureColorOverride(space,range);
-            pipeline::ColorDescription color; color.range=pipeline::ColorRange::Full;
-            source::applyCaptureColorOverride(color,packed);
-            require(source::validCaptureColorOverride(packed)&&source::captureColorSpace(packed)==space&&source::captureColorRange(packed)==range,"capture color encoding round trip");
-            require(color.range==(range==1?pipeline::ColorRange::Limited:pipeline::ColorRange::Full),"range auto preserves metadata, manual wins");
-            if(space)require(color.transfer==(space==1?pipeline::TransferFunction::PQ:space==2?pipeline::TransferFunction::HLG:pipeline::TransferFunction::BT709)&&!color.transferAssumed&&!color.matrixAssumed&&color.preserveSdrCodeValues==(space==3),"manual color transfer and SDR preservation contract");
-        }
-        for(int version:{1,2}){
-            std::wstring legacy=L"VEYRA_CAPTURE "+std::to_wstring(version)+L"\n\"video\" \"format\" -1 \"\" 0"+(version==2?L" 1":L"")+L"\n";
-            {std::ofstream file(std::filesystem::path(argv[1])/"capture-preferences.v1",std::ios::binary|std::ios::trunc);file.write(reinterpret_cast<const char*>(legacy.data()),std::streamsize(legacy.size()*sizeof(wchar_t)));}
-            const auto old=store.load();require(old.videoPath==L"video"&&old.requestedFps==0&&old.formatHintDismissed==(version==2),"old capture preferences migrate without changing device rate");
-        }
-    }
-    {
-        double fps=0;
-        for(auto value:{L"nan",L"inf",L"-1",L"0.5",L"1001",L"30x",L"30.0.1",L"",L"30?fps=60"})require(!source::parseCaptureFrameRate(value,fps),"invalid device rate rejected");
-        require(source::parseCaptureFrameRate(L"29.97",fps)&&fps==29.97,"fractional rate accepted");
-        require(source::captureFrameInterval(30)==333333&&source::captureFrameInterval(40)==250000,"device receives 100ns intervals");
-        require(source::captureFrameRateMatches(30,333667)&&!source::captureFrameRateMatches(30,166667)&&!source::captureFrameRateMatches(40,333333),"driver rounded or ignored rate distinguished");
-    }
     require(ResolutionPlan::make({1448,1086},true,NrSizePolicy::Native,true).output==Extent{2880,2160},"4:3 SR preserves aspect");
-    {
-        // A live capture card shares its window list entry with every external
-        // broadcast tool. The encoded connection string must never become the
-        // window title again (it made the live window unrecognisable).
-        const std::wstring encoded=L"capture2:005C005C003F005C0075007300620023007600690064005F003300340035006600:0:0:005C005C003F005C0061007500640069006F:0";
-        require(ui::isCaptureCardSource(encoded)&&ui::isCaptureCardSource(L"capture:0:1:-1:0"),"capture connection strings detected");
-        require(ui::windowTitleForSource(encoded)==L"Veyra — capture card · LIVE","capture2 connection string never becomes the window title");
-        require(ui::windowTitleForSource(L"capture:0:1:-1:0")==L"Veyra — capture card · LIVE","legacy capture connection string never becomes the window title");
-        require(ui::windowTitleForSource(L"D:\\media\\clip.mp4")==L"Veyra — clip.mp4","file title keeps the file name");
-        require(ui::windowTitleForSource(L"")==L"Veyra — local experimental build","empty source restores the default title");
-        for(const auto& title:{ui::windowTitleForSource(encoded),ui::windowTitleForSource(L"capture:0:1:-1:0")})
-            require(title.find(L"capture2:")==std::wstring::npos&&title.find(L"capture:")==std::wstring::npos&&title.find(L'\\')==std::wstring::npos&&title.size()<64,"exposed window title stays short and path free");
-    }
     require(ResolutionPlan::make({1080,1920},true,NrSizePolicy::Native,true).output==Extent{1214,2160},"portrait SR even dimensions");
     require(!ResolutionPlan::make({2880,2160},true,NrSizePolicy::Native,true).srApplied,"already maximum edge skips SR");
     require(ResolutionPlan::make({1920,1080},true,NrSizePolicy::Realtime,false).output==Extent{3840,2160},"16:9 SR unchanged");

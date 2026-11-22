@@ -55,6 +55,8 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(bool fgAutoMultiplierEnabled READ fgAutoMultiplier WRITE setFgAutoMultiplier NOTIFY settingsChanged)
     Q_PROPERTY(bool fgAutoMultiplierAvailable READ fgAutoMultiplierAvailable NOTIFY settingsChanged)
     Q_PROPERTY(bool doviFollow READ doviFollow WRITE setDoviFollow NOTIFY settingsChanged)
+    // Show an HDR source as SDR; the same setting whatever the source.
+    Q_PROPERTY(bool forceSdrPreview READ forceSdrPreview WRITE setForceSdrPreview NOTIFY settingsChanged)
     Q_PROPERTY(bool doviP7Compose READ doviP7Compose WRITE setDoviP7Compose NOTIFY settingsChanged)
     Q_PROPERTY(bool doviFollowAverage READ doviFollowAverage WRITE setDoviFollowAverage NOTIFY settingsChanged)
     Q_PROPERTY(QString outputSummary READ outputSummary NOTIFY snapshotChanged)
@@ -118,72 +120,10 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QVariantList componentList READ componentList NOTIFY componentListChanged)
     Q_PROPERTY(QObject* updates READ updates CONSTANT)
 
-    // --- capture dialog ----------------------------------------------------
-    // Device and format lists come from the source's own enumeration, so the UI
-    // can only offer what the machine actually reports.
-    Q_PROPERTY(QVariantList captureDevices READ captureDevices NOTIFY captureChanged)
-    Q_PROPERTY(QString captureDeviceId READ captureDeviceId WRITE setCaptureDeviceId NOTIFY captureChanged)
-    Q_PROPERTY(QString captureDeviceLabel READ captureDeviceLabel NOTIFY captureChanged)
-    Q_PROPERTY(bool captureBlackmagicDevice READ captureBlackmagicDevice NOTIFY captureChanged)
-    Q_PROPERTY(bool captureForceSdr READ captureForceSdr WRITE setCaptureForceSdr NOTIFY settingsChanged)
     Q_PROPERTY(bool amdNrGpu READ amdNrGpu CONSTANT)
     Q_PROPERTY(QVariantMap effectCapabilities READ effectCapabilities NOTIFY effectCapabilitiesChanged)
     Q_PROPERTY(QVariantList nrRuntimeChoices READ nrRuntimeChoices NOTIFY effectCapabilitiesChanged)
     Q_PROPERTY(QVariantList srBackendChoices READ srBackendChoices NOTIFY effectCapabilitiesChanged)
-    Q_PROPERTY(bool captureFlipVertical READ captureFlipVertical WRITE setCaptureFlipVertical NOTIFY settingsChanged)
-    // P4-e: the full capture connection, as the 1.4.4 panel: device details and
-    // formats come from asynchronous DirectShow queries (never on the UI thread),
-    // the choice is remembered in capture-preferences.v1 for "continue".
-    Q_PROPERTY(QVariantList captureFormats READ captureFormats NOTIFY captureChanged)
-    Q_PROPERTY(QString captureFormatKey READ captureFormatKey WRITE setCaptureFormatKey NOTIFY captureChanged)
-    // The selected format's label ("" when none) and whether it gets the cost hint, so the
-    // dialog never searches captureFormats itself (logs(18): 15474 formats hung it).
-    Q_PROPERTY(QString captureFormatLabel READ captureFormatLabel NOTIFY captureChanged)
-    Q_PROPERTY(bool captureFormatCostHint READ captureFormatCostHint NOTIFY captureChanged)
-    // Resolution, frame rate and pixel format are three views of captureFormatKey.
-    // Changing one retargets that key to a media type the device actually enumerated.
-    Q_PROPERTY(QVariantList captureResolutionOptions READ captureResolutionOptions NOTIFY captureChanged)
-    Q_PROPERTY(QString captureResolutionId READ captureResolutionId WRITE setCaptureResolutionId NOTIFY captureChanged)
-    Q_PROPERTY(QVariantList captureFrameRateOptions READ captureFrameRateOptions NOTIFY captureChanged)
-    // Rates the frame-rate menu leaves out unless preferences.captureShowAllFrameRates is on
-    // (0: the card offers nothing beyond the common rates, so the switch is not shown).
-    Q_PROPERTY(int captureHiddenFrameRates READ captureHiddenFrameRates NOTIFY captureChanged)
-    Q_PROPERTY(QString captureFrameRateId READ captureFrameRateId WRITE setCaptureFrameRateId NOTIFY captureChanged)
-    Q_PROPERTY(QVariantList capturePixelOptions READ capturePixelOptions NOTIFY captureChanged)
-    Q_PROPERTY(QString capturePixelId READ capturePixelId WRITE setCapturePixelId NOTIFY captureChanged)
-    Q_PROPERTY(QVariantList captureAudioInputs READ captureAudioInputs NOTIFY captureChanged)
-    Q_PROPERTY(int captureAudioChoice READ captureAudioChoice WRITE setCaptureAudioChoice NOTIFY captureChanged)
-    Q_PROPERTY(bool captureVirtualAudioInstalled READ captureVirtualAudioInstalled NOTIFY captureChanged)
-    Q_PROPERTY(bool captureVirtualAudioRemovalBlocked READ captureVirtualAudioRemovalBlocked NOTIFY snapshotChanged)
-    Q_PROPERTY(bool captureVirtualAudioBusy READ captureVirtualAudioBusy NOTIFY captureChanged)
-    Q_PROPERTY(int captureColorSpace READ captureColorSpace WRITE setCaptureColorSpace NOTIFY captureChanged)
-    Q_PROPERTY(int captureColorRange READ captureColorRange WRITE setCaptureColorRange NOTIFY captureChanged)
-    Q_PROPERTY(double captureRequestedFps READ captureRequestedFps WRITE setCaptureRequestedFps NOTIFY captureChanged)
-    Q_PROPERTY(int captureAudioIngress READ captureAudioIngress WRITE setCaptureAudioIngress NOTIFY settingsChanged)
-    Q_PROPERTY(int captureBufferMode READ captureBufferMode WRITE setCaptureBufferMode NOTIFY settingsChanged)
-    Q_PROPERTY(bool captureQueryBusy READ captureQueryBusy NOTIFY captureChanged)
-    Q_PROPERTY(QString captureStatus READ captureStatus NOTIFY captureChanged)
-    // Magewell Pro Capture low-latency mode (MagewellCapture.h): whether the selected device is
-    // one, and a one-line state (active with its latency, missing runtime, or why it fell back).
-    Q_PROPERTY(bool captureMagewellDevice READ captureMagewellDevice NOTIFY captureChanged)
-    Q_PROPERTY(QString captureMagewellStatus READ captureMagewellStatus NOTIFY snapshotChanged)
-
-    // --- screen-capture dialog ---------------------------------------------
-    Q_PROPERTY(QVariantList screenTargets READ screenTargets NOTIFY captureChanged)
-    Q_PROPERTY(QString screenTargetId READ screenTargetId WRITE setScreenTargetId NOTIFY captureChanged)
-    Q_PROPERTY(QString screenTargetLabel READ screenTargetLabel NOTIFY captureChanged)
-    // Screen capture options (ScreenCaptureOptions): kind 0 window / 1 monitor,
-    // method 0 WGC / 1 DXGI (monitor only), fps cap index into {follow,30,60,120,144,240},
-    // pointer, crop margins in source pixels, and "fill the window".
-    Q_PROPERTY(QVariantMap screenOptions READ screenOptions NOTIFY captureChanged)
-    // Game mode (screen option "passthrough", ui/GamePassthrough.h): gameMode while the
-    // current source is such a capture (opening or live); passthroughActive while the
-    // fullscreen picture is click-through and the captured program has the input.
-    Q_PROPERTY(bool gameMode READ gameMode NOTIFY gameModeChanged)
-    Q_PROPERTY(bool passthroughActive READ passthroughActive NOTIFY gameModeChanged)
-    Q_PROPERTY(bool gameInputActive READ gameInputActive NOTIFY gameModeChanged)
-    Q_PROPERTY(bool gameScaledPreview READ gameScaledPreview NOTIFY gameModeChanged)
-    Q_PROPERTY(QRectF gameVideoRect READ gameVideoRect NOTIFY gameModeChanged)
 
     // Subtitles (P4-c): the engine's SubtitleLoader reads the embedded tracks and
     // the same-name external file; the old shell's SubtitleOverlay draws them as a
@@ -219,35 +159,11 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString uiLanguage READ uiLanguage NOTIFY preferencesChanged)
     Q_PROPERTY(QString screenshotDirectory READ screenshotDirectory NOTIFY preferencesChanged)
     Q_PROPERTY(QString lastScreenshot READ lastScreenshot NOTIFY preferencesChanged)
-    // Live recording of the processed picture: the engine owns the encoder and
-    // the file, the interface shows the state and starts or stops it.
-    Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
-    Q_PROPERTY(bool virtualCameraEnabled READ virtualCameraEnabled NOTIFY virtualCameraChanged)
-    Q_PROPERTY(QVariantMap virtualCameraState READ virtualCameraState NOTIFY virtualCameraChanged)
-    Q_PROPERTY(int virtualCameraFps READ virtualCameraFps NOTIFY preferencesChanged)
-    Q_PROPERTY(QVariantMap recordingState READ recordingState NOTIFY recordingChanged)
-    Q_PROPERTY(QString recordingDirectory READ recordingDirectory NOTIFY preferencesChanged)
-    Q_PROPERTY(int recordingBitrateMbps READ recordingBitrateMbps NOTIFY preferencesChanged)
-    Q_PROPERTY(int recordingFpsLimit READ recordingFpsLimit NOTIFY preferencesChanged)
-    Q_PROPERTY(bool recordingHevc READ recordingHevc NOTIFY preferencesChanged)
-    Q_PROPERTY(bool recordingAudio READ recordingAudio NOTIFY preferencesChanged)
-    // Microphone (#101): mixed into the recorded sound, or on a track of its own.
-    Q_PROPERTY(bool recordingMicrophone READ recordingMicrophone NOTIFY preferencesChanged)
-    Q_PROPERTY(QString recordingMicrophoneId READ recordingMicrophoneId NOTIFY preferencesChanged)
-    Q_PROPERTY(bool recordingMicrophoneTrack READ recordingMicrophoneTrack NOTIFY preferencesChanged)
-    Q_PROPERTY(QVariantList microphoneDevices READ microphoneDevices NOTIFY microphoneDevicesChanged)
-    // Instant replay (#103): while enabled, the last replaySeconds of the
-    // presented picture and sound stay in memory; saveReplay() writes them
-    // next to the recordings.
-    Q_PROPERTY(bool replayEnabled READ replayEnabled NOTIFY preferencesChanged)
-    Q_PROPERTY(int replaySeconds READ replaySeconds NOTIFY preferencesChanged)
-    Q_PROPERTY(QVariantMap replayState READ replayState NOTIFY replayChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory CONSTANT)
     // Rebindable shortcuts: action -> key sequence text (defaults merged in).
     Q_PROPERTY(QVariantMap shortcuts READ shortcuts NOTIFY preferencesChanged)
     // The interface scale chosen for the next start (0 = follow Windows).
     Q_PROPERTY(int uiScaleActive READ uiScaleActive CONSTANT)
-    Q_PROPERTY(bool obsGameCaptureActive READ obsGameCaptureActive CONSTANT)
     // This run draws the interface in software because RivaTuner (RTSS) was running at start
     // (Settings → overlay compatibility, main.cpp): its OSD then sits on the video only.
     Q_PROPERTY(bool overlayCompatActive READ overlayCompatActive CONSTANT)
@@ -323,7 +239,6 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString nrAutoStatus READ nrAutoStatus NOTIFY snapshotChanged)
     Q_PROPERTY(bool srActive READ srActive NOTIFY snapshotChanged)
     Q_PROPERTY(bool fgActive READ fgActive NOTIFY snapshotChanged)
-    Q_PROPERTY(bool captureRecovering READ captureRecovering NOTIFY snapshotChanged)
     Q_PROPERTY(double captureFps READ captureFps NOTIFY snapshotChanged)
     Q_PROPERTY(double captureDropped READ captureDropped NOTIFY snapshotChanged)
     Q_PROPERTY(QString backendWarning READ backendWarning NOTIFY snapshotChanged)
@@ -529,12 +444,6 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(int exportSubtitlePolicy READ exportSubtitlePolicy NOTIFY exportChanged)
     Q_PROPERTY(bool exportSelectionEditable READ exportSelectionEditable NOTIFY exportChanged)
     Q_PROPERTY(bool exportCompletionSound READ exportCompletionSound WRITE setExportCompletionSound NOTIFY exportChanged)
-    // Capture dialog preview: the session's poster still (the engine's own
-    // first-frame poster), as a data URL; "" when the session has none. Never a
-    // periodic readback: that would stall the live capture path.
-    Q_PROPERTY(QString capturePreviewUrl READ capturePreviewUrl NOTIFY snapshotChanged)
-    Q_PROPERTY(QString captureSignalText READ captureSignalText NOTIFY snapshotChanged)
-    Q_PROPERTY(QString captureSignalLevel READ captureSignalLevel NOTIFY snapshotChanged)
     // A live source (capture / stream) that is still opening: what the picture area
     // says meanwhile ("" once it plays or when nothing is opening).
     Q_PROPERTY(QString liveOpeningText READ liveOpeningText NOTIFY snapshotChanged)
@@ -578,10 +487,6 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QString currentPresetName READ currentPresetName NOTIFY settingsChanged)
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY snapshotChanged)
     Q_PROPERTY(int selectedAudioTrack READ selectedAudioTrack WRITE setSelectedAudioTrack NOTIFY snapshotChanged)
-    // The last capture session the user actually ran, for the home page's
-    // "continue" row. Absent until one exists: nothing is invented.
-    Q_PROPERTY(bool hasCaptureSession READ hasCaptureSession NOTIFY snapshotChanged)
-    Q_PROPERTY(QString captureSessionSummary READ captureSessionSummary NOTIFY snapshotChanged)
     Q_PROPERTY(QString colorStatus READ colorStatus NOTIFY snapshotChanged)
     Q_PROPERTY(QString videoHdrStatus READ videoHdrStatus NOTIFY snapshotChanged)
 
@@ -732,79 +637,8 @@ public:
     void setCurrentPage(const QString& value);
     QVariantList componentList() const;
     QVariantList readComponentList() const;
-    QVariantList captureDevices() const;
-    QString captureDeviceId() const;
-    void setCaptureDeviceId(const QString& value);
-    QString captureDeviceLabel() const;
-    bool captureBlackmagicDevice() const;
-    bool captureForceSdr() const;
-    bool captureMagewellDevice() const;
-    QString captureMagewellStatus() const;
-    void setCaptureForceSdr(bool value);
-    bool captureFlipVertical() const;
-    void setCaptureFlipVertical(bool value);
-    QVariantList captureFormats() const;
-    QString captureFormatKey() const;
-    QString captureFormatLabel() const;
-    bool captureFormatCostHint() const;
-    void setCaptureFormatKey(const QString& key);
-    QVariantList captureResolutionOptions() const;
-    QString captureResolutionId() const;
-    void setCaptureResolutionId(const QString& id);
-    QVariantList captureFrameRateOptions() const;
-    int captureHiddenFrameRates() const;
-    QString captureFrameRateId() const;
-    void setCaptureFrameRateId(const QString& id);
-    QVariantList capturePixelOptions() const;
-    QString capturePixelId() const;
-    void setCapturePixelId(const QString& id);
-    QVariantList captureAudioInputs() const;
-    int captureAudioChoice() const;
-    void setCaptureAudioChoice(int choice);
-    int captureColorSpace() const;
-    void setCaptureColorSpace(int value);
-    int captureColorRange() const;
-    void setCaptureColorRange(int value);
-    double captureRequestedFps() const;
-    void setCaptureRequestedFps(double value);
-    int captureAudioIngress() const;
-    void setCaptureAudioIngress(int value);
-    int captureBufferMode() const;
-    void setCaptureBufferMode(int value);
-    bool captureQueryBusy() const;
-    QString captureStatus() const;
-    QVariantMap screenOptions() const;
-    // Declared here, in the public section: a Q_INVOKABLE above `public:` is
-    // private to QML ("is not a function").
-    Q_INVOKABLE void refreshCaptureTargets();
-    Q_INVOKABLE void refreshCaptureDevices();
-    bool captureVirtualAudioInstalled() const;
-    bool captureVirtualAudioRemovalBlocked() const;
-    bool captureVirtualAudioBusy() const;
-    Q_INVOKABLE void setupCaptureVirtualAudio(bool uninstall);
-    Q_INVOKABLE void openCaptureWindowsListen();
-    Q_INVOKABLE void openCaptureVirtualAudioVendor();
-    Q_INVOKABLE bool openCaptureDriverSettings(bool inputSelector = false);
-    Q_INVOKABLE bool startCaptureSession();
-    Q_INVOKABLE bool setScreenOption(const QString& key, const QVariant& value);
-    Q_INVOKABLE bool startScreenCapture(bool cropPreview = false);
-    Q_INVOKABLE bool applyScreenCrop(int left, int top, int right, int bottom);
-    bool gameMode() const;
-    bool passthroughActive() const;
-    bool gameInputActive() const;
-    bool gameScaledPreview() const;
-    QRectF gameVideoRect() const;
-    // The Home panel is open: the picture stays on top but takes the input back.
-    Q_INVOKABLE void setGamePanelOpen(bool open);
-    // Index into Qt.application.screens of the monitor game mode covers, or -1.
-    Q_INVOKABLE int gameModeScreenIndex() const;
     // Test only (VEYRA_TEST_UI_BLOCK): blocks the GUI thread to exercise the hang release.
     Q_INVOKABLE void testBlockUi(int ms);
-
-    QVariantList screenTargets() const;
-    QString screenTargetId() const;
-    void setScreenTargetId(const QString& value);
-    QString screenTargetLabel() const;
 
     QVariantList subtitleTracks() const;
     int subtitlePrimary() const;
@@ -858,7 +692,6 @@ public:
     Q_INVOKABLE bool setShortcut(const QString& action, const QString& sequence);
     Q_INVOKABLE void resetShortcuts();
     int uiScaleActive() const;
-    bool obsGameCaptureActive() const;
     bool overlayCompatActive() const;
     bool softwareUiActive() const;
     // RivaTuner Statistics Server is running now (gfx::rivaTunerRunning).
@@ -932,7 +765,6 @@ public:
     QString nrAutoStatus() const;
     bool srActive() const;
     bool fgActive() const;
-    bool captureRecovering() const;
     double captureFps() const;
     double captureDropped() const;
     QString backendWarning() const;
@@ -1208,9 +1040,6 @@ public:
     Q_INVOKABLE void toggleExportTrack(bool audio,int index,bool keep);
     Q_INVOKABLE void clearFinishedExportItems();
     Q_INVOKABLE QString fileThumbnailId(const QString& path, double seconds) const;
-    QString capturePreviewUrl() const;
-    QString captureSignalText() const;
-    QString captureSignalLevel() const;
     QString liveOpeningText() const;
     bool networkActive() const;
     bool networkHolding() const;
@@ -1254,8 +1083,6 @@ public:
     QVariantList audioTracks() const;
     int selectedAudioTrack() const;
     void setSelectedAudioTrack(int index);
-    bool hasCaptureSession() const;
-    QString captureSessionSummary() const;
     QString colorStatus() const;
     QString videoHdrStatus() const;
 
@@ -1329,8 +1156,6 @@ public:
     // window of the QML window and hands it over; the bridge never draws QML
     // into it and Qt never touches its swapchain.
     void attachVideoWindow(qulonglong nativeHandle);
-    // The QML main window: game mode changes its styles and owns its hotkeys.
-    void attachMainWindow(qulonglong nativeHandle);
 
     // Run immediately before the engine opens a source. The presenter reads the
     // host window's client size once, when it initialises, and builds the
@@ -1350,10 +1175,6 @@ public:
     // the picture, even when Veyra was behind the browser.
     Q_INVOKABLE void bringToFront();
     Q_INVOKABLE void openPath(const QString& path);
-    Q_INVOKABLE void openCaptureDialog();
-    // Reopens the last capture session with the same device and format.
-    Q_INVOKABLE void resumeCaptureSession();
-    Q_INVOKABLE void openScreenCaptureDialog();
     Q_INVOKABLE void openAudioDialog();
     Q_INVOKABLE void openSubtitleDialog();
     Q_INVOKABLE void togglePlayPause();
@@ -1372,39 +1193,6 @@ public:
     Q_INVOKABLE void setWindowMask(QObject* window, const QRectF& rect);
     Q_INVOKABLE void stepFrame(int direction);
     Q_INVOKABLE void takeScreenshot();
-    // Recording: the 3 second countdown lives in the interface, the engine
-    // only opens the file when the request reaches it.
-    // source names the trigger in the log ("shortcut", "pro-button", "game-hotkey").
-    Q_INVOKABLE void startRecording(const QString& source = QString());
-    Q_INVOKABLE void setVirtualCameraEnabled(bool enabled);
-    Q_INVOKABLE void uninstallVirtualCamera();
-    Q_INVOKABLE void installVirtualCamera();
-    bool virtualCameraEnabled()const;
-    QVariantMap virtualCameraState()const;
-    int virtualCameraFps()const;
-    void pollVirtualCamera();
-    Q_INVOKABLE void stopRecording(const QString& source = QString());
-    Q_INVOKABLE void toggleRecording(const QString& source = QString());
-    Q_INVOKABLE void chooseRecordingDirectory();
-    Q_INVOKABLE void openRecordingDirectory();
-    // Writes what the replay buffer holds now (source as for recording).
-    Q_INVOKABLE void saveReplay(const QString& source = QString());
-    // Lists the recording endpoints for the microphone choice.
-    Q_INVOKABLE void refreshMicrophones();
-    bool recording() const;
-    QVariantMap recordingState() const;
-    QString recordingDirectory() const;
-    int recordingBitrateMbps() const;
-    int recordingFpsLimit() const;
-    bool recordingHevc() const;
-    bool recordingAudio() const;
-    bool recordingMicrophone() const;
-    QString recordingMicrophoneId() const;
-    bool recordingMicrophoneTrack() const;
-    QVariantList microphoneDevices() const;
-    bool replayEnabled() const;
-    int replaySeconds() const;
-    QVariantMap replayState() const;
     Q_INVOKABLE void chooseExportPath();
     // The export target without the dialog (the dialog's result, or --export-out in a test).
     void setExportPath(const QString& path);
@@ -1474,6 +1262,8 @@ public:
     void applyFgMultiplier(int multiplier);
 
     bool doviFollow() const;
+    bool forceSdrPreview() const;
+    void setForceSdrPreview(bool value);
     void setDoviFollow(bool on);
     bool doviP7Compose() const;
     void setDoviP7Compose(bool on);
@@ -1491,10 +1281,6 @@ signals:
     void subtitlesChanged();
     void subtitleTextChanged();
     void preferencesChanged();
-    void recordingChanged();
-    void virtualCameraChanged();
-    void replayChanged();
-    void microphoneDevicesChanged();
     void colourLibraryChanged();
     // Emitted only when the underlying snapshot actually changed, so QML
     // bindings do not re-evaluate 60 times a second for nothing.
@@ -1522,8 +1308,6 @@ signals:
     void recentFilesChanged();
     void presetsChanged();
     void exportChanged();
-    // Emitted when the capture device or screen-target lists are re-enumerated.
-    void captureChanged();
     void uiDeviceGenerationChanged();
     // User-facing notices the UI shows as a transient message: a rejected
     // chain edit, an export that finished, a failed open.
@@ -1534,27 +1318,14 @@ signals:
     void overlayRestartSuggested(const QString& kind);
     // The UI moves to a page by name when a command implies it.
     void navigate(const QString& page);
-    void gameModeChanged();
-    // Configurable game hotkeys: 0 = adjust panel, 1 = leave.
-    void gameHotkey(int which);
-    // The game-mode capture ended or failed, or the GUI hung, while the picture was in
-    // front: the UI leaves fullscreen and shows the reason.
-    void gameModeStopped(const QString& reason);
 
 private:
+    // One log line naming every shortcut (support diagnostics).
+    void logShortcuts();
     // Structural change: every chain-derived property notifies.
     void emitChainChanged();
     // Value edit of one group; a change of the chain's validity notifies everything.
     void emitParameterChanged(void (QmlPlayerBridge::*group)(), bool wasValid);
-    void updateGameMode();
-    void updateGameGeometry();
-    // Game mode's keyboard hook gets the current panel, exit, screenshot, record and replay keys.
-    void applyGameHotkeys();
-    // The recording settings both recorders follow, and the replay buffer
-    // armed (or not) with them; its state for the interface.
-    engine::RecordingSettings recordingOptions() const;
-    void syncReplay();
-    void pollReplay();
     // DLAA anti-aliasing needs the DLSS SR runtime and adapter; false (with a notice) otherwise.
     bool dlaaAllowed();
     // Douyin live companion running (gfx/PresentationHooks.h): Realtime GPU priority is capped at
@@ -1595,8 +1366,6 @@ private:
     void refreshSubtitles(const std::wstring& media);
     void tickSubtitles();
     void tickImageBatch();
-    void tickCapture();
-    bool captureCardLive() const;
     void tickMoonlight();
     void tickXbox();
     void tickPlaylist();
@@ -1606,9 +1375,6 @@ private:
 #ifdef VEYRA_ENABLE_MOONLIGHT
     void setupMoonlight();
 #endif
-    void queryCapture(int kind, std::wstring device);
-    // Opens a device/stream URI (capture, screen) the way openPath opens a file.
-    void openSourceUri(const std::wstring& uri, const std::wstring& label, bool screenFill = false);
 
     struct Impl;
     std::unique_ptr<Impl> impl_;

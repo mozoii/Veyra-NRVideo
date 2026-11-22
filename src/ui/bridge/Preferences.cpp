@@ -179,10 +179,6 @@ QRect QmlPlayerBridge::launchScreenAvailable() const {
 }
 
 bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
-    if(key==QLatin1String("blackmagicNativeCapture")){
-        if(captureQueryBusy()){emit notice(tr("Wait for device discovery to finish before switching interfaces."),true);return false;}
-        if(captureBlackmagicDevice())impl_->prefs[source::decklink::isPath(impl_->captureDevice)?"blackmagicNativeLastDevice":"blackmagicDirectShowLastDevice"]=utf8Of(impl_->captureDevice);
-    }
     static const QHash<QString, std::pair<int, int>> ranges{
         {"subtitleSize", {16, 56}}, {"subtitleFont", {0, 5}}, {"subtitleOutline", {0, 3}},
         {"subtitleMargin", {0, 240}}, {"subtitleLines", {0, 8}},
@@ -190,19 +186,10 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         {"listInspectorWidth", {376, 4000}},
         // Network sources (#48): seconds to collect before the first picture; -1 follows the buffer level.
         {"networkPrebuffer", {-1, 60}},
-        {"networkTimeshift", {0, 600}},
-        // Live recording: the target bitrate for the file, and the frame rate
-        // cap (0 keeps the presented rate).
-        {"recordBitrateMbps", {0, 400}},
-        {"recordFps", {0, 240}},
-        {"recordSplitSeconds", {0, 86400}},
-        {"recordSplitMiB", {0, 1048576}},
-        {"virtualCameraFps", {0, 120}},
-        // Instant replay (#103): seconds the buffer keeps.
-        {"replaySeconds", {15, 600}}};
-    static const QStringList flags{"recordHevc", "recordAudio", "recordMic", "recordMicTrack", "replayEnabled", "subtitleEnabled", "subtitleBackground", "subtitleFit",
-                                   "subtitleSecondLanguage", "audioForceStereo", "captureAudioMonitor", "holdCompare",
-                                   "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "obsGameCapture", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
+        {"networkTimeshift", {0, 600}}};
+    static const QStringList flags{"subtitleEnabled", "subtitleBackground", "subtitleFit",
+                                   "subtitleSecondLanguage", "audioForceStereo", "holdCompare",
+                                   "magewellLowLatency", "blackmagicNativeCapture", "captureShowAllFrameRates", "cinePillHidden", "exportStopsPlayback", "autoResume", "fullscreenMemoryProtection", "prewarmEnhancement", "hdrFgCompatibility", "computeOnMonitorGpu", "deinterlace", "networkAutoReconnect",
                                     // Settings -> Appearance -> startup animation / startup music / cull mask (2.1.9)
                                    "introAnimation", "introMusic", "exclusionOverlay"};
     QVariant stored;
@@ -221,17 +208,8 @@ bool QmlPlayerBridge::setPreference(const QString& key, const QVariant& value) {
         const QString dir = value.toString();
         if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("Screenshot folder does not exist: %1").arg(dir), true); return false; }
         stored = dir;
-    } else if (key == QLatin1String("recordDir")) {
-        const QString dir = value.toString();
-        if (!dir.isEmpty() && !QFileInfo(dir).isDir()) { emit notice(tr("The recording folder does not exist: %1").arg(dir), true); return false; }
-        stored = dir;
     } else if (key == QLatin1String("audioDevice")) {
         stored = value.toString();
-    } else if (key == QLatin1String("recordMicDevice")) {
-        // A recording endpoint id (empty: the default recording device).
-        const QString id = value.toString();
-        if (id.size() > 512) return false;
-        stored = id;
     } else if (key == QLatin1String("sliderKeyStep")) {
         // Arrow-key step of a focused slider (Settings -> General): 1, 0.1 or 0.01.
         bool ok = false; const double v = value.toDouble(&ok);
@@ -325,13 +303,6 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
         static_cast<UpdateChecker*>(updates_)->setDownloadRoute(route.value_or(portable::DownloadRoute::GitHub));
         return;
     }
-    if(key==QLatin1String("virtualCameraFps")&&virtualCameraEnabled())setVirtualCameraEnabled(true);
-    if(key==QLatin1String("captureAudioMonitor"))
-        impl_->engine.setCaptureAudioMonitoring(impl_->prefBool("captureAudioMonitor",true));
-    // The replay buffer re-arms with what a recording would use.
-    static const QStringList replayKeys{"replayEnabled", "replaySeconds", "recordBitrateMbps", "recordFps", "recordHevc",
-                                        "recordAudio", "recordMic", "recordMicDevice", "recordMicTrack"};
-    if (replayKeys.contains(key)) syncReplay();
     if(key==QLatin1String("hdrFgCompatibility")){
         impl_->presentation.hdrFgCompatibility=impl_->prefBool("hdrFgCompatibility",false);
         impl_->engine.requestPresentation(impl_->presentation);
@@ -349,11 +320,8 @@ void QmlPlayerBridge::applyPreference(const QString& key) {
     }
     if(key==QLatin1String("overlayCompat"))updateLiveCompanionCompat();
     if(key==QLatin1String("fullscreenMemoryProtection")){impl_->engine.setFullscreenMemoryProtection(impl_->prefBool("fullscreenMemoryProtection",false));emit snapshotChanged();}
-    if(key==QLatin1String("captureShowAllFrameRates"))emit captureChanged();
     if (key == QLatin1String("audioDevice")) sink::setPreferredRenderEndpoint(impl_->prefString("audioDevice").toStdWString());
     else if (key == QLatin1String("audioForceStereo")) sink::setForceStereoDownmix(impl_->prefBool("audioForceStereo", false));
-    else if (key == QLatin1String("magewellLowLatency")) source::magewell::setLowLatencyPreference(impl_->prefBool("magewellLowLatency", false));
-    else if (key == QLatin1String("blackmagicNativeCapture")) { if(impl_->captureListed)refreshCaptureDevices();emit captureChanged(); }
     else if (key == QLatin1String("language")) {
         const QString code = i18n::resolve(impl_->prefString("language"));
         if (!i18n::apply(code)) emit notice(tr("No translation found for this language; the interface stays in English"), true);
@@ -497,8 +465,7 @@ namespace {
 const QVariantMap& shortcutDefaults() {
     // Screenshot was Ctrl+S before 2026-10-27; saved custom keys are kept.
     static const QVariantMap d{{"playPause", "Space"}, {"fullscreen", "F"}, {"lock", "Ctrl+L"},
-                               {"hold", "V"}, {"screenshot", "F7"}, {"record", "F8"}, {"replay", "F9"}, {"toggleMode", "Tab"},
-                               {"gamePanel", "Home"}, {"gameExit", "Ctrl+Alt+Home"}};
+                               {"hold", "V"}, {"screenshot", "F7"}, {"toggleMode", "Tab"}};
     return d;
 }
 }
@@ -508,7 +475,6 @@ QVariantMap QmlPlayerBridge::shortcuts() const {
     QStringList taken;
     for (auto it = custom.begin(); it != custom.end(); ++it)
         if (out.contains(it.key())) {
-            if ((it.key()=="gamePanel"||it.key()=="gameExit") && !ui::gameKey(QKeySequence(it.value().toString(),QKeySequence::PortableText)).vk) continue;
             out[it.key()] = it.value();
             taken << it.value().toString();
         }
@@ -518,12 +484,8 @@ QVariantMap QmlPlayerBridge::shortcuts() const {
         if (!custom.contains(it.key()) && taken.contains(it.value().toString())) it.value() = QString();
     return out;
 }
-void QmlPlayerBridge::applyGameHotkeys() {
+void QmlPlayerBridge::logShortcuts() {
     const auto keys = shortcuts();
-    const auto key = [&keys](const char* action) { return ui::gameKey(QKeySequence(keys.value(action).toString(), QKeySequence::PortableText)); };
-    impl_->game.setHotkeys(key("gamePanel"), key("gameExit"), key("screenshot"), key("record"), key("replay"));
-    // At start and after every change: a field log then says which key each
-    // action answers to (the 2026-11-08 recording report had no way to tell).
     const auto custom = impl_->prefs.value("shortcuts").toMap();
     std::string line, changed;
     for (auto it = keys.begin(); it != keys.end(); ++it) {
@@ -538,13 +500,6 @@ bool QmlPlayerBridge::setShortcut(const QString& action, const QString& sequence
     const QKeySequence seq(sequence, QKeySequence::PortableText);
     if (seq.isEmpty() || seq.count() != 1) { emit notice(tr("Invalid key"), true); return false; }
     const QString text = seq.toString(QKeySequence::PortableText);
-    if ((action=="gamePanel"||action=="gameExit") && !ui::gameKey(seq).vk) {
-        emit notice(tr("Invalid key"),true); return false;
-    }
-    if ((action=="gamePanel"||action=="gameExit") &&
-        (text=="Ctrl+Alt+Del"||text=="Alt+Tab"||text=="Alt+F4"||text=="Ctrl+Shift+Esc"||text=="Alt+Enter")) {
-        emit notice(tr("%1 is reserved for a fixed function").arg(text),true); return false;
-    }
     // Keys the shell already owns cannot be taken over.
     static const QStringList reserved{"Esc", "F11", "Left", "Right", "Up", "Down", "Ctrl+O", "Ctrl+E",
                                       "B", "Z", "X", "T", "Y", "Shift+Z", "Shift+X", "Alt+Return"};
@@ -560,7 +515,7 @@ bool QmlPlayerBridge::setShortcut(const QString& action, const QString& sequence
     impl_->prefs["shortcuts"] = custom;
     if (!impl_->savePrefs()) { impl_->prefs = previous; emit notice(tr("Could not save the shortcut"), true); return false; }
     veyra::log::info("ui-prefs", std::format("shortcut {}={}", action.toStdString(), text.toStdString()));
-    applyGameHotkeys();
+    logShortcuts();
     emit preferencesChanged();
     return true;
 }
@@ -568,10 +523,9 @@ void QmlPlayerBridge::resetShortcuts() {
     const auto previous = impl_->prefs;
     impl_->prefs.remove("shortcuts");
     if (!impl_->savePrefs()) { impl_->prefs = previous; return; }
-    applyGameHotkeys();
+    logShortcuts();
     emit preferencesChanged();
 }
-bool QmlPlayerBridge::obsGameCaptureActive() const { return qApp && qApp->property("veyraObsGameCapture").toBool(); }
 bool QmlPlayerBridge::overlayCompatActive() const { return qApp && qApp->property("veyraOverlayCompat").toBool(); }
 bool QmlPlayerBridge::softwareUiActive() const { return qApp && qApp->property("veyraSoftwareUi").toBool(); }
 bool QmlPlayerBridge::rivaTunerRunning() const { return gfx::rivaTunerRunning(); }
@@ -635,25 +589,6 @@ bool QmlPlayerBridge::openSponsorLink(const QString& id) {
 QObject* QmlPlayerBridge::updates() const { return updates_; }
 bool QmlPlayerBridge::eventFilter(QObject* watched, QEvent* event) {
     const auto type = event->type();
-    if (watched == impl_->gameWindow && (type == QEvent::WinIdChange ||
-        (type == QEvent::PlatformSurface && static_cast<QPlatformSurfaceEvent*>(event)->surfaceEventType() ==
-                                          QPlatformSurfaceEvent::SurfaceCreated))) {
-        // Rebind after Qt's platform-window transition, never during teardown.
-        QMetaObject::invokeMethod(this, [this] {
-            if (!impl_->gameWindow || !impl_->gameWindow->handle()) return;
-            impl_->game.attach(reinterpret_cast<HWND>(impl_->gameWindow->winId()));
-            updateGameGeometry(); updateGameMode();
-        }, Qt::QueuedConnection);
-    }
-    // Remembered for the record trigger log only; the event goes on unchanged.
-    if (type == QEvent::ShortcutOverride) {
-        const auto* key = static_cast<QKeyEvent*>(event);
-        auto& seen = impl_->lastShortcutKey;
-        seen.key = key->key(); seen.modifiers = int(key->modifiers());
-        seen.virtualKey = key->nativeVirtualKey(); seen.scanCode = key->nativeScanCode();
-        seen.autoRepeat = key->isAutoRepeat(); seen.atMs = QDateTime::currentMSecsSinceEpoch();
-        seen.window = watched->objectName().isEmpty() ? QString::fromLatin1(watched->metaObject()->className()) : watched->objectName();
-    }
     if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
         auto* key = static_cast<QKeyEvent*>(event);
         if (!key->isAutoRepeat() && qobject_cast<QWindow*>(watched)) {
@@ -764,15 +699,6 @@ QString QmlPlayerBridge::sourceFormatText() const {
     const QString rate = sourceRateText();
     if (rate.isEmpty()) return {};
     parts << rate;
-    if (sourceKind() == QLatin1String("capture")) {
-        for (const auto& f : impl_->captureFormatList)
-            if (f.key == impl_->captureFormatKey) {
-                const QString label = uiText(f.label);
-                const int dot = label.lastIndexOf(QString::fromUtf8("·"));
-                if (dot >= 0) parts << label.mid(dot + 1).trimmed();
-                break;
-            }
-    }
     const QString colour = uiText(impl_->snapshot.colorStatus);
     if (!colour.isEmpty()) parts << colour.section(QString::fromUtf8(" → "), 0, 0).trimmed();
     return parts.join(QString::fromUtf8(" · "));
@@ -931,37 +857,6 @@ QString QmlPlayerBridge::fileThumbnailId(const QString& path, double seconds) co
         .arg(qint64(std::max(0.0, seconds) * 1000.0));
 }
 
-QString QmlPlayerBridge::capturePreviewUrl() const {
-    const auto& s = impl_->snapshot;
-    if (!s.running || s.posterRgba.empty() || !s.posterWidth || !s.posterHeight) return {};
-    if (impl_->posterSession != s.sessionId || impl_->posterUrl.isEmpty()) {
-        const QImage image(s.posterRgba.data(), int(s.posterWidth), int(s.posterHeight), int(s.posterWidth * 4),
-                           QImage::Format_RGBA8888);
-        QByteArray png;
-        QBuffer buffer(&png);
-        buffer.open(QIODevice::WriteOnly);
-        image.save(&buffer, "PNG");
-        impl_->posterSession = s.sessionId;
-        impl_->posterUrl = png.isEmpty() ? QString()
-                                         : QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png.toBase64());
-    }
-    return impl_->posterUrl;
-}
-QString QmlPlayerBridge::captureSignalLevel() const {
-    const auto& s = impl_->snapshot;
-    if (!s.running || !s.capture) return QStringLiteral("idle");
-    if (s.captureRecovering) return QStringLiteral("warn");
-    if (s.captureSampledBlack) return QStringLiteral("warn");
-    return s.captureFps > 0.5 ? QStringLiteral("ok") : QStringLiteral("warn");
-}
-QString QmlPlayerBridge::captureSignalText() const {
-    const auto& s = impl_->snapshot;
-    if (captureSignalLevel() == QLatin1String("idle")) return tr("Not connected");
-    if (s.captureRecovering) return tr("Recovering");
-    if (s.captureFps > 0.5 && s.captureSampledBlack) return tr("Black frames received · Check the input mode");
-    return s.captureFps > 0.5 ? tr("Receiving frames") : tr("Waiting for signal");
-}
-
 void QmlPlayerBridge::importPresetDialog() {
     const QString path = QFileDialog::getOpenFileName(nullptr, tr("Import preset"), QString(),
                                                       tr("Veyra preset (*.vpreset);;All files (*)"));
@@ -999,9 +894,10 @@ QString QmlPlayerBridge::liveOpeningText() const {
     if (!impl_->pendingLiveText.isEmpty()) return impl_->pendingLiveText;
     const auto& s = impl_->snapshot;
     if (s.running || s.failed || s.transport != engine::TransportState::Opening) return {};
-    const QString status = veyra::ui::i18n::text(s.status);
-    if (impl_->liveKind == QLatin1String("screen")) return tr("Starting screen capture…");
-    if (s.capture) return tr("Opening the capture device…");
+    if (s.capture && (impl_->liveKind == QLatin1String("xbox") || impl_->liveKind == QLatin1String("moonlight"))) {
+        const QString label = impl_->liveLabel;
+        return label.isEmpty() ? tr("Connecting…") : tr("Connecting to %1…").arg(label);
+    }
     return {};
 }
 

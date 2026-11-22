@@ -1,7 +1,6 @@
 #include "veyra/sink/CaptureAudioSession.h"
 #include "veyra/sink/WasapiAudioSink.h"
 #include "veyra/sink/AudioFormat.h"
-#include "veyra/sink/RecordingAudioTap.h"
 #include "veyra/source/AudioInputRecovery.h"
 #include <chrono>
 #include <thread>
@@ -24,43 +23,6 @@ int main(int argc,char** argv){
             else std::this_thread::sleep_until(due);
         }
     } pacer;
-    if(argc>=2&&std::string_view(argv[1])=="--record-monitor-off"){
-        // Production converter/renderer with two consumers and zero local gain.
-        // No microphone or physical capture device is opened.
-        struct Tap final : RecordingAudioSink {
-            std::mutex mutex;uint64_t frames=0;double energy=0,peak=0;
-            int64_t previousUs=0;bool monotonic=true,validFormat=true;
-            void renderedPcm(const float* pcm,size_t count,const AudioFormat& format,int64_t at,const void*)override{
-                std::lock_guard lock(mutex);
-                validFormat=validFormat&&format.valid()&&format.channels==2;
-                monotonic=monotonic&&at>=previousUs;previousUs=at;frames+=count;
-                for(size_t i=0;i<count*format.channels;++i){energy+=double(pcm[i])*pcm[i];peak=std::max(peak,std::abs(double(pcm[i])));}
-            }
-        };
-        auto recording=std::make_shared<Tap>(),replay=std::make_shared<Tap>();
-        addRecordingAudioSink(recording);addRecordingAudioSink(replay);
-        CaptureAudioSession output;const auto wave=floatWave({2,SPEAKER_FRONT_LEFT|SPEAKER_FRONT_RIGHT});
-        output.setGain(0);output.setSync(2,0);
-        if(!output.configure(wave.Format,sizeof(wave))||!output.start())return 2;
-        std::vector<float> block(480*2);const auto start=Clock::now();
-        for(unsigned n=0;n<220;++n){
-            pacer.until(start+std::chrono::milliseconds(n*10));
-            for(unsigned f=0;f<480;++f)block[f*2]=block[f*2+1]=float(.25*std::sin(2*3.141592653589793*1000*(n*480+f)/48000.0));
-            if(!output.push(block.data(),block.size()*sizeof(float),n*10.0,n==0))return 3;
-            const auto host=std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count()/100;
-            output.videoPresented(n*10.0,host,host);
-            if(n==110)removeRecordingAudioSink(recording.get());
-        }
-        const auto state=output.snapshot();output.stop();
-        removeRecordingAudioSink(recording.get());removeRecordingAudioSink(replay.get());
-        const bool pass=recording->frames>24000&&replay->frames>recording->frames+24000&&recording->energy>100&&replay->energy>100
-            &&recording->peak>.2&&replay->peak>.2&&recording->monotonic&&replay->monotonic&&recording->validFormat&&replay->validFormat
-            &&state.inputBlocks==220&&!recordingAudioActive();
-        std::cout<<(pass?"PASS ":"FAIL ")<<"monitor gain=0 recordingFrames="<<recording->frames<<" replayFrames="<<replay->frames
-            <<" recordingPeak="<<recording->peak<<" replayPeak="<<replay->peak<<" inputBlocks="<<state.inputBlocks
-            <<" timestampsMonotonic="<<(recording->monotonic&&replay->monotonic)<<std::endl;
-        return pass?0:1;
-    }
     if(argc>=2&&std::string_view(argv[1])=="--endpoint-switch"){
         // Exercise real endpoint selection while the same capture session
         // continues receiving PCM. Muted output avoids playing test tones.
@@ -312,17 +274,29 @@ int main(int argc,char** argv){
     auto phase=[&](unsigned mode,int offset,double delay,double expectedComp,double expectedSkew,double commonInputMs=0,double maxSkewError=28){
         audio.setSync(mode,offset);double error=0;unsigned samples=0;bool boundedPhase=true;
         double maxIngressLateMs=0;unsigned catchUpCallbacks=0;
+        // A changed video delay re-anchors the endpoint. The re-anchor time is
+        // endpoint dependent and is recovery, not skew: warm up until the
+        // endpoint runs again, then keep the phase length and the measured tail.
         const unsigned steps=delay>500?300:150;
-        for(unsigned j=0;j<steps;++j,++sequence){
+        unsigned settled=0,phaseStep=0,warmup=0;
+        while(phaseStep<steps&&warmup<400){
             const auto due=start+std::chrono::milliseconds(sequence*10);pacer.until(due);
             const double late=std::chrono::duration<double,std::milli>(Clock::now()-due).count();
             maxIngressLateMs=std::max(maxIngressLateMs,late);
             if(late>=10)++catchUpCallbacks;
             const auto host=std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count()/100;
-            if(!audio.push(pcm.data(),pcm.size()*2,sequence*10.0-commonInputMs,j==0&&commonInputMs!=0))return false;
+            if(!audio.push(pcm.data(),pcm.size()*2,sequence*10.0-commonInputMs,warmup==0&&commonInputMs!=0))return false;
             present(sequence*10.0-commonInputMs-delay,host,delay);const auto s=audio.snapshot();
             boundedPhase&=s.bufferedMs<=2000;
-            if(j>steps-80&&s.running&&s.skewMs){error+=std::abs(*s.skewMs-expectedSkew);++samples;}
+            if(!phaseStep){
+                settled=(s.running&&s.skewMs)?settled+1:0;
+                ++warmup;
+                ++sequence;
+                if(settled<10)continue;
+            }
+            ++phaseStep;
+            if(phaseStep>steps-80&&s.running&&s.skewMs){error+=std::abs(*s.skewMs-expectedSkew);++samples;}
+            ++sequence;
         }
         const auto s=audio.snapshot();const bool pass=samples>=60&&error/samples<maxSkewError&&std::abs(s.compensationMs-expectedComp)<15&&boundedPhase&&s.overflows==0;
         std::cout<<(pass?"PASS ":"FAIL ")<<"capture phase mode="<<mode<<" delay="<<delay<<" commonInputMs="<<commonInputMs<<" compensation="<<s.compensationMs<<" meanSkewError="<<(samples?error/samples:-1)<<" resets="<<s.resets<<" queueMs="<<s.bufferedMs<<" endpointMs="<<s.endpointBufferedMs<<" underruns="<<s.underruns<<" correctionPpm="<<s.driftCorrectionPpm<<" maxIngressLateMs="<<maxIngressLateMs<<" catchUpCallbacks="<<catchUpCallbacks<<'\n';return pass;

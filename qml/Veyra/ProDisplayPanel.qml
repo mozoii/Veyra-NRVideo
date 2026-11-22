@@ -57,8 +57,8 @@ ColumnLayout {
             hint: qsTr("HDR sources are shown as SDR too; the same setting as the capture card's \"Show as SDR\"")
             VSwitch {
                 objectName: "display-force-sdr"
-                checked: veyra.captureForceSdr
-                onToggled: checked => veyra.captureForceSdr = checked
+                checked: veyra.forceSdrPreview
+                onToggled: checked => veyra.forceSdrPreview = checked
             }
         }
         VRow {

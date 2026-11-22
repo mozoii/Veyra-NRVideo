@@ -53,8 +53,7 @@ def read_stage(stage, build, local_test):
                 or portable.digest(source) != row["sha256"].lower()):
             raise ValueError(f"Stage file failed the publisher audit: {name}")
         payload[name] = source
-    missing = (qml.REQUIRED | {"virtualcam/veyra-camera-setup.exe", "virtualcam/veyra-virtualcam32.dll",
-                               "virtualcam/veyra-virtualcam64.dll"}) - payload.keys()
+    missing = qml.REQUIRED - payload.keys()
     if missing:
         raise ValueError("Required files missing: " + ", ".join(sorted(missing)))
     if portable.digest(payload[portable.PLAYER]) != portable.digest(build / portable.PLAYER):

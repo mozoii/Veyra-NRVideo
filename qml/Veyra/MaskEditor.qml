@@ -48,7 +48,7 @@ ColumnLayout {
     VRow {
         visible: editor.allEffects
         label: qsTr("Show region outlines")
-        hint: qsTr("Select a region to move it. Outlines are excluded from recordings and exports.")
+        hint: qsTr("Select a region to move it. Outlines are excluded from screenshots and exports.")
         VSwitch {
             objectName: editor.namePrefix+"-show-regions"
             checked: veyra.exclusionOverlayVisible

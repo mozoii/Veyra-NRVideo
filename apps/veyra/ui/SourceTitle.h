@@ -11,14 +11,8 @@ namespace veyra::ui {
 // hex blob to every window list (windows list of third-party broadcast tools,
 // taskbar, Alt+Tab), which made the live window impossible to recognise and
 // matched the reported "cannot find Veyra while it is capturing" symptom.
-inline bool isCaptureCardSource(const std::wstring& source) {
-    return source.starts_with(L"capture:") || source.starts_with(L"capture2:");
-}
-
 inline std::wstring windowTitleForSource(const std::wstring& source) {
     if (source.empty()) return L"Veyra — local experimental build";
-    if (isCaptureCardSource(source)) return L"Veyra — capture card · LIVE";
-    if (source.starts_with(L"screen:")) return L"Veyra — screen capture · LIVE";
     return L"Veyra — " + std::filesystem::path(source).filename().wstring();
 }
 

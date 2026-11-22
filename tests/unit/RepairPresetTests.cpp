@@ -78,7 +78,6 @@ bool schemaVersions(const std::filesystem::path& path) {
   if(!store.load()) {std::cout<<"schema v"<<version<<" load failed\n";return false;}
   if(store.defaultSettings().audioOffsetMs!=(version>=7?137:0)||
      store.defaultSettings().exportBitrateMbps!=(version>=15?60u:0u)||
-     store.defaultSettings().captureFlipVertical!=(version>=16)||
      store.defaultSettings().nrTemporal!=(version>=21)) {
    std::cout<<"schema v"<<version<<" fields mismatch\n";return false;
   }
@@ -212,7 +211,8 @@ ok=ok&&b.entries().size()==1&&b.defaultSettings()==s;
  ok=ok&&b.put(L"FSR 4 ML 2X",fsr4);PresetStore fsr4Reload(p);
  ok=ok&&fsr4Reload.load()&&fsr4Reload.entries().back().settings==fsr4&&b.erase(1);
  fsr4.multiplier=4;ok=ok&&!b.put(L"FSR 4 ML 4X rejected",fsr4);
- auto badBackend=s;badBackend.frameGenerationBackend=static_cast<FrameGenerationBackend>(5);ok=ok&&!b.put(L"invalid backend",badBackend);
+ // 5 is Anr and 6 is AmdFrc now; a value above the enum must be refused.
+auto badBackend=s;badBackend.frameGenerationBackend=static_cast<FrameGenerationBackend>(7);ok=ok&&!b.put(L"invalid backend",badBackend);
  auto dis=s;dis.opticalFlowBackend=OpticalFlowBackend::GpuDis;ok=ok&&b.put(L"GPU DIS",dis)&&b.save();PresetStore disReload(p);ok=ok&&disReload.load()&&disReload.entries().back().settings==dis&&b.erase(1);
  
  auto badFlow=s;badFlow.opticalFlowBackend=static_cast<OpticalFlowBackend>(3);ok=ok&&!b.put(L"invalid flow backend",badFlow);
@@ -231,20 +231,6 @@ ok=ok&&b.entries().size()==1&&b.defaultSettings()==s;
  auto badBitrate=s;badBitrate.exportBitrateMbps=301;ok=ok&&!b.put(L"invalid bitrate",badBitrate);
  auto invalid=s;invalid.model.tone=9;ok=ok&&!b.put(L"bad",invalid)&&b.entries().size()==1&&b.erase(0)&&b.entries().empty();
  auto badRegion=s;badRegion.protection.regions[0].left=2;ok=ok&&!b.put(L"invalid region",badRegion);
- // Capture audio ingress: the manual Dolby/DTS selector round-trips and an
- // out-of-range value is refused.
- // The store is empty here (the invalid-settings block erased the last entry),
- // so the round-tripped preset lands at index 0.
- auto ingress=s;ingress.captureAudio=CaptureAudioIngress::BitstreamPreferred;ok=ok&&b.put(L"audio bitstream",ingress);
- PresetStore ingressReload(p);ok=ok&&ingressReload.load()&&ingressReload.entries().size()==1&&ingressReload.entries().back().settings.captureAudio==CaptureAudioIngress::BitstreamPreferred&&b.erase(0);
- auto badIngress=s;badIngress.captureAudio=static_cast<CaptureAudioIngress>(3);ok=ok&&!b.put(L"invalid ingress",badIngress);
- // Manual capture vertical flip (v16) round-trips with the rest of the preset.
- auto flipped=s;flipped.captureFlipVertical=true;ok=ok&&b.put(L"capture flip",flipped);
- PresetStore flipReload(p);ok=ok&&flipReload.load()&&flipReload.entries().size()==1&&flipReload.entries().back().settings.captureFlipVertical&&b.erase(0);
- // Capture video-pin buffer policy (v17) round-trips with the rest of the preset.
- auto buffers=s;buffers.captureBuffer=veyra::source::CaptureBufferMode::Minimum;ok=ok&&b.put(L"capture buffer",buffers);
- PresetStore bufferReload(p);ok=ok&&bufferReload.load()&&bufferReload.entries().size()==1&&bufferReload.entries().back().settings.captureBuffer==veyra::source::CaptureBufferMode::Minimum&&b.erase(0);
- auto badBuffer=s;badBuffer.captureBuffer=static_cast<veyra::source::CaptureBufferMode>(3);ok=ok&&!b.put(L"invalid buffer",badBuffer);
  auto multi=s;multi.additionalColorCount=5;
  for(unsigned i=0;i<5;++i){multi.additionalColors[i].enabled=i!=2;multi.additionalColors[i].exposure=float(i)*.25f;multi.additionalColors[i].setLutName(L"grade-"+std::to_wstring(i)+L".cube");}
  ok=ok&&b.put(L"six colors",multi);PresetStore multiReload(p);

@@ -320,29 +320,27 @@ void QmlPlayerBridge::setCompareSplitAt(double fx) {
     if (!i.holdKeyDown) i.engine.comparison(i.compareMode, i.compareBase, float(i.compareSplit));
     emit compareChanged();
 }
-int QmlPlayerBridge::aspectMode() const { return impl_->screenFillActive ? 2 : impl_->aspectMode; }
+int QmlPlayerBridge::aspectMode() const { return impl_->aspectMode; }
 void QmlPlayerBridge::setAspectMode(int value) {
-    if (value < 0 || value > 6 || (impl_->aspectMode == value && !impl_->screenFillActive)) return;
+    if (value < 0 || value > 6 || impl_->aspectMode == value) return;
     impl_->aspectMode = value;
-    impl_->screenFillActive = false;
     impl_->prefs[QStringLiteral("aspect")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "aspect mode not saved");
     applyAspect(true);
-    if (gameMode()) { updateGameGeometry(); updateGameMode(); emit gameModeChanged(); }
     emit compareChanged();
 }
 void QmlPlayerBridge::applyAspect(bool force) {
     auto& i = *impl_;
-    const bool aligned=gameMode()&&i.presentation.fullscreen&&!gameScaledPreview();
-    const int mode = i.screenCropPreview ? 0 : i.screenFillActive ? 2 : i.aspectMode;
+    const bool aligned=false;
+    const int mode = i.aspectMode;
     if (!i.videoWindow) return;
     RECT r{}; GetClientRect(i.videoWindow, &r);
     const auto e = i.snapshot.metrics.resolution.output;
     const QSize client(r.right, r.bottom), image(int(e.width), int(e.height));
     const double dar=sourceAspect();
-    if (!force && mode == i.aspectApplied && client == i.screenFitClient && image == i.screenFitImage && dar == i.screenFitAspect) return;
-    i.screenFitClient = client; i.screenFitImage = image; i.aspectApplied = mode; i.screenFitAspect = dar;
-    auto view=force||aligned||i.screenCropPreview?engine::PreviewView{}:i.engine.previewView();
+    if (!force && mode == i.aspectApplied && client == i.appliedClient && image == i.appliedImage && dar == i.appliedSourceAspect) return;
+    i.appliedClient = client; i.appliedImage = image; i.aspectApplied = mode; i.appliedSourceAspect = dar;
+    auto view=force||aligned?engine::PreviewView{}:i.engine.previewView();
     view.mode=mode;
     view.displayAspect=dar>0&&image.height()>0&&std::abs(dar-double(image.width())/image.height())>.001?dar:0;
     i.engine.previewView(view);
@@ -386,25 +384,16 @@ QVariantMap QmlPlayerBridge::lastSource() const {
     const QString kind = saved.value(QStringLiteral("kind")).toString();
     if (kind == QLatin1String("file")) {
         saved[QStringLiteral("summary")]=QFileInfo(saved.value(QStringLiteral("label")).toString()).fileName();
-    } else if (kind == QLatin1String("capture")) {
-        if (!hasCaptureSession()) return {};
-        saved[QStringLiteral("summary")] = captureSessionSummary();
     } else if (kind == QLatin1String("moonlight")) {
         saved[QStringLiteral("summary")] = tr("PC streaming · %1").arg(saved.value(QStringLiteral("label")).toString());
     } else if (kind == QLatin1String("xbox")) {
         saved[QStringLiteral("summary")] = tr("Xbox streaming · %1").arg(saved.value(QStringLiteral("label")).toString());
-    } else if (kind == QLatin1String("screen")) {
-        saved[QStringLiteral("summary")] = tr("Screen capture · %1").arg(saved.value(QStringLiteral("label")).toString());
-    } else if (hasCaptureSession()) {
-        // Before this was recorded, only capture sessions were remembered.
-        return QVariantMap{{"kind", "capture"}, {"summary", captureSessionSummary()}};
     } else return {};
     return saved;
 }
 void QmlPlayerBridge::rememberSource(const QString& kind, const QString& label) {
     if(kind!=QLatin1String("file")){impl_->liveKind = kind;impl_->liveLabel = label;}
     QVariantMap value{{"kind", kind}, {"label", label}};
-    if (kind == QLatin1String("screen")) value[QStringLiteral("screenKind")] = screenOptions().value(QStringLiteral("kind")).toInt();
     if (impl_->prefs.value(QStringLiteral("lastSource")).toMap() == value) return;
     impl_->prefs[QStringLiteral("lastSource")] = value;
     if (!impl_->savePrefs()) veyra::log::warn("ui-prefs", "last source not saved");
@@ -425,7 +414,6 @@ void QmlPlayerBridge::resumeLastSource() {
         if(!QFileInfo(path).isFile()){emit notice(tr("The previous video file does not exist: %1").arg(path),true);return;}
         openPath(path);return;
     }
-    if (kind == QLatin1String("capture")) { resumeCaptureSession(); return; }
     if (kind == QLatin1String("xbox")) {
 #ifdef VEYRA_ENABLE_XBOX
         if (!impl_->xbox || !impl_->xbox->resumeLast()) {
@@ -446,23 +434,6 @@ void QmlPlayerBridge::resumeLastSource() {
 #else
         emit notice(tr("This version does not include PC streaming"), true);
 #endif
-        return;
-    }
-    if (kind == QLatin1String("screen")) {
-        const int screenKind = last.value(QStringLiteral("screenKind")).toInt();
-        if (screenOptions().value(QStringLiteral("kind")).toInt() != screenKind) setScreenOption(QStringLiteral("kind"), screenKind);
-        refreshCaptureTargets();
-        const QString label = last.value(QStringLiteral("label")).toString();
-        for (const auto& item : screenTargets()) {
-            const auto map = item.toMap();
-            if (map.value(QStringLiteral("label")).toString() == label) {
-                setScreenTargetId(map.value(QStringLiteral("id")).toString());
-                startScreenCapture();
-                return;
-            }
-        }
-        emit notice(tr("The last capture target \"%1\" is gone; choose again").arg(label), true);
-        emit navigate(QStringLiteral("screen"));
         return;
     }
     emit notice(tr("No source to continue yet"), true);

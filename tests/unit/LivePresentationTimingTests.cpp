@@ -2,7 +2,6 @@
 #include "veyra/engine/LivePresentationTiming.h"
 #include "veyra/engine/LivePairLatency.h"
 #include "veyra/engine/LivePresentationResetPolicy.h"
-#include "veyra/source/CaptureTiming.h"
 #include "veyra/engine/CaptureHalfRate.h"
 #include "veyra/engine/CapturePreviewClock.h"
 #include "veyra/engine/ContentDedup.h"
@@ -199,8 +198,7 @@ int main(){
         rates.snapshot(metrics,20000000);
         check(metrics.xessSdkSubmitFps==0,"provider report cannot pin measured FPS after the source stops");
     }
-    using veyra::source::captureDuration;using veyra::engine::liveSourceInterval100ns;
-    using veyra::source::captureDiscontinuity;
+    using veyra::engine::sampleDuration;using veyra::engine::liveSourceInterval100ns;
     {
         using veyra::engine::CapturePreviewClock;
         constexpr int64_t period=166834, hostStart=10000000, wrongPeriod=208333;
@@ -254,51 +252,6 @@ int main(){
         }
         check(corrected,"capture preview clock accounts for skipped mailbox sequence numbers");
     }
-    veyra::source::CaptureDriverDiscontinuity driverFlag;
-    auto flag=[&](bool flagged=true,bool native=true,bool timed=true,double pts=1.0/60,double arrival=1.0/60){
-        return driverFlag.observe(flagged,native,timed,true,pts,arrival,60);
-    };
-    check(flag()&&flag()&&!flag(),"persistent native flag requires three continuous timestamp pairs");
-    bool stable=true;for(int i=0;i<10000;++i)stable&=!flag();
-    check(stable,"persistent flag cannot keep frame generation in warmup");
-    check(flag(true,true,true,-.01),"backward time preserves flagged reset");
-    check(flag()&&flag()&&!flag(),"clock break requires new continuity evidence");
-    check(flag(true,true,true,.1),"missing source frames preserve flagged reset");
-    check(flag(true,true,true,1.0/60,.2),"arrival stall preserves flagged reset even with smooth PTS");
-    check(flag(true,true,false),"missing sample timestamps preserve driver reset");
-    stable=true;for(int i=0;i<20;++i)stable&=flag(true,false);
-    check(stable,"compressed reference chains never suppress driver discontinuity");
-    check(!flag(false)&&flag(),"isolated flag after unflagged sample always resets");
-    driverFlag.reset();check(flag(),"reconnect clears persistent flag evidence");
-    driverFlag.reset();
-    check(driverFlag.observe(true,true,true,false,0,0,60),"first sample keeps its discontinuity");
-    check(flag(true,true,true,.0164827,.0164222)&&
-          flag(true,true,true,.0171206,.0172319)&&
-          !flag(true,true,true,.0165042,.0164009),"user log initial callback cadence exits repeated reset");
-    check(captureDiscontinuity(true,true,flag(),true,1,1+1.0/60,60),"filter cannot erase an unconsumed mailbox boundary");
-    check(!captureDiscontinuity(false,true,flag(),true,1,1+1.0/60,60),"after boundary delivery continuous flagged frames can form a pair");
-    check(!captureDiscontinuity(true,false,false,true,1,1+1.0/60,60),"continuous callbacks remain continuous while mailbox is overwritten");
-    check(captureDiscontinuity(true,true,false,true,1,1+1.0/60,60),"driver discontinuity survives mailbox overwrite");
-    check(!captureDiscontinuity(false,true,false,true,1,1+1.0/60,60),"consumed driver discontinuity does not leak to next packet");
-    check(captureDiscontinuity(false,false,true,true,1,1+1.0/60,60),"driver discontinuity retained at normal cadence");
-    check(captureDiscontinuity(false,false,false,true,1,0.5,60),"backwards callback clock remains hard discontinuity");
-    check(captureDiscontinuity(false,false,false,true,1,1.2,60),"callback gap remains hard discontinuity");
-    driverFlag.reset();
-    unsigned resets=0;double vrrPts=0;bool vrrContinuous=true;
-    for(int i=0;i<2400;++i){
-        const double delta=1./(i%4==0?48.:i%4==1?120.:i%4==2?60.:90.);
-        const bool boundary=driverFlag.observe(true,true,true,i>0,delta,delta+.0002,120);
-        resets+=boundary;
-        vrrContinuous&=!veyra::source::captureClockBreak(vrrPts,vrrPts+delta,120);
-        const auto interval=veyra::engine::capturePairInterval100ns({83333,10000000},120,vrrPts*1000,(vrrPts+delta)*1000,false);
-        if(std::abs(interval-delta*1e7)>1)++failed;
-        vrrPts+=delta;
-    }
-    check(vrrContinuous,"2400 variable 48-120 Hz intervals preserve source history");
-    check(resets==3,"120 Hz format with 48-120 Hz VRR exits persistent driver-flag warmup");
-    check(driverFlag.observe(true,true,true,true,.2,.2,120),"VRR still resets on a real 200 ms stall");
-    check(driverFlag.observe(true,true,true,true,.02,.09,120),"VRR does not hide source/arrival disagreement");
-    check(veyra::source::captureClockBreak(1,.9,120),"VRR preserves backward-clock reset");
     check(veyra::engine::capturePairInterval100ns({83333,10000000},120,0,20,true)==83333,"reset does not reuse stale A/B interval");
     // Caller passes reset||skipped: a span across frames the player dropped is
     // not the source cadence (60 Hz capture, 100 ms gap -> keep 16.7 ms phase).
@@ -315,13 +268,13 @@ int main(){
     check(!veyra::engine::generatedPresentationCurrent(4,5),"history reset suppresses queued generated frame");
     check(veyra::engine::generatedPresentationCurrent(5,5),"current generation remains presentable");
     check(veyra::pipeline::FramePacket{}.duration.isUnknown(),"unset packet duration is unknown, not known zero");
-    check(captureDuration(100,166767,true,333333).to100ns()==166667,"sample duration wins over nominal");
-    check(captureDuration(100,100,false,333333).to100ns()==333333,"missing sample stop uses nominal30fps");
-    check(captureDuration(100,90,true,0).isUnknown(),"invalid sample and absent nominal stay unknown");
+    check(sampleDuration(100,166767,true,333333).to100ns()==166667,"sample duration wins over nominal");
+    check(sampleDuration(100,100,false,333333).to100ns()==333333,"missing sample stop uses nominal30fps");
+    check(sampleDuration(100,90,true,0).isUnknown(),"invalid sample and absent nominal stay unknown");
     check(liveSourceInterval100ns({1,1000},60)==10000,"1000fps packet not clamped to120fps");
     check(liveSourceInterval100ns({0,1},1000)==10000,"1000fps nominal fallback accepted");
     check(liveSourceInterval100ns({0,1},60)==166667,"known zero cannot turn60fps into120fps");
-    check(liveSourceInterval100ns(captureDuration(0,0,false,333333),60)==333333,"30fps packet retained by scheduler");
+    check(liveSourceInterval100ns(sampleDuration(0,0,false,333333),60)==333333,"30fps packet retained by scheduler");
     check(liveSourceInterval100ns({INT64_MAX,1},60)==1000000,"huge duration clamps before integer conversion");
     for(unsigned factor:{2u,4u,6u}){
         veyra::engine::PresentationScheduler scheduler;

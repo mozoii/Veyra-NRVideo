@@ -1,6 +1,4 @@
 module Veyra
-CaptureLegacyPicker 1.0 CaptureLegacyPicker.qml
-ScreenCropEditor 1.0 ScreenCropEditor.qml
 FullscreenTimingPanel 1.0 FullscreenTimingPanel.qml
 UpdateBanner 1.0 UpdateBanner.qml
 PlaylistWindow 1.0 PlaylistWindow.qml
@@ -75,12 +73,9 @@ DialogGroup 1.0 DialogGroup.qml
 DialogNote 1.0 DialogNote.qml
 DialogTextField 1.0 DialogTextField.qml
 NetworkSourceDialog 1.0 NetworkSourceDialog.qml
-CaptureSourceDialog 1.0 CaptureSourceDialog.qml
-CaptureGuideDialog 1.0 CaptureGuideDialog.qml
 OnboardingGuide 1.0 OnboardingGuide.qml
 PcSourceDialog 1.0 PcSourceDialog.qml
 XboxSourceDialog 1.0 XboxSourceDialog.qml
-ScreenSourceDialog 1.0 ScreenSourceDialog.qml
 SubtitleSettingsDialog 1.0 SubtitleSettingsDialog.qml
 LiveTranslationDialog 1.0 LiveTranslationDialog.qml
 AudioSettingsDialog 1.0 AudioSettingsDialog.qml

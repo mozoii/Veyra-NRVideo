@@ -88,8 +88,7 @@ Item {
         }
 
         function test_all_steps_and_finish() {
-            const targets = ["capture", "device", "resolution", "capture-rate", "format",
-                             "input-color", "connect", "sr", "nr", "hdr", "fg", "dedup", "timing"]
+            const targets = ["sr", "nr", "hdr", "fg", "dedup", "timing"]
             startGuide()
             compare(control("close").Accessible.name, control("close").tip)
             verify(!control("previous").enabled)

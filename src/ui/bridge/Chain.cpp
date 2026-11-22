@@ -333,38 +333,6 @@ int QmlPlayerBridge::selectedAudioTrack() const { return impl_->snapshot.selecte
 void QmlPlayerBridge::setSelectedAudioTrack(int index) {
     impl_->engine.selectAudioTrack(impl_->snapshot.sessionId, index);
 }
-bool QmlPlayerBridge::hasCaptureSession() const { return impl_->facade.hasCaptureSession(); }
-
-QString QmlPlayerBridge::captureSessionSummary() const {
-    // Built from the recorded session only: the device, the format and the preset
-    // that were actually used. A summary assembled from defaults would read as a
-    // history that never happened.
-    const auto& session = impl_->facade.lastCaptureSession();
-    QStringList parts;
-    // The device's friendly name (stored when the session started); the moniker
-    // path itself is not something a person can read.
-    const QString name = impl_->prefString("captureDeviceName");
-    if (!name.isEmpty()) parts << name;
-    else if (!session.devicePath.empty()) parts << QFileInfo(utf8Of(session.devicePath)).fileName();
-    const QString formatLabel = impl_->prefString("captureFormatLabel");
-    if (!formatLabel.isEmpty()) parts << formatLabel.section(QStringLiteral(" · "), 0, 1);
-    else if (!session.formatKey.empty()) parts << utf8Of(session.formatKey);
-    if (formatLabel.isEmpty() && session.fps > 0.01) parts << QStringLiteral("%1 fps").arg(session.fps, 0, 'f', 2);
-    if (!session.presetName.empty()) parts << tr("Preset \"%1\"").arg(utf8Of(session.presetName));
-    return parts.join(QStringLiteral(" · "));
-}
-
-void QmlPlayerBridge::resumeCaptureSession() {
-    // "Continue": the remembered device, format, audio and colour, re-checked
-    // against what the machine reports now; nothing else is picked for the user.
-    impl_->capturePrefs = ui::CapturePreferenceStore(impl_->dataDir).load();
-    if (impl_->capturePrefs.videoPath.empty()) { emit notice(tr("No capture history yet"), true); return; }
-    impl_->captureDevice = impl_->capturePrefs.videoPath;
-    impl_->captureColor = impl_->capturePrefs.colorForDevice(impl_->captureDevice);
-    impl_->captureResumePending = true;
-    queryCapture(2, impl_->captureDevice);
-}
-
 QString QmlPlayerBridge::colorStatus() const { return uiText(impl_->snapshot.colorStatus); }
 QString QmlPlayerBridge::videoHdrStatus() const { return uiText(impl_->snapshot.videoHdrStatus); }
 

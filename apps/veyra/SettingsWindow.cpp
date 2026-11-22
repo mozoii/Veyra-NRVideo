@@ -1331,7 +1331,7 @@ case WM_CREATE:{window=h;font=makeFont(h);items.clear();displayedBackendWarning.
     add(L"STATIC",L"Content cadence",1114,0,1,12,394,-1,24);
     combo(205,1,422,{L"Use source timestamps",L"Automatic duplicate removal",L"Detect 30fps content cadence",L"Detect 50fps content cadence",L"Detect 60fps content cadence",L"Capture 60→30fps processing (30-frame content)"});
     add(L"STATIC",L"AMD FidelityFX is for motion estimation; it is not AMD NR. XeSS is an experimental preview 2X and is not supported for export.",1110,0,1,12,426,-1,72);
-    add(L"STATIC",L"Capture audio sync",1115,0,1,12,608,-1,26);
+    add(L"STATIC",L"Streaming audio sync",1115,0,1,12,608,-1,26);
     combo(216,1,644,{L"Auto sync · software estimate",L"Manual audio offset",L"No compensation"});
     add(L"STATIC",L"Audio offset ms",1116,0,1,12,692,160,28);
     add(L"EDIT",L"0",217,ES_AUTOHSCROLL|ES_RIGHT|WS_TABSTOP,1,182,692,-1,28);
@@ -1551,7 +1551,7 @@ case WM_CREATE:{window=h;font=makeFont(h);items.clear();displayedBackendWarning.
         }
     }
     setText(item(1113),L"Optical flow · motion estimation");
-    setText(item(1115),L"Capture / streaming audio sync");
+    setText(item(1115),L"Streaming audio sync");
     add(L"STATIC",L"Adjust audio compensation for real-time input; does not change the frame generation multiplier. Positive values delay the audio; auto mode is estimated by software.",1118,0,4,12,148,-1,90);
     for(auto& entry:items)if(entry.page==0&&entry.y>=176)entry.y+=44;
     add(L"BUTTON",L"Low latency mode · experimental",220,BS_AUTOCHECKBOX|WS_TABSTOP,0,12,172,-1,36);

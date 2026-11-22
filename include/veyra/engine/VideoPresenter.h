@@ -10,7 +10,6 @@
 #include "veyra/gfx/ReflexSession.h"
 #include "veyra/gfx/NvidiaVrr.h"
 #include "veyra/engine/PresentationSettings.h"
-#include "veyra/engine/PresentCapture.h"
 #include "veyra/engine/DisplayStateService.h"
 #include <chrono>
 #include <array>
@@ -21,8 +20,6 @@ namespace veyra::sink { struct RgbaImage; }
 namespace veyra::engine {
 class VideoPresenter {
 public:
-    // Live recording hook; the object must outlive every present() call.
-    void setCapture(PresentCapture* capture){capture_=capture;}
     // Shared refresh/VRR states (the engine's); must outlive the presenter.
     void setDisplayStates(DisplayStateService* states){displayStates_=states;}
     ~VideoPresenter(){close();}
@@ -136,7 +133,6 @@ private:
     uint64_t reflexFrame_=0,reflexInputFrame_=0,generation_=0;
     int64_t lastPresentCallHost100ns_=0;
     bool providerOwnedPresentation_=false;
-    PresentCapture* capture_=nullptr;
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> presentationQueue_;
     Microsoft::WRL::ComPtr<ID3D12Fence> presentationFence_;
     HANDLE presentationEvent_=nullptr;

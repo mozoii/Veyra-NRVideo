@@ -5,8 +5,11 @@ Rectangle {
     id: tag
     property string text: ""
     property string kind: ""   // "" | "exp" | "acc" | "warn" | "ok"
-    implicitWidth: tagText.implicitWidth + 14
-    implicitHeight: Theme.tagHeight
+    // Long labels: fill the width the layout gives the tag and wrap inside it.
+    // The default keeps the one-line pill metrics every other tag relies on.
+    property bool wrap: false
+    implicitWidth: wrap ? 0 : tagText.implicitWidth + 14
+    implicitHeight: wrap ? tagText.implicitHeight + 8 : Theme.tagHeight
     radius: 6
     color: kind === "exp" ? Theme.expSoft
          : kind === "acc" ? Theme.accentSoft
@@ -16,6 +19,9 @@ Rectangle {
     Text {
         id: tagText
         anchors.centerIn: parent
+        width: tag.wrap ? Math.max(0, tag.width - 14) : implicitWidth
+        wrapMode: tag.wrap ? Text.WordWrap : Text.NoWrap
+        horizontalAlignment: Text.AlignHCenter
         text: tag.text
         color: tag.kind === "exp" ? Theme.exp
              : tag.kind === "acc" ? Theme.accent

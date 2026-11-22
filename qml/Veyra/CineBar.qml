@@ -434,7 +434,7 @@ Rectangle {
                 onClicked: presetMenu.openAt(this, "up")
                 Rectangle {
                     width: 7; height: 7; radius: 3.5
-                    color: veyra.failed ? Theme.err : veyra.captureRecovering ? Theme.warn : Theme.ok
+                    color: veyra.failed ? Theme.err : Theme.ok
                 }
             }
 
@@ -482,7 +482,7 @@ Rectangle {
                 TapHandler { onTapped: bar.requestFullscreen() }
             }
             // Hide the pill (field request 2026-10-01: it covers the game when playing
-            // through a capture card or a stream). The dock's eye button brings it back.
+            // through a stream). The dock's eye button brings it back.
             Item {
                 objectName: "cine-hide"
                 implicitWidth: 32; implicitHeight: 32
@@ -542,19 +542,15 @@ Rectangle {
         items: [
             { label: qsTr("Open video"), note: qsTr("MP4 · MKV · images"), icon: "folder", act: "file" },
             { label: qsTr("Open media URL…"), note: "HTTP · HTTPS · RTSP", icon: "cast", act: "network" },
-            { label: qsTr("Capture card"), note: qsTr("HDMI capture device"), icon: "video", act: "capture" },
-            { label: qsTr("PC streaming"), note: qsTr("Sunshine host"), icon: "cast", act: "moonlight" },
-            { label: qsTr("Xbox streaming"), note: qsTr("Account sign-in · experimental"), icon: "gamepad", act: "xbox" },
-            { label: qsTr("Screen capture"), note: qsTr("Window or display"), icon: "monitor", act: "screen" }
+                        { label: qsTr("PC streaming"), note: qsTr("Sunshine host"), icon: "cast", act: "moonlight" },
+            { label: qsTr("Xbox streaming"), note: qsTr("Account sign-in · experimental"), icon: "gamepad", act: "xbox" }
         ]
         onPicked: (i, o) => {
             switch (o.act) {
             case "file": veyra.openFileDialog(); break
             case "network": veyra.openNetworkDialog(); break
-            case "capture": veyra.openCaptureDialog(); break
             case "moonlight": veyra.openMoonlightDialog(); break
             case "xbox": veyra.openXboxDialog(); break
-            case "screen": veyra.openScreenCaptureDialog(); break
             }
         }
     }

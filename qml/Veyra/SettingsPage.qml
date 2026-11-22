@@ -2,8 +2,7 @@
 //
 // Design: a 220px nav column (Appearance / Startup and window / Playback / Audio / Performance / Compatibility /
 // Shortcuts / Components and licences / About / Sponsors; split 2026-10-05 because one page held
-// almost every setting) and a large body. The design deliberately has NO
-// capture-card section here: capture settings live in the capture dialog.
+// almost every setting) and a large body.
 //
 // Rows that would need engine support this build does not have say so, rather than
 // being drawn as switches that would do nothing.
@@ -381,7 +380,7 @@ VPage {
                         }
                         VRow {
                             label: qsTr("Automatically resume on startup")
-                            hint: qsTr("Resume the video position or reopen the last capture device and settings")
+                            hint: qsTr("Resume the video position or reopen the last streaming session")
                             VSwitch {
                                 objectName: "set-auto-resume"
                                 checked: !!veyra.preferences.autoResume
@@ -651,230 +650,6 @@ VPage {
                                 VButton { objectName: "set-shotdir"; text: qsTr("Change…"); onClicked: veyra.chooseScreenshotDirectory() }
                             }
                         }
-                    VGroup {
-                        objectName: "set-recording"
-                        VRow {
-                            label: qsTr("Recording folder")
-                            hint: veyra.recordingDirectory + qsTr("(MP4, records the processed picture and player audio)")
-                            RowLayout {
-                                spacing: 6
-                                VButton { text: qsTr("Open"); ghost: true; onClicked: veyra.openRecordingDirectory() }
-                                VButton { objectName: "set-recdir"; text: qsTr("Change…"); onClicked: veyra.chooseRecordingDirectory() }
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Recording bitrate")
-                            hint: qsTr("Automatic selects by frame size and rate; Mbps: higher values improve quality and increase file size")
-                            VSeg {
-                                objectName: "set-recbitrate"
-                                options: [{ id: "0", label: qsTr("Auto") }, { id: "8", label: "8" }, { id: "16", label: "16" }, { id: "20", label: "20" }, { id: "40", label: "40" }, { id: "80", label: "80" }]
-                                current: String(veyra.recordingBitrateMbps)
-                                onPicked: id => veyra.setPreference("recordBitrateMbps", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Recording frame rate")
-                            hint: qsTr("Follow the display to include generated frames; a limit samples at that rate")
-                            VSeg {
-                                objectName: "set-recfps"
-                                options: [{ id: "0", label: qsTr("Follow") }, { id: "30", label: "30" }, { id: "60", label: "60" }, { id: "120", label: "120" }]
-                                current: String(veyra.recordingFpsLimit)
-                                onPicked: id => veyra.setPreference("recordFps", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Recording split")
-                            hint: qsTr("Split at the next keyframe after either limit is reached. Enter 0 to disable a limit. Settings apply to the next recording.")
-                            RowLayout {
-                                DialogHost.VTextField {
-                                    objectName: "record-split-seconds"
-                                    implicitWidth: 74
-                                    text: String(veyra.preferences.recordSplitSeconds || 0)
-                                    validator: IntValidator { bottom: 0; top: 86400 }
-                                    onEdited: veyra.setPreference("recordSplitSeconds", Number(text))
-                                }
-                                Text { text: qsTr("s"); color: Theme.t3; font.pixelSize: Theme.fsSmall }
-                                DialogHost.VTextField {
-                                    objectName: "record-split-mib"
-                                    implicitWidth: 88
-                                    text: String(veyra.preferences.recordSplitMiB || 0)
-                                    validator: IntValidator { bottom: 0; top: 1048576 }
-                                    onEdited: veyra.setPreference("recordSplitMiB", Number(text))
-                                }
-                                Text { text: "MiB"; color: Theme.t3; font.pixelSize: Theme.fsSmall }
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Recording codec")
-                            hint: qsTr("HDR uses HEVC 10-bit; dimensions above 4096 automatically use HEVC")
-                            VSeg {
-                                objectName: "set-rechevc"
-                                options: [{ id: "0", label: "H.264" }, { id: "1", label: "HEVC" }]
-                                current: veyra.recordingHevc ? "1" : "0"
-                                onPicked: id => veyra.setPreference("recordHevc", id === "1")
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Two-pass encoding")
-                            hint: qsTr("The encoder looks at each frame once before spending its bits, so fast motion and busy scenes look sharper at the same bitrate; NVIDIA (NVENC) only. A quarter-resolution first pass is lighter, full resolution is best but heavier · off by default")
-                            VSeg {
-                                objectName: "set-recmultipass"
-                                options: [{ id: "0", label: qsTr("Close") }, { id: "1", label: qsTr("Quarter") }, { id: "2", label: qsTr("Full") }]
-                                current: String(veyra.preferences.recordMultipass !== undefined ? veyra.preferences.recordMultipass : 0)
-                                onPicked: id => veyra.setPreference("recordMultipass", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Psycho-visual tuning")
-                            hint: qsTr("Adaptive quantization moves bits to where the eye notices (flat skies, shadows, still detail) and reduces blocking; NVIDIA (NVENC) only, with temporal adaptive quantization added where the card supports it · off by default")
-                            VSwitch {
-                                objectName: "set-recpsychoaq"
-                                checked: veyra.preferences.recordPsychoAq === true
-                                onToggled: v => veyra.setPreference("recordPsychoAq", v)
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Record audio")
-                            hint: qsTr("Records the selected audio input regardless of volume, mute or local monitoring. Select an audio input for capture cards.")
-                            VSwitch {
-                                objectName: "set-recaudio"
-                                checked: veyra.recordingAudio
-                                onToggled: v => veyra.setPreference("recordAudio", v)
-                            }
-                        }
-                        // Microphone (#101): mixed into the sound, or a track of its own.
-                        VRow {
-                            label: qsTr("Record microphone")
-                            hint: qsTr("Also record a microphone; mixed into the recorded sound by default, or on a track of its own")
-                            VSwitch {
-                                objectName: "set-recmic"
-                                checked: veyra.recordingMicrophone
-                                onToggled: v => { veyra.setPreference("recordMic", v); if (v) veyra.refreshMicrophones() }
-                            }
-                        }
-                        VRow {
-                            visible: veyra.recordingMicrophone
-                            onVisibleChanged: if (visible) veyra.refreshMicrophones()
-                            label: qsTr("Microphone device")
-                            hint: qsTr("Allow desktop apps in Windows Settings → Privacy & security → Microphone")
-                            VSelect {
-                                objectName: "set-recmic-device"
-                                implicitWidth: 230
-                                options: [{ id: "", label: qsTr("System default microphone") }].concat(veyra.microphoneDevices)
-                                value: (options.find(o => o.id === veyra.recordingMicrophoneId)
-                                        || { label: qsTr("Chosen device (not connected)") }).label
-                                onPicked: id => veyra.setPreference("recordMicDevice", id)
-                            }
-                        }
-                        VRow {
-                            visible: veyra.recordingMicrophone
-                            label: qsTr("Microphone on its own track")
-                            hint: qsTr("Puts the microphone on audio track 2 to adjust it separately when editing; most players only play track 1")
-                            VSwitch {
-                                objectName: "set-recmic-track"
-                                checked: veyra.recordingMicrophoneTrack
-                                onToggled: v => veyra.setPreference("recordMicTrack", v)
-                            }
-                        }
-                    }
-                    VGroup {
-                        objectName: "set-virtual-camera-group"
-                        VRow {
-                            label: qsTr("Streaming app compatibility")
-                            hint: {
-                                const c = veyra.virtualCameraState || {}
-                                if(c.installing) return qsTr("Installing or removing. Complete the Windows administrator prompt.")
-                                if(c.setupError) return c.setupError
-                                if(c.systemOutdated) return qsTr("The system components are an older version: OBS and other streaming apps run as administrator will show no picture. Click “Update components”.")
-                                return c.systemInstalled ? qsTr("System components installed, including support for streaming apps run as administrator.")
-                                                         : qsTr("Registered for the current user. OBS and other streaming apps run as administrator need system components.")
-                            }
-                            VButton {
-                                objectName: "set-virtual-camera-install"
-                                primary: !!(veyra.virtualCameraState || {}).systemOutdated
-                                text: (veyra.virtualCameraState || {}).systemOutdated ? qsTr("Update components")
-                                    : (veyra.virtualCameraState || {}).systemInstalled ? qsTr("Repair components") : qsTr("Install components")
-                                enabled: !(veyra.virtualCameraState || {}).installing
-                                onClicked: veyra.installVirtualCamera()
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Virtual camera")
-                            hint: qsTr("Select Veyra Virtual Camera as a video capture device in your streaming app. Outputs the full processed picture without fullscreen.")
-                            VSwitch {
-                                objectName: "set-virtual-camera-toggle"
-                                checked: veyra.virtualCameraEnabled
-                                onToggled: enabled => veyra.setVirtualCameraEnabled(enabled)
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Camera frame rate")
-                            hint: qsTr("Auto: follows the frame rate the streaming app chose for the camera (such as 60 or 120 in OBS); with 3X or 4X frame generation, frames are taken at even times. A fixed value is a cap. SDR video; capture audio separately. Frames generated by the XeSS presentation backend are not included.")
-                            VSeg {
-                                objectName: "set-virtual-camera-fps"
-                                options: [{id: "0", label: qsTr("Auto")}, {id: "30", label: "30"}, {id: "60", label: "60"}, {id: "120", label: "120"}]
-                                current: String(veyra.virtualCameraFps)
-                                onPicked: id => veyra.setPreference("virtualCameraFps", Number(id))
-                            }
-                        }
-                        VRow {
-                            label: qsTr("Camera status")
-                            hint: {
-                                const c = veyra.virtualCameraState || {}
-                                if (c.error) return c.error
-                                if (!c.active) return qsTr("Off. Enable manually after each app launch.")
-                                if (!(c.width > 0)) return qsTr("Enabled, waiting for the processed picture.")
-                                const size = qsTr("%1 × %2 · %3 frames published · %4 skipped").arg(c.width).arg(c.height).arg(c.frames).arg(c.dropped)
-                                           + (c.consumerFps > 0 ? qsTr(" · streaming app asks for %1 fps").arg(c.consumerFps) : "")
-                                return c.processingWidth !== c.width || c.processingHeight !== c.height
-                                     ? size + qsTr(" (processing size %1 × %2)").arg(c.processingWidth).arg(c.processingHeight) : size
-                            }
-                            VButton { objectName: "set-virtual-camera-uninstall"; text: qsTr("Remove camera"); ghost: true; enabled: !(veyra.virtualCameraState || {}).installing; onClicked: veyra.uninstallVirtualCamera() }
-                        }
-                        // The consumer takes evenly spaced pictures: from a rate that is not a whole
-                        // multiple of its own (90 against 60: 3X on a 30 fps game) they cannot be even.
-                        VRow {
-                            objectName: "set-virtual-camera-rhythm"
-                            readonly property var cam: veyra.virtualCameraState || {}
-                            readonly property real ratio: cam.presentedFps > 0 && cam.consumerFps > 0
-                                ? Math.max(cam.presentedFps, cam.consumerFps) / Math.min(cam.presentedFps, cam.consumerFps) : 1
-                            visible: !!cam.active && Math.abs(ratio - Math.round(ratio)) > 0.1
-                            label: qsTr("Stream rhythm")
-                            hintColor: Theme.warn
-                            hint: qsTr("The picture runs at %1 fps, not a whole multiple of the %2 fps the streaming app takes, so the stream alternates between longer and shorter steps. Choose a frame generation multiple that gives a whole multiple, such as 2X or 4X for a 30 fps game streamed at 60.")
-                                  .arg(cam.presentedFps).arg(cam.consumerFps)
-                        }
-                    }
-                    // Instant replay (#103): the last few seconds or minutes in memory.
-                    VGroup {
-                        objectName: "set-replay-group"
-                        VRow {
-                            label: qsTr("Instant replay")
-                            hint: qsTr("Keeps the latest picture and sound in memory; %1 saves them to the recording folder. Uses one more hardware encoder session").arg(veyra.shortcuts.replay || qsTr("Shortcuts"))
-                            VSwitch {
-                                objectName: "set-replay"
-                                checked: veyra.replayEnabled
-                                onToggled: v => veyra.setPreference("replayEnabled", v)
-                            }
-                        }
-                        VRow {
-                            visible: veyra.replayEnabled
-                            label: qsTr("Replay length")
-                            hint: {
-                                const s = veyra.replayState || {}
-                                if (!s.active || !(s.seconds > 0)) return qsTr("Buffering starts when something plays; a higher recording bitrate uses more memory")
-                                if (s.memoryLimited) return qsTr("The memory cap only holds %1 s (about %2 MB); a lower recording bitrate keeps more").arg(s.seconds).arg(s.megabytes)
-                                return qsTr("%1 s buffered, about %2 MB of memory").arg(s.seconds).arg(s.megabytes)
-                            }
-                            VSeg {
-                                objectName: "set-replay-seconds"
-                                options: [{ id: "15", label: qsTr("15 s") }, { id: "30", label: qsTr("30 s") }, { id: "60", label: qsTr("1 min") },
-                                          { id: "120", label: qsTr("2 min") }, { id: "300", label: qsTr("5 min") }, { id: "600", label: qsTr("10 min") }]
-                                current: String(veyra.replaySeconds)
-                                onPicked: id => veyra.setPreference("replaySeconds", Number(id))
-                            }
-                        }
-                    }
                     }
                     VGroup {
                         objectName: "set-smooth-motion"
@@ -922,7 +697,7 @@ VPage {
                     VGroup {
                         VRow {
                             label: qsTr("Audio sync")
-                            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+                            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to live streaming input"))
                                   : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
                             VSeg {
                                 options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]
@@ -1051,18 +826,16 @@ VPage {
                         VRow {
                             // Interface drawing (veyra/ui/InterfaceRenderer.h, read by main.cpp at start).
                             // Software by default: no swapchain or D3D12 device of its own for
-                            // overlays to hook, and no video memory. OBS game capture compatibility and
-                            // monitoring software compatibility still draw in software when GPU is chosen.
+                            // overlays to hook, and no video memory. Monitoring software compatibility
+                            // still draws in software when GPU is chosen.
                             readonly property bool gpuChosen: veyra.preferences.uiRenderer === "gpu"
                             label: qsTr("Interface drawing")
                             hint: gpuChosen
                                   ? (!veyra.softwareUiActive
                                      ? qsTr("GPU drawing: smoother animation with shadows and blur; uses video memory and GPU time, and may conflict with RTSS and other monitoring overlays")
-                                     : veyra.obsGameCaptureActive
-                                       ? qsTr("With OBS game capture compatibility on, the interface is always drawn in software")
-                                       : veyra.overlayCompatActive
-                                         ? qsTr("A monitoring overlay was detected at this start, so the interface is still drawn in software (monitoring overlay compatibility: Auto)")
-                                         : qsTr("Takes effect after restart"))
+                                     : veyra.overlayCompatActive
+                                       ? qsTr("A monitoring overlay was detected at this start, so the interface is still drawn in software (monitoring overlay compatibility: Auto)")
+                                       : qsTr("Takes effect after restart"))
                                   : (veyra.softwareUiActive
                                      ? qsTr("Software drawing: best compatibility, no video memory, no competition with the video for the GPU; some shadows and blur are simplified")
                                      : qsTr("Takes effect after restart"))
@@ -1074,7 +847,7 @@ VPage {
                                     // A restart changes the renderer unless a compatibility rule
                                     // keeps the interface in software anyway.
                                     const changes = id === "gpu"
-                                        ? veyra.softwareUiActive && !veyra.obsGameCaptureActive
+                                        ? veyra.softwareUiActive
                                           && !((veyra.preferences.overlayCompat || "auto") === "auto" && veyra.presentationOverlayRunning())
                                         : !veyra.softwareUiActive
                                     if (veyra.setPreference("uiRenderer", id) && changes)
@@ -1092,21 +865,6 @@ VPage {
                             }
                         }
                         VRow {
-                            label: qsTr("OBS Game Capture compatibility")
-                            hint: (!!veyra.preferences.obsGameCapture !== veyra.obsGameCaptureActive)
-                                  ? qsTr("Takes effect after restart")
-                                  : qsTr("Captures video only; software UI with simpler shadows and blur")
-                            VSwitch {
-                                objectName: "set-obs-game-capture"
-                                checked: !!veyra.preferences.obsGameCapture
-                                onToggled: v => {
-                                    if (veyra.setPreference("obsGameCapture", v)
-                                            && v !== veyra.obsGameCaptureActive)
-                                        obsRestart.open()
-                                }
-                            }
-                        }
-                        VRow {
                             // RivaTuner (MSI Afterburner's OSD), NVIDIA's in-game overlay and GamePP: see
                             // main.cpp. Auto draws the interface in software when one runs at start, so
                             // they only hook the video. With interface drawing = software (the default) the interface
@@ -1115,9 +873,7 @@ VPage {
                             readonly property bool automatic: (veyra.preferences.overlayCompat || "auto") === "auto"
                             readonly property bool gpuChosen: veyra.preferences.uiRenderer === "gpu"
                             label: qsTr("Monitoring overlay compatibility")
-                            hint: veyra.obsGameCaptureActive
-                                  ? qsTr("OBS game capture compatibility already draws the interface in software; the RTSS OSD shows on the video only")
-                                  : !gpuChosen
+                            hint: !gpuChosen
                                   ? qsTr("Only matters when Interface drawing is set to GPU; with software drawing the RTSS OSD shows on the video only")
                                   : (automatic !== veyra.overlayCompatActive && (veyra.overlayCompatActive || veyra.presentationOverlayRunning()))
                                     ? qsTr("Takes effect after restart")
@@ -1131,7 +887,7 @@ VPage {
                                 options: [{ id: "auto", label: qsTr("Auto") }, { id: "off", label: qsTr("Close") }]
                                 current: veyra.preferences.overlayCompat || "auto"
                                 onPicked: id => {
-                                    if (veyra.setPreference("overlayCompat", id) && !veyra.obsGameCaptureActive
+                                    if (veyra.setPreference("overlayCompat", id)
                                             && overlayCompatRow.gpuChosen
                                             && (id === "auto") !== veyra.overlayCompatActive
                                             && (veyra.overlayCompatActive || veyra.presentationOverlayRunning()))
@@ -1162,12 +918,8 @@ VPage {
                                 { id: "fullscreen", a: qsTr("Fullscreen"), note: qsTr("F11 / Alt+Enter work too") },
                                 { id: "lock", a: qsTr("Lock the fullscreen control bar") },
                                 { id: "hold", a: qsTr("Hold to see the original") },
-                                { id: "screenshot", a: qsTr("Screenshot"), note: qsTr("Also works inside the game in game mode") },
-                                { id: "record", a: qsTr("Start / stop recording"), note: qsTr("Also works inside the game in game mode") },
-                                { id: "replay", a: qsTr("Save instant replay"), note: qsTr("Turn on instant replay in Settings → Playback first; also works inside the game in game mode") },
-                                { id: "toggleMode", a: qsTr("Toggle Minimal / Pro") },
-                                { id: "gamePanel", a: qsTr("Game mode: adjust picture"), note: qsTr("Keys are captured only in game mode; Ctrl, Alt and Shift combinations are supported") },
-                                { id: "gameExit", a: qsTr("Game mode: exit mouse passthrough"), note: qsTr("Leave fullscreen and restore normal window controls") }
+                                { id: "screenshot", a: qsTr("Screenshot") },
+                                { id: "toggleMode", a: qsTr("Toggle Minimal / Pro") }
                             ]
                             delegate: VRow {
                                 id: keyRow

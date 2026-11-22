@@ -81,7 +81,7 @@ VPage {
                 sourceMenu.openAt(menuAnchor, "at")
             }
         }
-        // A capture session that is still connecting: a pill in the
+        // A live stream that is still connecting: a pill in the
         // middle of the (still black) picture, cut out of the native video.
         Rectangle {
             objectName: "min-live-opening"
@@ -154,17 +154,12 @@ VPage {
         items: [{ label: qsTr("Open file…"), icon: "folder", act: "file" },
                 { label: qsTr("Open media URL…"), icon: "cast", act: "network" },
                 { label: qsTr("PC streaming…"), icon: "cast", act: "moonlight" },
-                { label: qsTr("Xbox streaming…"), icon: "gamepad", act: "xbox" },
-                { label: qsTr("Screen capture…"), icon: "monitor", act: "screen" },
-                { sep: true },
-                { label: qsTr("Capture card settings…"), icon: "settings", act: "capture" }]
+                { label: qsTr("Xbox streaming…"), icon: "gamepad", act: "xbox" }]
         onPicked: (i, o) => {
             if (o.act === "file") veyra.openFileDialog()
             else if (o.act === "network") veyra.openNetworkDialog()
             else if (o.act === "moonlight") veyra.openMoonlightDialog()
             else if (o.act === "xbox") veyra.openXboxDialog()
-            else if (o.act === "screen") veyra.openScreenCaptureDialog()
-            else if (o.act === "capture") veyra.openCaptureDialog()
         }
     }
     readonly property bool sourceMenuOpen: sourceMenu.visible

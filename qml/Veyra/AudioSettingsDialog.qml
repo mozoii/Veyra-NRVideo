@@ -89,23 +89,11 @@ DialogLayer {
             }
         }
     }
-    DialogGroup {
-        visible: veyra.sourceKind === "capture"
-        VRow {
-            label: qsTr("Local audio monitoring")
-            hint: qsTr("When off, recording and replay still receive audio; capture sound is not played locally.")
-            VSwitch {
-                objectName: "audio-capture-monitor"
-                checked: veyra.preferences.captureAudioMonitor !== false
-                onToggled: v => veyra.setPreference("captureAudioMonitor", v)
-            }
-        }
-    }
     DialogSection { text: qsTr("Audio/video sync") }
     DialogGroup {
         VRow {
             label: qsTr("Audio sync")
-            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to live streaming input"))
                   : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
             VSeg {
                 options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]
@@ -126,7 +114,7 @@ DialogLayer {
         }
         VRow {
             label: qsTr("Current offset")
-            hint: qsTr("Software-measured audio/video skew, not speaker-tested; only exists for real-time capture-card input")
+            hint: qsTr("Software-measured audio/video skew, not speaker-tested; only exists for live streaming input")
             value: veyra.audioSkewKnown ? (veyra.audioSkewMs >= 0 ? "+" : "") + veyra.audioSkewMs.toFixed(0) + " ms" : qsTr("N/A")
         }
     }

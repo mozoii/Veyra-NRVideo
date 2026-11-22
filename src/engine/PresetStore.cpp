@@ -72,7 +72,7 @@ std::string PresetStore::serialize()const{
         return false;});
     // v26 introduces appended resolution IDs; old readers reject this schema.
     std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(std::numeric_limits<float>::max_digits10)<<"VEYRA_PRESETS "<<(exclusion?37:anySr?36:videoAi?35:dual?34:srStage?33:nrModel?32:dlss?31:correctionExtended?30:correction?29:vfg?28:rendering?27:higher?26:fsr4?25:hold?24:stack?23:multi?22:21)<<'\n'<<std::quoted(utf8(default_))<<' '<<entries_.size()<<'\n';
-    for(auto& p:entries_){const auto& s=p.settings;const auto& m=s.model;const auto& r=s.residual;o<<std::quoted(utf8(p.name))<<' '<<m.intensity<<' '<<m.tone<<' '<<m.structure<<' '<<m.skin<<' '<<m.style<<' '<<m.autoMask<<' '<<m.uiCorrection<<' '<<r.total<<' '<<r.darken<<' '<<r.brighten<<' '<<r.color<<' '<<r.luminance<<' '<<s.nr<<' '<<s.sr<<' '<<s.multiplier<<' '<<int(s.nrPolicy)<<' '<<int(s.flow)<<' '<<int(s.content)<<' '<<s.protection.enabled<<' '<<s.protection.featherPixels;for(auto q:s.protection.regions){const auto box=protectionConstants(q);for(float coordinate:box)o<<' '<<coordinate;}o<<' '<<s.videoSrQuality<<' '<<int(s.frameGenerationBackend)<<' '<<int(s.srTarget)<<' '<<int(s.opticalFlowBackend)<<' '<<s.amdFlowHalfResolution<<' '<<int(s.audioSync)<<' '<<s.audioOffsetMs<<' '<<int(s.nrRuntime)<<' '<<s.captureCompatible<<' '<<s.lowLatency<<' '<<s.forceSdrPreview<<' '<<int(s.captureAudio)<<' '<<s.exportBitrateMbps<<' '<<s.captureFlipVertical<<' '<<int(s.captureBuffer)<<' ';writeColorSettings(o,s.color,utf8(s.color.lutNameString()));o<<' '<<s.videoHdr.enabled<<' '<<s.videoHdr.contrast<<' '<<s.videoHdr.saturation<<' '<<s.videoHdr.middleGray<<' '<<s.videoHdr.peakNits<<' '<<s.nrTemporal;
+    for(auto& p:entries_){const auto& s=p.settings;const auto& m=s.model;const auto& r=s.residual;o<<std::quoted(utf8(p.name))<<' '<<m.intensity<<' '<<m.tone<<' '<<m.structure<<' '<<m.skin<<' '<<m.style<<' '<<m.autoMask<<' '<<m.uiCorrection<<' '<<r.total<<' '<<r.darken<<' '<<r.brighten<<' '<<r.color<<' '<<r.luminance<<' '<<s.nr<<' '<<s.sr<<' '<<s.multiplier<<' '<<int(s.nrPolicy)<<' '<<int(s.flow)<<' '<<int(s.content)<<' '<<s.protection.enabled<<' '<<s.protection.featherPixels;for(auto q:s.protection.regions){const auto box=protectionConstants(q);for(float coordinate:box)o<<' '<<coordinate;}o<<' '<<s.videoSrQuality<<' '<<int(s.frameGenerationBackend)<<' '<<int(s.srTarget)<<' '<<int(s.opticalFlowBackend)<<' '<<s.amdFlowHalfResolution<<' '<<int(s.audioSync)<<' '<<s.audioOffsetMs<<' '<<int(s.nrRuntime)<<' '<<s.captureCompatible<<' '<<s.lowLatency<<' '<<s.forceSdrPreview<<' '<<0<<' '<<s.exportBitrateMbps<<' '<<0<<' '<<0<<' ';writeColorSettings(o,s.color,utf8(s.color.lutNameString()));o<<' '<<s.videoHdr.enabled<<' '<<s.videoHdr.contrast<<' '<<s.videoHdr.saturation<<' '<<s.videoHdr.middleGray<<' '<<s.videoHdr.peakNits<<' '<<s.nrTemporal;
         if(multi||fullSchema){o<<' '<<s.additionalColorCount;for(unsigned i=0;i<s.additionalColorCount;++i){o<<' ';writeColorSettings(o,s.additionalColors[i],utf8(s.additionalColors[i].lutNameString()));}}
         if(stack||fullSchema){
             o<<' '<<s.nrLayerCount;
@@ -130,13 +130,13 @@ bool PresetStore::parse(const std::string& data,std::vector<UserPreset>& out,std
         if(version>=10){int capture;if(!(in>>capture)||capture<0||capture>1)return false;s.captureCompatible=capture!=0;}
         if(version>=11){int low;if(!(in>>low)||low<0||low>1)return false;s.lowLatency=low!=0;}
         if(version>=12){int sdr;if(!(in>>sdr)||sdr<0||sdr>1)return false;s.forceSdrPreview=sdr!=0;}
-        if(version>=14){int ingress;if(!(in>>ingress)||ingress<0||ingress>2)return false;s.captureAudio=static_cast<CaptureAudioIngress>(ingress);}
+        if(version>=14){int ingress;if(!(in>>ingress)||ingress<0||ingress>2)return false;} // retired: capture audio ingress
         // v15 appends the export bitrate to the line, so it must be read last.
         if(version>=15){if(!(in>>s.exportBitrateMbps))return false;}
-        // v16 appends the manual capture vertical flip after the bitrate.
-        if(version>=16){int flip;if(!(in>>flip)||flip<0||flip>1)return false;s.captureFlipVertical=flip!=0;}
-        // v17 appends the capture video-pin buffer policy.
-        if(version>=17){int buffer;if(!(in>>buffer)||buffer<0||buffer>2)return false;s.captureBuffer=static_cast<veyra::source::CaptureBufferMode>(buffer);}
+        // v16 appends the manual capture vertical flip after the bitrate (retired).
+        if(version>=16){int flip;if(!(in>>flip)||flip<0||flip>1)return false;}
+        // v17 appends the capture video-pin buffer policy (retired).
+        if(version>=17){int buffer;if(!(in>>buffer)||buffer<0||buffer>2)return false;}
         // v18 appends the full colour grade block (see ColorSettings.h).
         if(version>=18){std::string lut;if(!readColorSettings(in,s.color,lut,version))return false;if(!lut.empty()&&!s.color.setLutName(wide(lut)))return false;}
         if(version>=20){int enabled;if(!(in>>enabled>>s.videoHdr.contrast>>s.videoHdr.saturation>>s.videoHdr.middleGray>>s.videoHdr.peakNits)||enabled<0||enabled>1)return false;s.videoHdr.enabled=enabled!=0;} if(version>=21){int temporal=0;if(!(in>>temporal)||temporal<0||temporal>1)return false;s.nrTemporal=temporal!=0;}

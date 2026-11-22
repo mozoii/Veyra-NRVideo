@@ -14,8 +14,30 @@ This is the fork's working state, not a release note. The parent project's relea
 ## What is not done
 
 - **Physical console capture (Auto, every tier, NR/FG/HDR/audio/corruption)** — blocked on a physical Series X/S with Alpha or Alpha Skip-Ahead. 1080p and below are the tested path.
-- **Executable validation** — no toolchain in this environment; catalog and Unicode checks run, unit/QML tests are not built here.
+- **Executable validation** — no toolchain in this environment; catalog and Unicode checks run, unit/QML tests are not built here. The 2026-11-22 removal round was the exception: MSVC 14.51 and Qt 6.8.3 were available here, so `veyra_qml_ui`, `veyra_xbox_tests`, `veyra_ui_i18n_tests`, `veyra_ui_contract_tests`, `veyra_game_passthrough_tests` and `veyra_capture_audio_tests` were built and run.
 - **Release** — no fork release has been published or tagged. Do not claim 1440p delivery or any 2.3.0 version.
+
+## Recording, virtual camera, capture sources and OBS removed (2026-11-22)
+
+Two rounds removed features from this fork. Live recording, the virtual camera and
+instant replay went first: the encoder and replay-buffer engine code, the DirectShow
+camera module and its system installer, the presentation capture hook they shared,
+their settings, shortcuts, toolbar controls and translated strings.
+
+The second round removed every capture source and the OBS integration: the capture-card
+path (DirectShow enumeration, DeckLink, Magewell, AverMedia, Elgato HDR control, capture
+format/colour/audio selection and its VB-CABLE setup), the screen/desktop capture path
+(WGC/DXGI, screen crop, game-mode click-through), the Linux OBS filter plugin and the
+OBS game-capture compatibility mode (setting, `--obs-game-capture` flag, renderer
+reason). Sources that remain: local files and images, network streams, PC streaming
+(moonlight) and Xbox streaming. Video export, image export and screenshots are
+unchanged and keep the shared `FrameSource` path.
+
+What this does not do: it does not uninstall an existing `C:/Program Files/VeyraVirtualCamera`
+system component from machines that installed it with an earlier version, and
+`THIRD_PARTY_NOTICES.md` still carries the OBS-derived component section plus the
+capture SDK entries. Both are records of what earlier builds shipped; removing them is
+a separate decision. The pre-removal capture code stays visible in git history.
 
 ## QML text layout (2026-11-22)
 

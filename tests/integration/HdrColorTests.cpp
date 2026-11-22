@@ -7,8 +7,6 @@
 #include "veyra/engine/VideoPresenter.h"
 #include "veyra/source/MediaFileSource.h"
 #include "veyra/RuntimePaths.h"
-#include "CaptureFormatGpuCases.h"
-#include "DeckLinkGpuCases.h"
 #include "SdrColorGpuCases.h"
 #include "HdrNativeRoundTripCases.h"
 #include "HdrToneMapGpuCases.h"
@@ -56,7 +54,7 @@ int wmain(int argc,wchar_t** argv){
  if(!ctx.initialize(dd,st)||!ring.initialize(ctx.device(),ctx.directQueue(),ctx.fence(),ctx.fenceEvent(),4,st))return 2;
  if(argc==4&&std::wstring_view(argv[1])==L"--verify-av1")
   return av1DecodePaths(ctx,argv[2],std::wstring_view(argv[3])==L"10");
- int failures=captureGpuCases(ctx,ring)+decklinkGpuCases(ctx,ring)+sdrColorGpuCases(ctx,ring)+hdrRoundTrip::run(ctx,ring)+hdrToneTests::run(ctx,ring)+screenScRgbCases(ctx,ring);
+ int failures=sdrColorGpuCases(ctx,ring)+hdrRoundTrip::run(ctx,ring)+hdrToneTests::run(ctx,ring)+screenScRgbCases(ctx,ring);
  {
   using pipeline::TransferFunction;
   AVFrame frame{};frame.format=AV_PIX_FMT_YUV420P10LE;frame.height=1080;

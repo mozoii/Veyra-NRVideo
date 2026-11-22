@@ -288,7 +288,7 @@ Item {
             Item {
                 implicitWidth: 19
                 implicitHeight: 30
-                VDot { anchors.centerIn: parent; off: !veyra.running; warn: veyra.captureRecovering }
+                VDot { anchors.centerIn: parent; off: !veyra.running; warn: false }
             }
 
             Rectangle { implicitWidth: 1; implicitHeight: 16; color: Qt.rgba(1, 1, 1, 0.14) }

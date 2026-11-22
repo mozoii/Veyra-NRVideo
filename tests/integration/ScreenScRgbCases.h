@@ -24,7 +24,7 @@ inline int screenScRgbCases(veyra::gfx::D3D12DeviceContext& ctx,veyra::gfx::Comm
     for(bool native:{false,true})for(float exposure:{0.f,1.f}){
         pipeline::EnhanceGraph graph(ctx,ring);pipeline::EnhanceGraphDesc d;d.sourceWidth=d.workWidth=64;d.sourceHeight=d.workHeight=16;d.rgbInput=d.hdrInput=d.noFeatures=true;d.enableNr=d.enableSr=d.enableFg=false;d.hdrOutput=native;d.color.enabled=true;d.color.exposure=exposure;
         pipeline::EnhanceGraph::FrameOutputs out;bool ok=graph.initialize(d)&&graph.createViews()&&graph.process(frame,0,true,out,1,&color,&surface);double error=0;
-        if(native){std::vector<float> actual;ok=ok&&captureReadFp16(ctx,ring,graph.diagnosticLinearInput(),actual);
+        if(native){std::vector<float> actual;ok=ok&&readFp16(ctx,ring,graph.diagnosticLinearInput(),actual);
             if(ok)for(unsigned p=0;p<4;++p)for(unsigned c=0;c<3;++c)error=std::max(error,double(std::abs(actual[(p*16+8)*4+c]-patches[p][c]*std::exp2(exposure))));
             ok=ok&&error<.02;
         }else{sink::RgbaImage image;ok=ok&&sink::readRgba8(ctx,ring,graph.videoFrameResource(out.videoSlot),image);

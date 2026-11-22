@@ -37,7 +37,7 @@ Rectangle {
                     onClicked: panel.expanded = !panel.expanded
                 }
                 VButton {
-                    text: qsTr("%1 to close").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
+                    text: qsTr("%1 to close").arg("Home")
                     onClicked: panel.closeRequested()
                 }
             }

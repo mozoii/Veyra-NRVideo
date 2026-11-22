@@ -3,14 +3,14 @@
 namespace veyra::ui {
 struct TransportSlot {int x=0,width=0;};
 struct TransportLayout {
-    TransportSlot open,capture,recent,master,sr,stop,play,mute,volume,subtitle,fullscreen,lock,mode,minimize,close;
+    TransportSlot open,recent,master,sr,stop,play,mute,volume,subtitle,fullscreen,lock,mode,minimize,close;
     bool captions;
     TransportLayout(int width,bool daily,bool fullscreenMode=false):captions(daily&&width>=1040){
         int left=0,right=width;
         auto takeLeft=[&](int size){TransportSlot result{left,size};left+=size+4;return result;};
         auto takeRight=[&](int size){right-=size;TransportSlot result{right,size};right-=4;return result;};
         if(daily){
-            open=takeLeft(captions?76:32);capture=takeLeft(captions?76:32);recent=takeLeft(32);left+=10;
+            open=takeLeft(captions?76:32);recent=takeLeft(32);left+=10;
             master=takeLeft(captions?114:36);sr=takeLeft(captions?70:60);
             close=takeRight(26);minimize=takeRight(26);right-=8;mode=takeRight(captions?126:32);
         }

@@ -64,7 +64,6 @@ void QmlPlayerBridge::setupXbox() {
         j.openingSessionId = 0;
         j.sourceLabel = L"Xbox · " + launch.label.toStdWString();
         j.resumeSession = 0;
-        j.screenFillActive = false;
         const bool pad = launch.desc.gamepad;
         const QString label = launch.label;
         auto request = std::make_shared<source::XboxConnectDesc>(std::move(launch.desc));

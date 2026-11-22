@@ -7,7 +7,6 @@
 #include <string>
 #include <string_view>
 #include "veyra/pipeline/ResolutionPlan.h"
-#include "veyra/source/CaptureBuffer.h"
 #include "veyra/engine/ColorSettings.h"
 #include "veyra/engine/AntiAliasSettings.h"
 #include "veyra/engine/BeautySettings.h"
@@ -126,19 +125,6 @@ constexpr uint32_t videoSrQualityFor(VideoSrFamily family,uint32_t tier){
 // (preset M), 2 = DLSS 4.5 Ultra Performance model (preset L). Both 4.5
 // models ship in the DLSS 310.5+ runtime already packaged (310.7).
 inline constexpr uint32_t kDlssSrModelCount=3;
-// Capture audio ingress policy. Automatic is what the pipeline did before the
-// manual selector existed; the other two exist because Dolby/DTS passthrough
-// negotiation depends on the device and the console, and users reported that
-// "let the capture card decide" is not reliable in practice.
-enum class CaptureAudioIngress { Auto, PcmOnly, BitstreamPreferred };
-constexpr std::wstring_view captureAudioIngressName(CaptureAudioIngress mode) {
-    switch(mode) {
-    case CaptureAudioIngress::PcmOnly: return L"Force linear PCM";
-    case CaptureAudioIngress::BitstreamPreferred: return L"Bitstream first (Dolby/DTS passthrough decoding)";
-    case CaptureAudioIngress::Auto: break;
-    }
-    return L"Auto (PCM first, bitstream decoding when needed)";
-}
 // Keep retired 0/1 IDs decodable; new builds migrate them to the SF slot.
 // 3 remains the explicitly selected NVIDIA original, 4 the AMD backend.
 enum class NrRuntime { Original = 0, Community = 1, Ampere = 2, NvidiaOriginal = 3, LmxxfAmd = 4 };
@@ -372,18 +358,6 @@ struct EnhancementSettings {
     // when off, multiplier follows the author's original logic. Open to DLSS and VFG only.
     bool fgAutoMultiplier=false;
     bool captureCompatible=false;
-    // Capture audio ingress; requires a reconnect to take effect (the media type
-    // is negotiated when the graph is built).
-    CaptureAudioIngress captureAudio=CaptureAudioIngress::Auto;
-    // Capture video-pin allocator policy; requires a reconnect to take effect
-    // (the allocator is created while the capture graph is built).
-    source::CaptureBufferMode captureBuffer=source::CaptureBufferMode::Auto;
-    // Capture ingest only: flip the incoming frame vertically. Exists because
-    // some devices declare a DIB orientation that does not match their samples
-    // (RGB24 upside-down reports); the capture source asks for top-down first,
-    // this is the manual fallback when a driver still misreports. Applies to
-    // the next sample, so it is a live edit, not a graph rebuild.
-    bool captureFlipVertical=false;
     bool forceSdrPreview=false; // display only; retain actual HDR source metadata
     HdrOutputMode hdrOutputMode=HdrOutputMode::Hdr10;
     MotionSource fgMotion=MotionSource::Automatic;
@@ -595,7 +569,7 @@ struct EnhancementSettings {
     bool sameActiveVideoParameters(const EnhancementSettings& other) const {
         auto active=activeVideoSettings();const auto target=other.activeVideoSettings();
         active.revision=target.revision;active.audioSync=target.audioSync;active.audioOffsetMs=target.audioOffsetMs;
-        active.captureFlipVertical=target.captureFlipVertical;active.exportBitrateMbps=target.exportBitrateMbps;
+        active.exportBitrateMbps=target.exportBitrateMbps;
         // Read by the engine loop each pair; no graph update or NR history reset.
         active.fgAdaptive=target.fgAdaptive;active.pacingRepair=target.pacingRepair;
         return active==target;
@@ -605,9 +579,6 @@ struct EnhancementSettings {
         video.revision=target.revision;
         video.audioSync=target.audioSync;
         video.audioOffsetMs=target.audioOffsetMs;
-        // Capture flip is applied per sample on the source's callback thread;
-        // toggling it must not rebuild the graph.
-        video.captureFlipVertical=target.captureFlipVertical;
         // Export-only fields: changing the bitrate must never invalidate the
         // running preview graph (the controller would otherwise rebuild it).
         video.exportBitrateMbps=target.exportBitrateMbps;
@@ -660,8 +631,6 @@ struct EnhancementSettings {
         if(auto error=exclusion.validate();!error.empty())return error;
         if(!revision)return "settingsRevision must be nonzero";
         if(!validNrRuntime(nrRuntime))return "invalid NR runtime";
-        if(captureAudio<CaptureAudioIngress::Auto||captureAudio>CaptureAudioIngress::BitstreamPreferred)return "invalid capture audio ingress mode";
-        if(captureBuffer<source::CaptureBufferMode::Auto||captureBuffer>source::CaptureBufferMode::DriverDefault)return "invalid capture buffer mode";
         if(audioSync<AudioSyncMode::Automatic||audioSync>AudioSyncMode::Off||audioOffsetMs<-250||audioOffsetMs>250)return "invalid audio sync setting";
         // Stage-5 output stabiliser: 0 is off, 1 is full hold; the tolerance is
         // a relative box-luma delta, so anything above 1 would hold every pixel.

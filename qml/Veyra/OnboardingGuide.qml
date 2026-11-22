@@ -22,24 +22,10 @@ Popup {
     readonly property var step: steps[stepIndex]
     property rect spotlight: Qt.rect(0, 0, 0, 0)
     readonly property var steps: [
-        { target: "capture", title: qsTr("Start with your capture card"),
-          detail: qsTr("On the home page, open Capture card to set up your HDMI input.") },
-        { target: "device", title: qsTr("Choose your capture card"),
-          detail: qsTr("Under Video input device, pick the capture card you connected. Veyra will list the capture modes it supports.") },
-        { target: "resolution", title: qsTr("Choose a capture resolution"),
-          detail: qsTr("Pick one of the resolutions your capture card reports. The list of frame rates updates with your selection.") },
-        { target: "capture-rate", title: qsTr("Prefer 60 FPS for capture"),
-          detail: qsTr("Use 60 FPS if your card offers it. 59.94 FPS is another common option close to 60. You can capture at 60 FPS even if the game runs at 30 FPS.") },
-        { target: "format", title: qsTr("Choose a capture format"),
-          detail: qsTr("Pixel format lists the options available at the selected resolution and frame rate. Here is what the common formats carry.") },
-        { target: "input-color", title: qsTr("Set the input color"),
-          detail: qsTr("When your console is outputting HDR10, choose P010 and set the input to HDR · PQ. Use SDR · 709 for NV12, YUY2, or RGB24. Reconnect to apply the change.") },
-        { target: "connect", title: qsTr("Connect and start capture"),
-          detail: qsTr("After you choose a device and format, connect here. Check that the preview has a picture and the capture rate looks right, then explore enhancements in Pro mode.") },
         { tab: "quality", target: "sr", title: qsTr("Find Super resolution here"),
           detail: qsTr("In Super resolution, pick an algorithm and a target size when you want to change the output resolution.") },
         { tab: "quality", target: "nr", title: qsTr("DLSS 5 neural rendering (NR)"),
-          detail: qsTr("Add a layer under NR enhancement. Veyra applies experimental neural rendering to the captured picture to enhance lighting, materials, and visual details.") },
+          detail: qsTr("Add a layer under NR enhancement. Veyra applies experimental neural rendering to the picture to enhance lighting, materials, and visual details.") },
         { tab: "quality", target: "hdr", title: qsTr("Convert SDR to HDR here"),
           detail: qsTr("Try RTX Video HDR to convert SDR to HDR when you have a supported GPU and an HDR display.") },
         { tab: "fg", target: "fg", title: qsTr("Set up frame generation"),
@@ -380,32 +366,6 @@ Popup {
                         CopyText {
                             width: parent.width
                             text: guide.step ? guide.step.detail : ""
-                        }
-                        Column {
-                            visible: guide.step?.target === "format"
-                            width: parent.width
-                            spacing: 4
-                            Repeater {
-                                model: [
-                                    { name: "NV12", note: qsTr("8-bit 4:2:0 · SDR with lower bandwidth requirements.") },
-                                    { name: "YUY2", note: qsTr("8-bit 4:2:2 · SDR with more vertical color detail.") },
-                                    { name: "RGB24", note: qsTr("8-bit RGB · SDR with a full set of RGB components per pixel and higher bandwidth.") },
-                                    { name: "P010", note: qsTr("10-bit 4:2:0 · Of these four formats, use P010 for native HDR10 capture.") }
-                                ]
-                                delegate: RowLayout {
-                                    required property var modelData
-                                    width: parent.width
-                                    spacing: 6
-                                    CopyText {
-                                        Layout.preferredWidth: 46
-                                        text: modelData.name
-                                        color: Theme.accent
-                                        font.weight: Font.DemiBold
-                                        font.variableAxes: Theme.axesDemiBold
-                                    }
-                                    CopyText { Layout.fillWidth: true; text: modelData.note }
-                                }
-                            }
                         }
                         Column {
                             visible: guide.step?.target === "dedup"

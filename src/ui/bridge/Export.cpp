@@ -325,5 +325,54 @@ QString QmlPlayerBridge::diagnosticsReport() const {
     return lines.join(QLatin1Char('\n'));
 }
 
+void QmlPlayerBridge::chooseExportPath() {
+    if (impl_->chain.mode == engine::ChainMode::Node) {
+        emit notice(tr("The node chain is not wired to the export executor yet; switch to list mode to export"), true);
+        return;
+    }
+    const QString path = QFileDialog::getExistingDirectory(nullptr,tr("Choose export folder"),exportTarget());
+    setExportPath(path);
+}
+
+void QmlPlayerBridge::setExportPath(const QString& path) {
+    if (path.isEmpty()) return;
+    impl_->exportOutput = wideOf(path);
+    impl_->exportStatus = QFileInfo(path).fileName();
+    emit exportChanged();
+}
+
+void QmlPlayerBridge::startExport() {
+    QString error;auto settings=impl_->exportSettings(error);
+    if(!settings){emit notice(error,true);return;}
+    if(impl_->exportQueue.count()==0){
+        if(!QFileInfo(utf8Of(impl_->sourceLabel)).isFile()){emit notice(tr("Add the files to export first"),true);return;}
+        const QString target=exportTarget();
+        const bool fileTarget=!target.isEmpty()&&!QFileInfo(target).isDir();
+        const auto id=impl_->exportQueue.addFile(utf8Of(impl_->sourceLabel),fileTarget?target:QString());
+        impl_->exportQueue.queue().setTrim(id,impl_->exportTrimStartSeconds,impl_->exportTrimEndSeconds);
+        impl_->exportQueue.setSelectedId(id);
+    }
+    if(impl_->exportOutput.empty())chooseExportPath();
+    if(impl_->exportOutput.empty())return;
+    const QFileInfo target(exportTarget());
+    const QString folder=target.isDir()?target.absoluteFilePath():target.absolutePath();
+    std::wstring reason;
+    if(!impl_->exportQueue.queue().start(wideOf(folder),*settings,impl_->exportHevc,impl_->exportRateControl,reason)){
+        emit notice(uiText(reason),true);emit exportChanged();return;
+    }
+    veyra::log::info("qml-export",std::format("export frozen bitrateMbps={} rateControl={} hevc={} srTarget={} srPrescale={} srOutput={}",
+        settings->exportBitrateMbps,int(impl_->exportRateControl),impl_->exportHevc,int(settings->srTarget),uint32_t(settings->srPrescale),uint32_t(settings->srOutput)));
+    impl_->exportQueue.refresh();pollExport();emit navigate(QStringLiteral("exp"));
+    // Leave the GPU to the export (field request 2026-10-02): whatever plays is closed,
+    // unless Export page -> stop playback when export starts is off.
+    if(impl_->prefBool("exportStopsPlayback",true)&&(hasSource()||impl_->openingSource)){
+        veyra::log::info("qml-export","export started: closing the playing source");
+        stopPlayback();emit notice(tr("Closed what was playing; the whole GPU goes to the export"),false);
+    }
+}
+void QmlPlayerBridge::cancelExport() {
+    impl_->exportQueue.queue().cancel();impl_->exportQueue.refresh();pollExport();emit exportChanged();
+}
+
 
 } // namespace veyra::ui

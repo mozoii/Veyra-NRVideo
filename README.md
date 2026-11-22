@@ -18,9 +18,9 @@
 
 ### Real-time GPU video enhancement for Windows
 
-**Super Resolution · Denoising · HDR · Frame Generation · Capture · Xbox streaming**
+**Super Resolution · Denoising · HDR · Frame Generation · Xbox streaming**
 
-Turn local video, capture cards and game streaming into one real-time GPU enhancement pipeline.
+Turn local video, network streams and console streaming into one real-time GPU enhancement pipeline.
 
 > **This is an Xbox-only, English-only fork.** The PS5 / Chiaki path has been removed entirely. Xbox home streaming is the primary console source, with Auto as the default resolution. 1440p is exposed as the ceiling but is **provisional**: the official wire-level mapping has not yet been confirmed by a physical console capture on this fork. See [docs/xbox-1440p-negotiation.md](docs/xbox-1440p-negotiation.md).
 
@@ -51,7 +51,7 @@ Turn local video, capture cards and game streaming into one real-time GPU enhanc
 
 ## What this fork is
 
-Veyra is a Windows 11 x64, DirectX 12, Qt 6.8.3 / QML application for real-time GPU video enhancement: local video files, images, capture cards, screen capture and Xbox home streaming share one enhancement pipeline.
+Veyra is a Windows 11 x64, DirectX 12, Qt 6.8.3 / QML application for real-time GPU video enhancement: local video files, images, network streams and Xbox home streaming share one enhancement pipeline.
 
 This fork:
 
@@ -63,13 +63,13 @@ This fork:
 
 - **NR controls** — each NR layer's enhancement strength reaches 5. Picture-control defaults off; enable it for Automatic or Manual styles.
 - **Rebuilt interface** — Home, Cinema, Professional List, Nodes, Colour, Export and Settings; English source strings with nine translated columns (zh-CN, zh-TW, ja, ko, es, fr, de, pt-BR, ru).
-- **PC / Xbox streaming** — Moonlight/Sunshine-compatible PC streaming and unofficial experimental Xbox support, alongside capture cards, screen capture and local files.
-- **Enhancement and compatibility** — DLSS/XeSS/FSR options, capture improvements and a persistent OBS Game Capture switch with restart confirmation.
+- **PC / Xbox streaming** — Moonlight/Sunshine-compatible PC streaming and unofficial experimental Xbox support, alongside local files, images and network streams.
+- **Enhancement and compatibility** — DLSS/XeSS/FSR options, streaming improvements and monitoring-overlay compatibility.
 - **New export workflow** — editable ordered queue, trimming, MP4/MKV, multiple audio/embedded subtitle tracks, cancellation/retry and completion sound.
 
 ## Install and upgrade
 
-Download the latest release from the fork's [releases page](https://github.com/mozoii/Veyra-NRVideo/releases). Run Setup, or extract the portable ZIP with Windows or 7-Zip into a new writable folder and launch **Veyra.exe**. Windows 11 x64 and DirectX 12 are required; Qt and approved runtimes are included, while GPU/capture drivers are installed separately.
+Download the latest release from the fork's [releases page](https://github.com/mozoii/Veyra-NRVideo/releases). Run Setup, or extract the portable ZIP with Windows or 7-Zip into a new writable folder and launch **Veyra.exe**. Windows 11 x64 and DirectX 12 are required; Qt and approved runtimes are included, while GPU drivers are installed separately.
 
 Start with effects off, check picture/sound, then enable effects individually. High resolution, layered NR and frame generation increase GPU/VRAM requirements.
 
@@ -77,34 +77,31 @@ Start with effects off, check picture/sound, then enable effects individually. H
 
 ### Sources and pages
 
-Home offers files, capture card, PC, Xbox and screen capture. Files/images can also be dropped into the window. Move to the bottom edge to reveal navigation between Home, Cinema, Professional, Colour, Export and Settings.
+Home offers files, network streams, PC and Xbox streaming. Files/images can also be dropped into the window. Move to the bottom edge to reveal navigation between Home, Cinema, Professional, Colour, Export and Settings.
 
 - Cinema prioritises the picture with a floating source/transport/audio/fullscreen bar, optionally hidden in settings.
 - Professional List has Picture, Frame generation, Colour, Sound and Display tabs.
 - Click a file's picture to pause/resume; left/right arrows seek five seconds. Double-click or use the fullscreen button.
 
-### Capture and streaming
+### Streaming
 
 | Source | Setup |
 |---|---|
-| Capture card | Select device, resolution, rate, then a supported pixel format and audio input. Close competing apps. Match PQ/HLG/709 and Limited/Full to the signal. Magewell Pro Capture has a dedicated low-latency option. |
 | Xbox | Sign in with your Microsoft account (device code), select the console, pick the resolution (Auto is default), and connect. Unofficial/experimental; account, service and console restrictions apply. |
 | PC | Install/configure Sunshine yourself; discover/add the host, PIN-pair, select app/desktop and connect. Sunshine is not bundled. |
-| Screen | Select a window/display; avoid recursively capturing Veyra itself. |
+| Network | Open a media URL (HTTP, HTTPS, RTSP) or a server-hosted file. |
 
-**Xbox resolution modes:** Auto (default), 720p, 720p HQ, 1080p, 1080p HQ, 1440p. Auto lets the service pick the best eligible tier. 1440p is the ceiling and is **provisional** — see the negotiation notes. Two software-decoder switches are available (Xbox dialog and capture) for corruption workarounds.
+**Xbox resolution modes:** Auto (default), 720p, 720p HQ, 1080p, 1080p HQ, 1440p. Auto lets the service pick the best eligible tier. 1440p is the ceiling and is **provisional** — see the negotiation notes. Two software-decoder switches are available (Xbox dialog) for corruption workarounds.
 
-**Screen Capture → Game mode** — choose a borderless game window or monitor. Home opens adjustments, Esc closes them, **Ctrl+Alt+Home** exits passthrough. Hotkeys are customizable in Settings → Shortcuts. Windowed game pictures follow the original visible bounds; use borderless fullscreen to fill the display.
-
-Pausing capture/streaming freezes the preview while keeping the session, not the host game. Physical hardware, networks, HDR and controllers need individual validation.
+Pausing a stream freezes the preview while keeping the session, not the host game. Physical hardware, networks, HDR and controllers need individual validation.
 
 ### Export
 
 Use **List mode**, confirm effects, then open Export. Add/reorder files, edit individual jobs, trim, select MP4/MKV and encoding quality, and keep all or selected audio/subtitle tracks.
 
-### OBS and settings
+### Settings
 
-For OBS Game Capture, enable **Settings → General & appearance → OBS Game Capture compatibility**. Screenshot and the preset menu save pictures and personal settings. Settings include language/scale, shortcuts, monitoring GPU, audio devices and component info. Report GPU/driver, media, effects, time and `logs/veyra-qml.log`.
+Screenshot and the preset menu save pictures and personal settings. Settings include language/scale, shortcuts, monitoring GPU, audio devices and component info. Report GPU/driver, media, effects, time and `logs/veyra-qml.log`.
 
 ANR Beta runtime files are user-supplied and **excluded from this public fork** (upstream forbids third-party redistribution of those assets). Supply them yourself alongside the fork if you want the ANR FG path.
 
@@ -121,7 +118,7 @@ ANR Beta runtime files are user-supplied and **excluded from this public fork** 
 ```mermaid
 flowchart TD
     UI[Qt Quick / QML pages] --> Bridge[Shared Bridge / settings / sessions / presets]
-    Sources[Files / capture / PC / Xbox / screen] --> Source[FrameSource: frames, timestamps, colour]
+    Sources[Files / network / PC / Xbox] --> Source[FrameSource: frames, timestamps, colour]
     Bridge --> Graph[Shared EnhanceGraph: valid chain]
     Source --> Graph
     Graph --> Effects[Multiple NR / single SR / colour / Video HDR]

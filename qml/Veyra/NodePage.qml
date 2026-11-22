@@ -638,7 +638,7 @@ VPage {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: 12
-                text: qsTr("%1 to close").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
+                text: qsTr("%1 to close").arg("Home")
                 color: Theme.t3
                 font.family: Theme.fontUi
                 font.pixelSize: 11
@@ -846,7 +846,7 @@ VPage {
                         Text {
                             Layout.fillWidth: true
                             visible: veyra.audioSyncMode === 0
-                            text: veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input")
+                            text: veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to live streaming input")
                             color: Theme.t3; font.family: Theme.fontUi; font.pixelSize: 10; wrapMode: Text.WordWrap
                         }
                         // Display sync / output cap: presentation belongs to the output.
@@ -1750,7 +1750,7 @@ VPage {
                     visible: veyra.fgBackendName === "vfg"
                     enabled: veyra.vfgQuality !== 0 && veyra.fgMultiplier === 2
                     opacity: enabled ? 1 : 0.5
-                    hint: qsTr("During live capture at 2X, when the current level cannot make the screen refresh, that frame pair uses the next faster level: no dropped frame and no added latency. Uses about 2 GB more VRAM; does nothing when VRAM is short")
+                    hint: qsTr("During a live stream at 2X, when the current level cannot make the screen refresh, that frame pair uses the next faster level: no dropped frame and no added latency. Uses about 2 GB more VRAM; does nothing when VRAM is short")
                     VSwitch { objectName: "node-vfg-auto-regulate"; checked: veyra.vfgAutoRegulate; onToggled: checked => veyra.vfgAutoRegulate = checked }
                 }
                 VRow {
@@ -1913,16 +1913,12 @@ VPage {
                 { label: qsTr("Open media URL…"), icon: "cast", act: "network" },
                      { label: qsTr("PC streaming…"), icon: "cast", act: "moonlight" },
                      { label: qsTr("Xbox streaming…"), icon: "gamepad", act: "xbox" },
-                     { label: qsTr("Screen capture…"), icon: "monitor", act: "screen" },
-                     { sep: true },
-                     { label: qsTr("Capture card settings…"), icon: "settings", act: "capture" }])
+                     ])
         onPicked: (i, o) => {
             if (o.act === "file") veyra.openFileDialog()
             else if (o.act === "network") veyra.openNetworkDialog()
             else if (o.act === "moonlight") veyra.openMoonlightDialog()
             else if (o.act === "xbox") veyra.openXboxDialog()
-            else if (o.act === "screen") veyra.openScreenCaptureDialog()
-            else if (o.act === "capture") veyra.openCaptureDialog()
         }
     }
     VConfirm {

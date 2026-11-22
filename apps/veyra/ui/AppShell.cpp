@@ -11,8 +11,6 @@
 #include "UiSessionState.h"
 #include "UiPreferenceStore.h"
 #include "veyra/ui/PlaybackPowerGuard.h"
-#include "CapturePanel.h"
-#include "ScreenCapturePanel.h"
 #include "SubtitleOverlay.h"
 #include "SubtitleSettingsPanel.h"
 #include "ProtectionOverlay.h"
@@ -38,7 +36,6 @@
 #include <thread>
 #include "veyra/engine/EngineController.h"
 #include "veyra/engine/VideoExportJob.h"
-#include "veyra/source/CaptureCardSource.h"
 #include "veyra/Log.h"
 #include "veyra/RuntimePaths.h"
 #include "veyra/engine/Subtitles.h"
@@ -50,12 +47,10 @@ uint32_t multiplierFromDailyIndex(int index){const int i=index+1;return (index>=
 // RetiredPresetSlot keeps the control-id numbering stable after the preset UI
 // was deleted (2026-09-17). It is intentionally never created: named colour
 // presets live in the colour page and carry look parameters only.
-enum {Open=101,Play,Stop,Save,Nr,Sr,Fg,Seek,Info,Capture,Export,Realtime,Recent,Multiplier,Settings,OriginalHold,CompareToggle,Split,Reference,Fullscreen,ModeSwitch=220,Master,RetiredPresetSlot,Volume,Mute,Subtitle,SubtitleLoad,SubtitleSize,ImageOpen,InspectorDrawer,TabEnhance,TabFg,TabColor,TabExport,JobProgress,Details,Brand,MediaTitle,TimeLabel,EmptyTitle,EmptyHint,ProRailVideo,ProRailCapture,WindowMin,WindowMax,WindowClose,FpsLabel,TabAudio,FullscreenLock,VideoSurface=1000};
+enum {Open=101,Play,Stop,Save,Nr,Sr,Fg,Seek,Info,Export,Realtime,Recent,Multiplier,Settings,OriginalHold,CompareToggle,Split,Reference,Fullscreen,ModeSwitch=220,Master,RetiredPresetSlot,Volume,Mute,Subtitle,SubtitleLoad,SubtitleSize,ImageOpen,InspectorDrawer,TabEnhance,TabFg,TabColor,TabExport,JobProgress,Details,Brand,MediaTitle,TimeLabel,EmptyTitle,EmptyHint,ProRailVideo,WindowMin,WindowMax,WindowClose,FpsLabel,TabAudio,FullscreenLock,VideoSurface=1000};
 // Settings-panel status text: it belongs to the player's bottom bar now, next to
 // the submitted-FPS readout (id 64 is free in the main window's id space).
 constexpr int ColourStatus=64; // transport-bar status line (settings messages + toasts)
-constexpr int ScreenCapture=901;
-bool screenFill=false;SIZE screenFitClient{},screenFitImage{};
 veyra::engine::EngineController engine;
 veyra::engine::ExportJobManager exportJob;
 veyra::ui::UiSessionState uiState;
@@ -80,9 +75,9 @@ bool applySettings(veyra::engine::EnhancementSettings s){
     if(uiState.enhanced){if(!engine.requestSettings(s))return false;}
     else {
         auto effective=engine.snapshot().desired;
-        if(effective.captureCompatible!=s.captureCompatible||effective.forceSdrPreview!=s.forceSdrPreview||effective.captureFlipVertical!=s.captureFlipVertical||effective.captureBuffer!=s.captureBuffer||!(effective.color==s.color)){
+        if(effective.captureCompatible!=s.captureCompatible||effective.forceSdrPreview!=s.forceSdrPreview||!(effective.color==s.color)){
             effective.captureCompatible=s.captureCompatible;effective.forceSdrPreview=s.forceSdrPreview;
-            effective.captureFlipVertical=s.captureFlipVertical;effective.captureBuffer=s.captureBuffer;effective.color=s.color;
+            effective.color=s.color;
             if(!engine.requestSettings(effective))return false;
         }
         veyra::log::info("ui-settings","enhancement off: draft saved; presentation setting applied independently");
@@ -324,7 +319,7 @@ LRESULT CALLBACK interaction(HWND h,UINT m,WPARAM w,LPARAM l,UINT_PTR id,DWORD_P
     if(id==VideoSurface&&m==WM_LBUTTONUP&&GetCapture()==h){ReleaseCapture();return 0;}
     return DefSubclassProc(h,m,w,l);
 }
-veyra::engine::PlayerOptions options(){auto o=veyra::engine::PlayerOptions::from(engine.snapshot().desired);o.captureCpuUnpack=initialOptions.captureCpuUnpack;return o;}
+veyra::engine::PlayerOptions options(){return veyra::engine::PlayerOptions::from(engine.snapshot().desired);}
 
 // Win32 dispatch reenters during move/resize and modal dialogs. Large path
 // buffers must be per-operation heap storage, never part of every WndProc frame.
@@ -332,7 +327,7 @@ std::wstring fileDialog(bool save){std::vector<wchar_t> name(32768);OPENFILENAME
 ofn.lpstrFilter=save?L"PNG image\x00*.png\x00JPEG image\x00*.jpg\x00":L"Video / image\x00*.mp4;*.mkv;*.mov;*.avi;*.ts;*.png;*.jpg;*.jpeg\x00All files\x00*.*\x00";
 ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|(save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST);ofn.lpstrDefExt=save?L"png":nullptr;
 return (save?GetSaveFileNameW(&ofn):GetOpenFileNameW(&ofn))?name.data():L"";}
-void openFile(const std::wstring& file){if(file.empty())return;cancelProtection();auto openOptions=options();if(file!=currentFile){openOptions.settings.protection={};uiState.configured.protection={};}auto ext=std::filesystem::path(file).extension().wstring();for(auto& c:ext)c=towlower(c);if((ext==L".png"||ext==L".jpg"||ext==L".jpeg")&&uiState.mode==veyra::ui::Mode::Daily)switchMode();engine.previewView({});currentFile=file;refreshSubtitleTracks(file);paused=false;SetWindowTextW(GetDlgItem(mainWindow,Play),L"Pause");engine.open(video,file,openOptions);SetWindowTextW(mainWindow,veyra::ui::windowTitleForSource(file).c_str());if(smokeSeconds<=0&&!file.starts_with(L"screen:"))WritePrivateProfileStringW(L"Player",L"Recently opened",file.c_str(),(veyra::runtime::localDataDirectory()/"veyra.ini").wstring().c_str());}
+void openFile(const std::wstring& file){if(file.empty())return;cancelProtection();auto openOptions=options();if(file!=currentFile){openOptions.settings.protection={};uiState.configured.protection={};}auto ext=std::filesystem::path(file).extension().wstring();for(auto& c:ext)c=towlower(c);if((ext==L".png"||ext==L".jpg"||ext==L".jpeg")&&uiState.mode==veyra::ui::Mode::Daily)switchMode();engine.previewView({});currentFile=file;refreshSubtitleTracks(file);paused=false;SetWindowTextW(GetDlgItem(mainWindow,Play),L"Pause");engine.open(video,file,openOptions);SetWindowTextW(mainWindow,veyra::ui::windowTitleForSource(file).c_str());if(smokeSeconds<=0)WritePrivateProfileStringW(L"Player",L"Recently opened",file.c_str(),(veyra::runtime::localDataDirectory()/"veyra.ini").wstring().c_str());}
 HWND control(const wchar_t* cls,const wchar_t* label,int id,DWORD style,int x,int y,int w,int h){auto hwnd=CreateWindowExW(0,cls,label,WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|style|(_wcsicmp(cls,L"STATIC")?WS_TABSTOP:0),x,y,w,h,mainWindow,reinterpret_cast<HMENU>(INT_PTR(id)),GetModuleHandleW(nullptr),nullptr);SendMessageW(hwnd,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);veyra::ui::themeControl(hwnd);if(id>=Open&&id<=Fullscreen&&id!=Seek)toolbar.push_back({hwnd,w});return hwnd;}
 void selectInspector(int page){uiState.inspector=page;veyra::ui::settingsPage(page);for(int i=0;i<4;++i)veyra::ui::selected(GetDlgItem(mainWindow,TabEnhance+i),i==page);veyra::ui::selected(GetDlgItem(mainWindow,TabAudio),page==4);}
 void switchMode(){
@@ -357,7 +352,7 @@ void layout(){
     auto pos=[&](HWND c,int x,int y,int width,int height,bool show=true){if(!c)return;UINT flags=SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_NOCOPYBITS|(show?SWP_SHOWWINDOW:SWP_HIDEWINDOW);if(!show&&c!=subtitleLabel)flags|=SWP_NOMOVE|SWP_NOSIZE;
         Placement next{c,dip(mainWindow,x),dip(mainWindow,y),dip(mainWindow,std::max(1,width)),dip(mainWindow,std::max(1,height)),flags};auto existing=std::find_if(placements.begin(),placements.end(),[&](const auto& p){return p.child==c;});if(existing==placements.end())placements.push_back(next);else *existing=next;};
     auto put=[&](int id,int x,int y,int width,int height=36,bool show=true){pos(GetDlgItem(mainWindow,id),x,y,width,height,show);};
-    for(auto entry:toolbar){int id=GetDlgCtrlID(entry.hwnd);if(id!=Open&&id!=Capture&&id!=Recent&&id!=Play&&id!=Stop&&id!=Fullscreen&&id!=OriginalHold&&id!=Split&&id!=CompareToggle&&id!=Reference&&id!=Info)pos(entry.hwnd,0,0,1,1,false);}
+    for(auto entry:toolbar){int id=GetDlgCtrlID(entry.hwnd);if(id!=Open&&id!=Recent&&id!=Play&&id!=Stop&&id!=Fullscreen&&id!=OriginalHold&&id!=Split&&id!=CompareToggle&&id!=Reference&&id!=Info)pos(entry.hwnd,0,0,1,1,false);}
     const bool rightVisible=(pro||transition.running)&&g.panelWidth>0&&!full;settingsVisibility(rightVisible&&pro);
     pos(video,full?0:g.left,full?0:g.top,full?w:g.viewWidth,full?h:g.viewHeight,!(pro&&showDiagnostics&&!full));
     {   // Region only changes with size/mode; rebuilding it every layout()
@@ -367,7 +362,7 @@ void layout(){
         if(round!=rgnRound||rw!=rgnW||rh!=rgnH){rgnRound=round;rgnW=rw;rgnH=rh;SetWindowRgn(video,round?CreateRoundRectRgn(0,0,rw,rh,dip(mainWindow,30),dip(mainWindow,30)):nullptr,FALSE);}
     }
     put(Brand,8,12,52,32,!full&&pro);surface(GetDlgItem(mainWindow,Brand),RGB(16,17,18));
-    put(Capture,0,0,1,1,false);put(Recent,0,0,1,1,false);
+    put(Recent,0,0,1,1,false);
     put(WindowMin,w-124,14,32,32,!full&&pro);put(WindowMax,w-88,14,32,32,!full&&pro);put(WindowClose,w-52,14,32,32,!full&&pro);
     for(int id:{WindowMin,WindowMax,WindowClose})surface(GetDlgItem(mainWindow,id),background);
     put(Master,g.left+(w<960?120:190),14,116,32,!full&&pro);
@@ -378,8 +373,8 @@ void layout(){
     if(narrowHeader)put(Save,12,372,44,44,!full&&pro);
     else put(Save,g.left+(w>=1080?502:318),14,76,32,!full&&pro);
     put(InspectorDrawer,w-384,14,76,32,!full&&pro&&narrowHeader);
-    put(ProRailVideo,12,92,44,44,!full&&pro);put(ProRailCapture,12,148,44,44,!full&&pro);put(ImageOpen,12,204,44,44,!full&&pro);put(ScreenCapture,12,260,44,44,!full&&pro);
-    for(int id:{ProRailVideo,ProRailCapture,ImageOpen})surface(GetDlgItem(mainWindow,id),RGB(16,17,18));
+    put(ProRailVideo,12,92,44,44,!full&&pro);put(ImageOpen,12,148,44,44,!full&&pro);
+    for(int id:{ProRailVideo,ImageOpen})surface(GetDlgItem(mainWindow,id),RGB(16,17,18));
     const int tabs[]={TabEnhance,TabFg,TabAudio,TabColor,TabExport};for(int i=0;i<5;++i)put(tabs[i],g.right+12+i*((g.panelWidth-24)/5),g.top+12,(g.panelWidth-24)/5,32,rightVisible);
     pos(inspector,g.right+12,g.top+56,g.panelWidth-24,g.statusTop-g.top-68,rightVisible);
     pos(liveStatusPanel,g.right,g.statusTop,g.panelWidth,h-g.statusTop-20,rightVisible);
@@ -397,15 +392,15 @@ void layout(){
     put(MediaTitle,tx+timeWidth+8,barTop+10,std::max(1,tw-timeWidth-170-statusWidth-8),20,transport);
     put(FpsLabel,tx+tw-154,barTop+10,154,20,transport);
     auto slot=[&](int id,TransportSlot item,int height=34,int offset=36){put(id,tx+item.x,barTop+offset,item.width,height,transport&&item.width>0);};
-    slot(Open,controls.open);slot(Capture,controls.capture);slot(Recent,controls.recent);if(!full&&pro)put(Recent,12,372,44,44);
+    slot(Open,controls.open);slot(Recent,controls.recent);if(!full&&pro)put(Recent,12,372,44,44);
     if(daily)slot(Master,controls.master);slot(Sr,controls.sr);
     slot(Play,controls.play,44,30);slot(Stop,controls.stop);slot(Mute,controls.mute);slot(Volume,controls.volume,18,44);slot(Subtitle,controls.subtitle);slot(Fullscreen,controls.fullscreen);slot(FullscreenLock,controls.lock);
     if(daily){slot(ModeSwitch,controls.mode);slot(WindowMin,controls.minimize);slot(WindowClose,controls.close);}
     else put(ModeSwitch,w-292,14,160,32,!full);
-    icon(GetDlgItem(mainWindow,Open),Icon::Video,controls.captions);icon(GetDlgItem(mainWindow,Capture),Icon::Capture,controls.captions);
+    icon(GetDlgItem(mainWindow,Open),Icon::Video,controls.captions);
     icon(GetDlgItem(mainWindow,Master),Icon::Enhance,pro||controls.captions);icon(GetDlgItem(mainWindow,Sr),Icon::Upscale,true);
     icon(GetDlgItem(mainWindow,ModeSwitch),pro?Icon::PanelClose:Icon::PanelOpen,pro||controls.captions);
-for(int id:std::initializer_list<int>{Open,Capture,Recent,Master,Save,Sr,Play,Stop,Mute,Volume,Subtitle,Fullscreen,FullscreenLock,TimeLabel,MediaTitle,FpsLabel,ColourStatus,ModeSwitch})surface(GetDlgItem(mainWindow,id),pro&&!full?panel:cinemaPanel);
+for(int id:std::initializer_list<int>{Open,Recent,Master,Save,Sr,Play,Stop,Mute,Volume,Subtitle,Fullscreen,FullscreenLock,TimeLabel,MediaTitle,FpsLabel,ColourStatus,ModeSwitch})surface(GetDlgItem(mainWindow,id),pro&&!full?panel:cinemaPanel);
     put(OriginalHold,tx,barTop+160,96,32,!full&&pro);put(Split,tx+102,barTop+160,92,32,!full&&pro);put(CompareToggle,tx+200,barTop+160,96,32,!full&&pro&&tw>=600);
     put(Reference,tx+(tw>=600?302:200),barTop+160,std::min(172,tw-(tw>=600?302:200)-88),180,!full&&pro&&tw>=500);
     put(Details,tx+tw-76,barTop+160,76,32,!full&&pro);put(Info,12,h-66,44,44,!full&&pro);pos(metricLabel,tx,barTop+212,tw,120,!full&&pro&&uiState.diagnostics);
@@ -423,7 +418,7 @@ for(int id:std::initializer_list<int>{Open,Capture,Recent,Master,Save,Sr,Play,St
     auto batch=BeginDeferWindowPos(int(placements.size()));for(const auto& p:placements){if(!batch)break;batch=DeferWindowPos(batch,p.child,nullptr,p.x,p.y,p.width,p.height,p.flags);}
     if(batch)EndDeferWindowPos(batch);else for(const auto& p:placements)SetWindowPos(p.child,nullptr,p.x,p.y,p.width,p.height,p.flags);
     auto front=[&](HWND child){if(child&&IsWindowVisible(child))SetWindowPos(child,HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOREDRAW);};
-    front(playbackBar);front(seekBar);for(int id:{Open,Capture,Recent,Master,Save,Sr,Play,Stop,Mute,Volume,Subtitle,Fullscreen,FullscreenLock,WindowMin,WindowClose,TimeLabel,MediaTitle,FpsLabel,ModeSwitch,JobProgress,EmptyTitle,EmptyHint})front(GetDlgItem(mainWindow,id));front(inspector);front(subtitleLabel);if(showDiagnostics&&pro&&!full)front(diagnosticPanel);
+    front(playbackBar);front(seekBar);for(int id:{Open,Recent,Master,Save,Sr,Play,Stop,Mute,Volume,Subtitle,Fullscreen,FullscreenLock,WindowMin,WindowClose,TimeLabel,MediaTitle,FpsLabel,ModeSwitch,JobProgress,EmptyTitle,EmptyHint})front(GetDlgItem(mainWindow,id));front(inspector);front(subtitleLabel);if(showDiagnostics&&pro&&!full)front(diagnosticPanel);
     if(auto focused=GetFocus();focused&&IsChild(mainWindow,focused)&&!IsWindowVisible(focused))SetFocus(mainWindow);
     RedrawWindow(mainWindow,nullptr,nullptr,RDW_INVALIDATE|RDW_ALLCHILDREN);
     if(smokeDual)veyra::log::info("ui-layout-timing",std::format("frameMs={:.3f} animation={}",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-layoutBegin).count(),transition.running));
@@ -564,7 +559,7 @@ case WM_CREATE:{mainWindow=hwnd;backdrop.attach(hwnd);font=veyra::ui::makeFont(h
 engine.requestSettings(uiState.effective());
 control(L"BUTTON",L"Open",Open,BS_PUSHBUTTON,10,10,150,30);control(L"BUTTON",L"Play",Play,BS_PUSHBUTTON,168,10,68,30);control(L"BUTTON",L"Stop",Stop,BS_PUSHBUTTON,244,10,62,30);control(L"BUTTON",L"Screenshot",Save,BS_PUSHBUTTON,314,10,95,30);
 control(L"BUTTON",L"DLSS5 NR",Nr,BS_AUTOCHECKBOX,425,10,110,30);control(L"BUTTON",L"SR",Sr,BS_AUTOCHECKBOX,518,10,78,30);control(L"BUTTON",L"Frame generation",Fg,BS_AUTOCHECKBOX,600,10,78,30);CheckDlgButton(hwnd,Nr,initialOptions.nr?BST_CHECKED:BST_UNCHECKED);
-control(L"BUTTON",L"Capture",Capture,BS_PUSHBUTTON,690,10,75,30);control(L"BUTTON",L"Export video",Export,BS_PUSHBUTTON,773,10,103,30);control(L"BUTTON",L"Performance / diagnostics",Info,BS_PUSHBUTTON,884,10,100,30);
+control(L"BUTTON",L"Export video",Export,BS_PUSHBUTTON,690,10,103,30);control(L"BUTTON",L"Performance / diagnostics",Info,BS_PUSHBUTTON,884,10,100,30);
 control(L"BUTTON",L"Live NR tier",Realtime,BS_AUTOCHECKBOX,952,10,100,30);
 control(L"BUTTON",L"Recently opened",Recent,BS_PUSHBUTTON,1072,10,75,30);
 auto mult=control(L"COMBOBOX",L"",Multiplier,CBS_DROPDOWNLIST,1150,10,70,180);for(auto label:{L"2X",L"3X",L"4X",L"6X"})SendMessageW(mult,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));{int sel=0;for(size_t i=1;i<veyra::engine::kFgMultiplierChoiceCount;++i)if(veyra::engine::kFgMultiplierChoices[i]==initialOptions.fgMultiplier)sel=int(i)-1;SendMessageW(mult,CB_SETCURSEL,sel,0);}
@@ -582,25 +577,25 @@ auto brand=control(L"STATIC",L"",Brand,SS_CENTER,0,0,100,30);
 SetWindowSubclass(brand,veyra::ui::brandIconProc,Brand,0);
 control(L"BUTTON",L"Pro mode",ModeSwitch,BS_PUSHBUTTON,0,0,164,36);
 control(L"BUTTON",L"Enhancement on",Master,BS_PUSHBUTTON,0,0,126,36);
-control(L"BUTTON",L"Video",ProRailVideo,BS_PUSHBUTTON,0,0,64,44);control(L"BUTTON",L"Capture",ProRailCapture,BS_PUSHBUTTON,0,0,64,44);control(L"BUTTON",L"Image",ImageOpen,BS_PUSHBUTTON,0,0,64,44);control(L"BUTTON",L"Parameters",InspectorDrawer,BS_PUSHBUTTON,0,0,84,36);
-control(L"BUTTON",L"Screen capture",ScreenCapture,BS_PUSHBUTTON,0,0,44,44);veyra::ui::icon(GetDlgItem(hwnd,ScreenCapture),veyra::ui::Icon::ScreenCapture);veyra::ui::ghost(GetDlgItem(hwnd,ScreenCapture));SetPropW(GetDlgItem(hwnd,ScreenCapture),L"veyra.tip",HANDLE(L"Screen capture · window / display"));
+control(L"BUTTON",L"Video",ProRailVideo,BS_PUSHBUTTON,0,0,64,44);control(L"BUTTON",L"Image",ImageOpen,BS_PUSHBUTTON,0,0,64,44);control(L"BUTTON",L"Parameters",InspectorDrawer,BS_PUSHBUTTON,0,0,84,36);
+
 control(L"BUTTON",L"Audio",TabAudio,BS_PUSHBUTTON,0,0,60,36);
 const wchar_t* tabs[]={L"Enhancement",L"Motion",L"Color",L"Export"};for(int i=0;i<4;++i)control(L"BUTTON",tabs[i],TabEnhance+i,BS_PUSHBUTTON,0,0,76,36);
 control(L"BUTTON",L"Volume",Mute,BS_PUSHBUTTON,0,0,54,36);auto vol=control(TRACKBAR_CLASSW,L"Volume",Volume,TBS_HORZ|TBS_NOTICKS,0,0,80,26);SendMessageW(vol,TBM_SETRANGE,TRUE,MAKELPARAM(0,int(veyra::sink::kMaxAudioGain*100)));SendMessageW(vol,TBM_SETPOS,TRUE,100);
 control(L"BUTTON",L"Subtitles",Subtitle,BS_PUSHBUTTON,0,0,62,36);control(L"STATIC",L"No media open",MediaTitle,SS_LEFT|SS_ENDELLIPSIS,0,0,250,26);control(L"STATIC",L"00:00 / 00:00",TimeLabel,SS_LEFT,0,0,200,20);
 control(L"STATIC",L"Processing 0.0 fps",FpsLabel,SS_RIGHT,0,0,154,20);
 control(L"STATIC",L"",ColourStatus,SS_RIGHT|SS_ENDELLIPSIS,0,0,440,20);
-control(L"STATIC",L"Start watching",EmptyTitle,SS_CENTER,0,0,500,48);emptyFont=veyra::ui::makeFont(hwnd,26,FW_NORMAL);SendDlgItemMessageW(hwnd,EmptyTitle,WM_SETFONT,WPARAM(emptyFont),TRUE);control(L"STATIC",L"Open a local video, or connect a capture card\nFine adjustments and native export are in Pro mode",EmptyHint,SS_CENTER,0,0,500,68);
+control(L"STATIC",L"Start watching",EmptyTitle,SS_CENTER,0,0,500,48);emptyFont=veyra::ui::makeFont(hwnd,26,FW_NORMAL);SendDlgItemMessageW(hwnd,EmptyTitle,WM_SETFONT,WPARAM(emptyFont),TRUE);control(L"STATIC",L"Open a local video or image\nFine adjustments and native export are in Pro mode",EmptyHint,SS_CENTER,0,0,500,68);
 control(L"BUTTON",L"Performance  ▾",Details,BS_PUSHBUTTON,0,0,112,32);control(L"BUTTON",L"",JobProgress,BS_PUSHBUTTON,0,0,280,32);metricLabel=control(L"STATIC",L"",0,SS_LEFT,0,0,500,132);
 control(L"BUTTON",L"Minimize",WindowMin,BS_PUSHBUTTON,0,0,32,32);control(L"BUTTON",L"Maximize",WindowMax,BS_PUSHBUTTON,0,0,32,32);control(L"BUTTON",L"Close window",WindowClose,BS_PUSHBUTTON,0,0,32,32);
 control(L"BUTTON",L"Lock fullscreen · Ctrl+L unlocks",FullscreenLock,BS_PUSHBUTTON,0,0,32,32);
 using veyra::ui::Icon;veyra::ui::icon(GetDlgItem(hwnd,FullscreenLock),Icon::Lock);veyra::ui::ghost(GetDlgItem(hwnd,FullscreenLock));SetPropW(GetDlgItem(hwnd,FullscreenLock),L"veyra.tip",HANDLE(L"With the bar locked, mouse movement never shows controls; Ctrl+L unlocks, Esc exits fullscreen"));
 veyra::ui::icon(GetDlgItem(hwnd,WindowMin),Icon::Minimize);veyra::ui::icon(GetDlgItem(hwnd,WindowMax),Icon::Maximize);veyra::ui::icon(GetDlgItem(hwnd,WindowClose),Icon::Close);
 veyra::ui::icon(GetDlgItem(hwnd,Play),Icon::Play);veyra::ui::icon(GetDlgItem(hwnd,Stop),Icon::Stop);veyra::ui::icon(GetDlgItem(hwnd,Mute),Icon::Volume);veyra::ui::icon(GetDlgItem(hwnd,Subtitle),Icon::Subtitle);veyra::ui::icon(GetDlgItem(hwnd,Fullscreen),Icon::Fullscreen);
-veyra::ui::icon(GetDlgItem(hwnd,ProRailVideo),Icon::Video);veyra::ui::icon(GetDlgItem(hwnd,ProRailCapture),Icon::Capture);veyra::ui::icon(GetDlgItem(hwnd,ImageOpen),Icon::Image);veyra::ui::icon(GetDlgItem(hwnd,Info),Icon::Subtitle);
-veyra::ui::icon(GetDlgItem(hwnd,Recent),Icon::Recent);veyra::ui::icon(GetDlgItem(hwnd,Open),Icon::Video,true);veyra::ui::icon(GetDlgItem(hwnd,Capture),Icon::Capture,true);
-for(int id:{Open,Capture,Recent,Master,Save,Sr,ModeSwitch,WindowMin,WindowMax,WindowClose,Stop,Mute,Subtitle,Fullscreen,ProRailVideo,ProRailCapture,ImageOpen,Info})veyra::ui::ghost(GetDlgItem(hwnd,id));
-SetPropW(GetDlgItem(hwnd,Open),L"veyra.tip",HANDLE(L"Open video / image · Ctrl+O"));SetPropW(GetDlgItem(hwnd,Capture),L"veyra.tip",HANDLE(L"Connect capture card"));SetPropW(GetDlgItem(hwnd,Sr),L"veyra.tip",HANDLE(L"Super resolution · choose DLSS / RTX Video SR in the Pro panel"));
+veyra::ui::icon(GetDlgItem(hwnd,ProRailVideo),Icon::Video);veyra::ui::icon(GetDlgItem(hwnd,ImageOpen),Icon::Image);veyra::ui::icon(GetDlgItem(hwnd,Info),Icon::Subtitle);
+veyra::ui::icon(GetDlgItem(hwnd,Recent),Icon::Recent);veyra::ui::icon(GetDlgItem(hwnd,Open),Icon::Video,true);
+for(int id:{Open,Recent,Master,Save,Sr,ModeSwitch,WindowMin,WindowMax,WindowClose,Stop,Mute,Subtitle,Fullscreen,ProRailVideo,ImageOpen,Info})veyra::ui::ghost(GetDlgItem(hwnd,id));
+SetPropW(GetDlgItem(hwnd,Open),L"veyra.tip",HANDLE(L"Open video / image · Ctrl+O"));SetPropW(GetDlgItem(hwnd,Sr),L"veyra.tip",HANDLE(L"Super resolution · choose DLSS / RTX Video SR in the Pro panel"));
 inspector=veyra::ui::createSettingsPanel(hwnd,engine,applySettings);
 // Settings messages go to the player's bottom bar instead of a line inside the panel.
 veyra::ui::settingsStatusSink([](const std::wstring& text){settingsStatusText=text;refreshColourStatus();});
@@ -658,7 +653,6 @@ __declspec(noinline) LRESULT windowCommand(HWND hwnd,UINT msg,WPARAM wp,LPARAM l
 switch(msg){
 case WM_COMMAND:switch(LOWORD(wp)){
 case Open:case ProRailVideo:case ImageOpen:openFile(fileDialog(false));layout();break;
-case ScreenCapture:veyra::ui::showScreenCapturePanel(hwnd,[](const std::wstring& path){openFile(path);layout();},[]{engine.stop();},[]{return engine.snapshot();},[](bool fill){screenFill=fill;screenFitClient={};screenFitImage={};engine.previewView({});});break;
 
 case ModeSwitch:switchMode();break;
 case WindowMin:ShowWindow(hwnd,SW_MINIMIZE);break;case WindowMax:ShowWindow(hwnd,IsZoomed(hwnd)?SW_RESTORE:SW_MAXIMIZE);break;case WindowClose:SendMessageW(hwnd,WM_CLOSE,0,0);break;
@@ -692,7 +686,6 @@ case CompareToggle:compareMode=compareMode==1?0:1;updateComparison();break;
 case Split:compareMode=compareMode==2?0:2;updateComparison();break;
 case Reference:referenceBase=SendDlgItemMessageW(hwnd,Reference,CB_GETCURSEL,0,0)==1;updateComparison();break;
 case Settings:if(uiState.mode==veyra::ui::Mode::Daily)switchMode();selectInspector(0);break;
-case Capture:case ProRailCapture:veyra::ui::showCapturePanel(hwnd,[](const std::wstring& path){openFile(path);layout();},[]{return (uiState.enhanced?engine.snapshot().desired:uiState.configured).forceSdrPreview;},[](bool enabled){auto s=uiState.enhanced?engine.snapshot().desired:uiState.configured;s.forceSdrPreview=enabled;return applySettings(s);},[]{return int((uiState.enhanced?engine.snapshot().desired:uiState.configured).captureAudio);},[](int mode){auto s=uiState.enhanced?engine.snapshot().desired:uiState.configured;s.captureAudio=static_cast<veyra::engine::CaptureAudioIngress>(std::clamp(mode,0,2));return applySettings(s);},[]{return (uiState.enhanced?engine.snapshot().desired:uiState.configured).captureFlipVertical;},[](bool enabled){auto s=uiState.enhanced?engine.snapshot().desired:uiState.configured;s.captureFlipVertical=enabled;return applySettings(s);},[]{return int((uiState.enhanced?engine.snapshot().desired:uiState.configured).captureBuffer);},[](int mode){auto s=uiState.enhanced?engine.snapshot().desired:uiState.configured;s.captureBuffer=static_cast<veyra::source::CaptureBufferMode>(std::clamp(mode,0,2));return applySettings(s);});break;
 case Export:if(uiState.mode==veyra::ui::Mode::Professional)startVideoExport(false);break;
 case Info:showDiagnostics=!showDiagnostics;layout();break;
 }return 0;
@@ -728,13 +721,6 @@ if(smokeStep==2&&elapsed>3200){engine.pause(false);smokeStep=3;}
 if(smokeStep==3&&elapsed>4100&&!smokeSave.empty()){engine.saveFrame(smokeSave);smokeStep=4;}
 if(smokeStep==4&&elapsed>5200&&GetEnvironmentVariableW(L"VEYRA_TEST_LARGE_IMAGE_SAVE_THROW",nullptr,0)){const auto retained=engine.snapshot();if(!retained.failed&&retained.running&&retained.frames>0){engine.saveFrame(smokeSave);smokeStep=5;veyra::log::info("image-save-test","retry after injected allocation failure; result/session retained");}}
 }playbackPower.update(!closing&&s.running&&!s.failed&&!s.image&&s.transport==veyra::engine::TransportState::Playing);pollSubtitleTracks();if(subtitleRequestAutoAlign&&subtitlePrimary>=0){subtitleRequestAutoAlign=false;startSubtitleAutoAlign();}pollSubtitleAutoAlign();
-if(screenFill&&currentFile.starts_with(L"screen:")&&s.running){
-    RECT r{};GetClientRect(video,&r);auto extent=s.metrics.resolution.output;
-    if(r.right>0&&r.bottom>0&&extent.width&&extent.height&&(screenFitClient.cx!=r.right||screenFitClient.cy!=r.bottom||screenFitImage.cx!=LONG(extent.width)||screenFitImage.cy!=LONG(extent.height))){
-        screenFitClient={r.right,r.bottom};screenFitImage={LONG(extent.width),LONG(extent.height)};
-        const float x=float(r.right)/extent.width,y=float(r.bottom)/extent.height;veyra::engine::PreviewView view;view.zoom=std::max(x,y)/std::min(x,y);engine.previewView(view);
-    }
-}
 {
     std::vector<veyra::ui::SubtitleLine> draw;
     const bool showSubtitles=uiState.subtitles&&!subtitleTracks.empty()&&!(showDiagnostics&&uiState.mode==veyra::ui::Mode::Professional&&!full);
@@ -825,7 +811,7 @@ setText(GetDlgItem(hwnd,Play),s.transport==veyra::engine::TransportState::Playin
 setText(GetDlgItem(hwnd,Mute),!s.audioAvailable?L"No audio track":s.muted?L"Mute":L"Volume");EnableWindow(GetDlgItem(hwnd,Volume),s.audioAvailable);EnableWindow(GetDlgItem(hwnd,Mute),s.audioAvailable);
 if(GetCapture()!=GetDlgItem(hwnd,Volume)){const int volumePos=int(std::lround(s.volume*100));if(SendDlgItemMessageW(hwnd,Volume,TBM_GETPOS,0,0)!=volumePos)SendDlgItemMessageW(hwnd,Volume,TBM_SETPOS,TRUE,volumePos);}
 EnableWindow(seekBar,s.running&&!s.capture&&!s.image&&s.duration>0);ShowWindow(seekBar,(!full||fullControls)&&!s.capture&&!s.image&&!(showDiagnostics&&uiState.mode==veyra::ui::Mode::Professional&&!full)?SW_SHOW:SW_HIDE);EnableWindow(GetDlgItem(hwnd,Play),!currentFile.empty()&&!s.capture&&!s.image);EnableWindow(GetDlgItem(hwnd,Stop),s.running);
-setText(GetDlgItem(hwnd,MediaTitle),currentFile.empty()?L"No media open":s.capture?L"Capture card · LIVE":std::filesystem::path(currentFile).filename().wstring());
+setText(GetDlgItem(hwnd,MediaTitle),currentFile.empty()?L"No media open":s.capture?L"Streaming · LIVE":std::filesystem::path(currentFile).filename().wstring());
 auto stamp=[](double v){int seconds=std::max(0,int(v));return std::format(L"{:02}:{:02}:{:02}",seconds/3600,seconds/60%60,seconds%60);};
 setText(GetDlgItem(hwnd,TimeLabel),s.capture?std::format(L"Input {:.1f} fps{}",s.captureFps,s.captureHalfRate?L" · 60→30":s.applied.content==veyra::engine::ContentRate::Capture60To30?L" · not applicable":L""):s.image?L"Static image":stamp(s.seekPresented<s.seekRequested&&!s.failed?s.seekTarget:s.position)+L"  /  "+stamp(s.duration)+(s.seekPresented<s.seekRequested&&!s.failed?L"  ·  seeking…":L"")+(s.transport==veyra::engine::TransportState::Opening?L"  ·  opening…":s.failed?L"  ·  an error occurred, see Pro diagnostics":L""));
 std::wstring metric=std::format(L"Source frame processing {:.1f} fps   ·   display submit {:.1f} fps   ·   valid generated {}\nSubmit late p95 {:.1f} ms   ·   GPU / CPU time counted separately\n{}\nActual scan rate and photon delay: not measured",s.fps,submittedFps,s.generated,s.lateP95Ms,s.status);setText(metricLabel,metric);
@@ -1252,7 +1238,7 @@ SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);INITCO
 CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
 initialOptions=veyra::engine::PlayerOptions::from(veyra::ui::defaultSettings());
 
-int argc=0;auto argv=CommandLineToArgvW(GetCommandLineW(),&argc);for(int i=1;i<argc;++i){const std::wstring arg=argv[i];if(arg==L"--export-worker"&&i+1<argc)workerMapping=reinterpret_cast<HANDLE>(_wcstoui64(argv[++i],nullptr,10));else if(arg==L"--smoke-view"&&i+1<argc)smokeView=argv[++i];else if(arg==L"--smoke-pacing"&&i+1<argc)smokePacing=argv[++i];else if(arg==L"--smoke-output-cap"&&i+1<argc)smokeOutputCap=argv[++i];else if(arg==L"--smoke-pacing-vsync")smokePacingVsync=true;else if(arg==L"--smoke-fg-only")smokeFgOnly=true;else if(arg==L"--smoke-transport")smokeTransport=true;else if(arg==L"--smoke-repair-ui")smokeRepair=true;else if(arg==L"--smoke-repair-ui-reject")smokeRepair=smokeRepairReject=true;else if(arg==L"--smoke-hover")smokeZoom=smokeHover=true;else if(arg==L"--smoke-protection")smokeProtection=true;else if(arg==L"--smoke-zoom")smokeZoom=true;else if(arg==L"--smoke-empty")smokeEmpty=true;else if(arg==L"--smoke-dual")smokeDual=true;else if(arg==L"--smoke-dual-pause"){smokeDual=smokeDualPause=true;}else if(arg==L"--smoke-master-reject")smokeMaster=smokeMasterReject=true;else if(arg==L"--smoke-master")smokeMaster=true;else if(arg==L"--smoke-audio")smokeAudio=true;else if(arg==L"--smoke-job-cancel")smokeJobCancel=true;else if(arg==L"--smoke-job-exit")smokeJobExit=true;else if(arg==L"--smoke-job")smokeJob=true;else if(arg==L"--smoke-dual-export"&&i+1<argc)smokeDualOutput=argv[++i];else if(arg==L"--smoke-seconds"&&i+1<argc)smokeSeconds=std::clamp(_wtoi(argv[++i]),1,240);else if(arg==L"--export-out"&&i+1<argc)exportOutput=argv[++i];else if(arg==L"--max-frames"&&i+1<argc)exportFrames=std::max(1,_wtoi(argv[++i]));else if(arg==L"--cancel-after-ms"&&i+1<argc)cancelAfterMs=std::clamp(_wtoi(argv[++i]),1,240000);else if(arg==L"--hevc")exportHevc=true;else if(arg==L"--bitrate-mbps"&&i+1<argc)initialOptions.settings.exportBitrateMbps=uint32_t(std::clamp(_wtoi(argv[++i]),0,300));else if(arg==L"--subtitle-primary"&&i+1<argc)subtitleRequestPrimary=std::clamp(_wtoi(argv[++i]),-1,64);else if(arg==L"--subtitle-secondary"&&i+1<argc)subtitleRequestSecondary=std::clamp(_wtoi(argv[++i]),-1,64);else if(arg==L"--subtitle-offset-ms"&&i+1<argc)subtitleRequestOffsetMs=std::clamp(_wtoi(argv[++i]),-30000,30000);else if(arg==L"--subtitle-font-size"&&i+1<argc)subtitlePixels=std::clamp(_wtoi(argv[++i]),16,56);else if(arg==L"--subtitle-no-outline")uiState.subtitleOutline=false;else if(arg==L"--subtitle-background")uiState.subtitleBackground=true;else if(arg==L"--subtitle-auto-align")subtitleRequestAutoAlign=true;else if(arg==L"--smoke-rollback-flow"){smokeRollback=true;smokeRollbackFlow=true;}else if(arg==L"--smoke-rollback")smokeRollback=true;else if(arg==L"--smoke-ui")smokeUi=true;else if(arg==L"--video-hdr")initialOptions.settings.videoHdr.enabled=true;else if(arg==L"--no-fg")initialOptions.fg=false;else if(arg==L"--smoke-settings")smokeSettings=true;else if(arg==L"--smoke-color")smokeColor=true;else if(arg==L"--smoke-screenshot")smokeScreenshot=true;else if(arg==L"--smoke-controls")smokeControls=true;else if(arg==L"--smoke-save"&&i+1<argc)smokeSave=argv[++i];else if(arg==L"--native")initialOptions.realtime=false;else if(arg==L"--realtime")initialOptions.realtime=true;else if(arg==L"--fg")initialOptions.fg=true;else if(arg==L"--fg-multiplier"&&i+1<argc){initialOptions.fgMultiplier=std::clamp(_wtoi(argv[++i]),2,6);initialOptions.fg=true;}else if(arg==L"--capture-audio"&&i+1<argc)initialOptions.settings.captureAudio=static_cast<veyra::engine::CaptureAudioIngress>(std::clamp(_wtoi(argv[++i]),0,2));else if(arg==L"--flow-amd")initialOptions.settings.opticalFlowBackend=veyra::engine::OpticalFlowBackend::AmdFidelityFx;else if(arg==L"--flow-gpudis")initialOptions.settings.opticalFlowBackend=veyra::engine::OpticalFlowBackend::GpuDis;else if(arg==L"--video-sr"&&i+1<argc){initialOptions.settings.videoSrQuality=std::clamp(_wtoi(argv[++i]),1,5);initialOptions.sr=true;}else if(arg==L"--nr-ampere")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Ampere;else if(arg==L"--nr-community")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Community;else if(arg==L"--nr-original")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Original;else if(arg==L"--sr")initialOptions.sr=true;else if(arg==L"--no-nr")initialOptions.nr=false;else if(arg==L"--nr")initialOptions.nr=true;else if(arg==L"--no-sr")initialOptions.sr=false;else autoInput=arg;}LocalFree(argv);
+int argc=0;auto argv=CommandLineToArgvW(GetCommandLineW(),&argc);for(int i=1;i<argc;++i){const std::wstring arg=argv[i];if(arg==L"--export-worker"&&i+1<argc)workerMapping=reinterpret_cast<HANDLE>(_wcstoui64(argv[++i],nullptr,10));else if(arg==L"--smoke-view"&&i+1<argc)smokeView=argv[++i];else if(arg==L"--smoke-pacing"&&i+1<argc)smokePacing=argv[++i];else if(arg==L"--smoke-output-cap"&&i+1<argc)smokeOutputCap=argv[++i];else if(arg==L"--smoke-pacing-vsync")smokePacingVsync=true;else if(arg==L"--smoke-fg-only")smokeFgOnly=true;else if(arg==L"--smoke-transport")smokeTransport=true;else if(arg==L"--smoke-repair-ui")smokeRepair=true;else if(arg==L"--smoke-repair-ui-reject")smokeRepair=smokeRepairReject=true;else if(arg==L"--smoke-hover")smokeZoom=smokeHover=true;else if(arg==L"--smoke-protection")smokeProtection=true;else if(arg==L"--smoke-zoom")smokeZoom=true;else if(arg==L"--smoke-empty")smokeEmpty=true;else if(arg==L"--smoke-dual")smokeDual=true;else if(arg==L"--smoke-dual-pause"){smokeDual=smokeDualPause=true;}else if(arg==L"--smoke-master-reject")smokeMaster=smokeMasterReject=true;else if(arg==L"--smoke-master")smokeMaster=true;else if(arg==L"--smoke-audio")smokeAudio=true;else if(arg==L"--smoke-job-cancel")smokeJobCancel=true;else if(arg==L"--smoke-job-exit")smokeJobExit=true;else if(arg==L"--smoke-job")smokeJob=true;else if(arg==L"--smoke-dual-export"&&i+1<argc)smokeDualOutput=argv[++i];else if(arg==L"--smoke-seconds"&&i+1<argc)smokeSeconds=std::clamp(_wtoi(argv[++i]),1,240);else if(arg==L"--export-out"&&i+1<argc)exportOutput=argv[++i];else if(arg==L"--max-frames"&&i+1<argc)exportFrames=std::max(1,_wtoi(argv[++i]));else if(arg==L"--cancel-after-ms"&&i+1<argc)cancelAfterMs=std::clamp(_wtoi(argv[++i]),1,240000);else if(arg==L"--hevc")exportHevc=true;else if(arg==L"--bitrate-mbps"&&i+1<argc)initialOptions.settings.exportBitrateMbps=uint32_t(std::clamp(_wtoi(argv[++i]),0,300));else if(arg==L"--subtitle-primary"&&i+1<argc)subtitleRequestPrimary=std::clamp(_wtoi(argv[++i]),-1,64);else if(arg==L"--subtitle-secondary"&&i+1<argc)subtitleRequestSecondary=std::clamp(_wtoi(argv[++i]),-1,64);else if(arg==L"--subtitle-offset-ms"&&i+1<argc)subtitleRequestOffsetMs=std::clamp(_wtoi(argv[++i]),-30000,30000);else if(arg==L"--subtitle-font-size"&&i+1<argc)subtitlePixels=std::clamp(_wtoi(argv[++i]),16,56);else if(arg==L"--subtitle-no-outline")uiState.subtitleOutline=false;else if(arg==L"--subtitle-background")uiState.subtitleBackground=true;else if(arg==L"--subtitle-auto-align")subtitleRequestAutoAlign=true;else if(arg==L"--smoke-rollback-flow"){smokeRollback=true;smokeRollbackFlow=true;}else if(arg==L"--smoke-rollback")smokeRollback=true;else if(arg==L"--smoke-ui")smokeUi=true;else if(arg==L"--video-hdr")initialOptions.settings.videoHdr.enabled=true;else if(arg==L"--no-fg")initialOptions.fg=false;else if(arg==L"--smoke-settings")smokeSettings=true;else if(arg==L"--smoke-color")smokeColor=true;else if(arg==L"--smoke-screenshot")smokeScreenshot=true;else if(arg==L"--smoke-controls")smokeControls=true;else if(arg==L"--smoke-save"&&i+1<argc)smokeSave=argv[++i];else if(arg==L"--native")initialOptions.realtime=false;else if(arg==L"--realtime")initialOptions.realtime=true;else if(arg==L"--fg")initialOptions.fg=true;else if(arg==L"--fg-multiplier"&&i+1<argc){initialOptions.fgMultiplier=std::clamp(_wtoi(argv[++i]),2,6);initialOptions.fg=true;}else if(arg==L"--flow-amd")initialOptions.settings.opticalFlowBackend=veyra::engine::OpticalFlowBackend::AmdFidelityFx;else if(arg==L"--flow-gpudis")initialOptions.settings.opticalFlowBackend=veyra::engine::OpticalFlowBackend::GpuDis;else if(arg==L"--video-sr"&&i+1<argc){initialOptions.settings.videoSrQuality=std::clamp(_wtoi(argv[++i]),1,5);initialOptions.sr=true;}else if(arg==L"--nr-ampere")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Ampere;else if(arg==L"--nr-community")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Community;else if(arg==L"--nr-original")initialOptions.settings.nrRuntime=veyra::engine::NrRuntime::Original;else if(arg==L"--sr")initialOptions.sr=true;else if(arg==L"--no-nr")initialOptions.nr=false;else if(arg==L"--nr")initialOptions.nr=true;else if(arg==L"--no-sr")initialOptions.sr=false;else autoInput=arg;}LocalFree(argv);
 // Diagnostic: force the colour grade on with a fixed exposure (EV). The grade is
 // fused into the ingest dispatch, so this flag is how the graded cost is measured
 // against the grade-off baseline on the same clip.
@@ -1268,9 +1254,6 @@ int argc=0;auto argv=CommandLineToArgvW(GetCommandLineW(),&argc);for(int i=1;i<a
 // every value-taking flag known, so --fg-xess / --fg-fsr / --fg-dlss work
 // anywhere on the command line instead of only at the end.
 {
-    // --capture-flip: diagnostics/smoke only; the interactive path uses the
-    // capture panel checkbox and persists captureFlipVertical with presets.
-    {int flipArgc=0;auto flipArgv=CommandLineToArgvW(GetCommandLineW(),&flipArgc);for(int i=1;i<flipArgc;++i){if(!_wcsicmp(flipArgv[i],L"--capture-flip"))initialOptions.settings.captureFlipVertical=true;else if(!wcsncmp(flipArgv[i],L"--capture-buffer=",17)){const wchar_t* value=flipArgv[i]+17;if(!_wcsicmp(value,L"auto"))initialOptions.settings.captureBuffer=veyra::source::CaptureBufferMode::Auto;else if(!_wcsicmp(value,L"minimum"))initialOptions.settings.captureBuffer=veyra::source::CaptureBufferMode::Minimum;else if(!_wcsicmp(value,L"driver"))initialOptions.settings.captureBuffer=veyra::source::CaptureBufferMode::DriverDefault;}else if(!_wcsicmp(flipArgv[i],L"--capture-cpu-unpack"))initialOptions.captureCpuUnpack=true;}LocalFree(flipArgv);}
     int positionalArgc=0;auto positionalArgv=CommandLineToArgvW(GetCommandLineW(),&positionalArgc);std::wstring positional;
    const wchar_t* valueFlags[]={L"--export-worker",L"--smoke-view",L"--smoke-pacing",L"--smoke-output-cap",L"--smoke-dual-export",L"--smoke-seconds",L"--export-out",L"--max-frames",L"--cancel-after-ms",L"--smoke-save",L"--fg-multiplier",L"--capture-audio",L"--video-sr",L"--bitrate-mbps",L"--subtitle-primary",L"--subtitle-secondary",L"--subtitle-offset-ms",L"--subtitle-font-size"};
     for(int i=1;i<positionalArgc;++i){const std::wstring a=positionalArgv[i];
@@ -1336,7 +1319,7 @@ if(msg.message==WM_MOUSEWHEEL&&GetAncestor(msg.hwnd,GA_ROOT)==hwnd&&!veyra::ui::
         if(steps){const auto state=engine.snapshot();engine.setVolume(veyra::sink::clampAudioGain(state.volume+steps*.05f),false);}continue;
     }
 }
-if(veyra::ui::subtitleSettingsDialogMessage(msg)||veyra::ui::screenCaptureDialogMessage(msg)||IsDialogMessageW(hwnd,&msg))continue;TranslateMessage(&msg);DispatchMessageW(&msg);}
+if(veyra::ui::subtitleSettingsDialogMessage(msg)||IsDialogMessageW(hwnd,&msg))continue;TranslateMessage(&msg);DispatchMessageW(&msg);}
 if(smokeSeconds>0){
     const DWORD size=GetEnvironmentVariableW(L"VEYRA_SMOKE_TRACE_FILE",nullptr,0);
     if(size){

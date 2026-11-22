@@ -16,7 +16,6 @@
 extern "C" {
 #include <libavutil/frame.h>
 }
-#include "CaptureFormatGpuCases.h"
 #include "HdrNativeRoundTripCases.h"
 
 using namespace veyra;

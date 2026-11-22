@@ -28,18 +28,8 @@ ColumnLayout {
             }
         }
         VRow {
-            visible: veyra.sourceKind === "capture"
-            label: qsTr("Local audio monitoring")
-            hint: qsTr("When off, recording and replay still receive audio; capture sound is not played locally.")
-            VSwitch {
-                objectName: "pro-capture-audio-monitor"
-                checked: veyra.preferences.captureAudioMonitor !== false
-                onToggled: v => veyra.setPreference("captureAudioMonitor", v)
-            }
-        }
-        VRow {
             label: qsTr("Audio sync")
-            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to real-time capture-card input"))
+            hint: veyra.audioSyncMode === 0 ? (veyra.audioSyncLive ? qsTr("Estimated compensation ") + veyra.audioCompensationMs.toFixed(0) + " ms" : qsTr("Auto-estimated; applies to live streaming input"))
                   : veyra.audioSyncMode === 1 ? qsTr("Manual offset · applies to live input") : qsTr("No compensation")
             VSeg {
                 options: [{ id: "0", label: qsTr("Auto estimate") }, { id: "1", label: qsTr("Manual") }, { id: "2", label: qsTr("Off", "off") }]

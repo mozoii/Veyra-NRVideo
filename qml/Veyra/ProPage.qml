@@ -371,165 +371,6 @@ VPage {
                 Accessible.name: screenshotButton.tip
                 onClicked: veyra.takeScreenshot()
             }
-            // Recording: the red dot pulses while the file is open, and a
-            // three second countdown runs before the engine is asked to open
-            // it. The countdown is an interface animation; the file itself is
-            // owned by the engine. The header row is a layout, so this control
-            // uses Layout.alignment instead of anchors.
-            Rectangle {
-                id: recordControl
-                objectName: "pro-record-control"
-                Layout.alignment: Qt.AlignVCenter
-                Layout.preferredWidth: recordRow.implicitWidth + 24
-                Layout.preferredHeight: Theme.ctlHeight
-                implicitWidth: recordRow.implicitWidth + 24
-                implicitHeight: Theme.ctlHeight
-                radius: Theme.rCtl
-                color: recordMouse.containsMouse ? Theme.card3 : Theme.card2
-                border.width: 1
-                border.color: (veyra.recording || recordControl.countdown > 0) ? Theme.err : Theme.stroke2
-                property int countdown: 0
-                // Elapsed recording time, m:ss (h:mm:ss after an hour).
-                readonly property string elapsed: {
-                    const total = Math.max(0, Math.floor((veyra.recordingState && veyra.recordingState.seconds) || 0))
-                    const h = Math.floor(total / 3600), m = Math.floor(total / 60) % 60, s = total % 60
-                    const two = n => (n < 10 ? "0" : "") + n
-                    return h > 0 ? h + ":" + two(m) + ":" + two(s) : two(m) + ":" + two(s)
-                }
-                readonly property bool saving: !veyra.recording && !!(veyra.recordingState && veyra.recordingState.finishing)
-                Behavior on color { ColorAnimation { duration: Theme.d(Theme.durFast) } }
-                Behavior on border.color { ColorAnimation { duration: Theme.d(Theme.durFast) } }
-
-                Row {
-                    id: recordRow
-                    anchors.centerIn: parent
-                    spacing: 7
-                    Rectangle {
-                        id: recordDot
-                        width: 9; height: 9; radius: 4.5
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: Theme.err
-                        SequentialAnimation on opacity {
-                            running: veyra.recording || recordControl.countdown > 0
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.25; duration: veyra.recording ? 700 : 380; easing.type: Easing.InOutQuad }
-                            NumberAnimation { to: 1.0; duration: veyra.recording ? 700 : 380; easing.type: Easing.InOutQuad }
-                        }
-                    }
-                    Text {
-                        id: recordLabel
-                        width: head.compactActions ? Math.min(96, implicitWidth) : implicitWidth
-                        elide: Text.ElideRight
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: recordControl.countdown > 0 ? qsTr("Record in %1 s").arg(recordControl.countdown)
-                              : veyra.recording ? qsTr("Stop %1").arg(recordControl.elapsed)
-                              : recordControl.saving ? qsTr("Saving…") : qsTr("Record")
-                        color: Theme.t1
-                        font.family: Theme.fontUi
-                        font.pixelSize: Theme.fsBody
-                        font.weight: Font.Medium
-                    }
-                }
-                ToolTip.visible: recordMouse.containsMouse && recordLabel.truncated
-                ToolTip.text: recordLabel.text
-                MouseArea {
-                    id: recordMouse
-                    objectName: "pro-record-mouse"
-                    anchors.fill: parent
-                    enabled: veyra.hasSource && !recordControl.saving
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (veyra.recording) { veyra.stopRecording("pro-button"); recordControl.countdown = 0; recordTick.stop(); return }
-                        if (recordControl.countdown > 0) { recordControl.countdown = 0; recordTick.stop(); return }
-                        recordControl.countdown = 3
-                        recordTick.restart()
-                    }
-                }
-                // The countdown number pops on every tick.
-                NumberAnimation {
-                    id: recordPop
-                    target: recordLabel
-                    property: "scale"
-                    from: 1.18
-                    to: 1.0
-                    duration: Theme.d(Theme.durFast)
-                    easing: Theme.spring
-                }
-                Timer {
-                    id: recordTick
-                    interval: 1000
-                    repeat: true
-                    onTriggered: {
-                        if (!veyra.hasSource) { recordControl.countdown = 0; stop(); return }
-                        recordControl.countdown -= 1
-                        recordPop.restart()
-                        if (recordControl.countdown <= 0) {
-                            recordControl.countdown = 0
-                            recordTick.stop()
-                            veyra.startRecording("pro-button")
-                        }
-                    }
-                }
-            }
-            RowLayout {
-                objectName: "pro-virtual-camera-control"
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 6
-                VIcon { visible: head.compactActions; name: "video"; size: 14 }
-                Text {
-                    visible: !head.compactActions
-                    text: qsTr("Virtual camera")
-                    color: veyra.virtualCameraEnabled ? Theme.accent : Theme.t2
-                    font.family: Theme.fontUi
-                    font.pixelSize: Theme.fsBody
-                }
-                VSwitch {
-                    objectName: "pro-virtual-camera-toggle"
-                    checked: veyra.virtualCameraEnabled
-                    onToggled: enabled => veyra.setVirtualCameraEnabled(enabled)
-                }
-                HoverHandler { id: cameraHover }
-                ToolTip.visible: head.compactActions && cameraHover.hovered
-                ToolTip.text: qsTr("Virtual camera")
-            }
-            RowLayout {
-                objectName: "pro-replay-control"
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 6
-                VIcon { visible: head.compactActions; name: "clock"; size: 14 }
-                Text {
-                    visible: !head.compactActions
-                    text: qsTr("Instant replay")
-                    color: Theme.t2
-                    font.family: Theme.fontUi
-                    font.pixelSize: Theme.fsBody
-                }
-                VSwitch {
-                    objectName: "pro-replay-toggle"
-                    checked: veyra.replayEnabled
-                    onToggled: checked => veyra.setPreference("replayEnabled", checked)
-                }
-                HoverHandler { id: replayHover }
-                ToolTip.visible: head.compactActions && replayHover.hovered
-                ToolTip.text: qsTr("Instant replay")
-            }
-            // Instant replay (#103): while the buffer is on, the time it holds;
-            // a click saves it, as the replay shortcut does.
-            VButton {
-                id: replayBtn
-                objectName: "pro-replay-save"
-                visible: veyra.replayEnabled
-                readonly property var replay: veyra.replayState || ({})
-                readonly property int held: Math.max(0, replay.seconds || 0)
-                iconName: "clock"
-                text: replay.saving ? qsTr("Saving…")
-                      : qsTr("Replay %1").arg(Math.floor(held / 60) + ":" + (held % 60 < 10 ? "0" : "") + held % 60)
-                tip: qsTr("Save the latest picture and sound (%1)").arg(veyra.shortcuts.replay || qsTr("no shortcut set"))
-                maxTextWidth: head.compactActions ? 84 : 0
-                enabled: !replay.saving && held > 0
-                onClicked: veyra.saveReplay("pro-button")
-            }
             VButton {
                 id: presetBtn
                 iconName: "layers"
@@ -808,7 +649,7 @@ VPage {
                     HoverHandler { id: fullHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: root.requestFullscreen() }
                     ToolTip.visible: fullHover.hovered
-                    ToolTip.text: qsTr("Fullscreen (double-click / F11) · Press %1 for quick adjustments").arg(veyra.gameMode ? veyra.shortcuts.gamePanel : "Home")
+                    ToolTip.text: qsTr("Fullscreen (double-click / F11) · Press %1 for quick adjustments").arg("Home")
                 }
             }
         }
@@ -1894,7 +1735,7 @@ VPage {
                                 visible: veyra.fgBackendName === "vfg"
                                 enabled: veyra.vfgQuality !== 0 && veyra.fgMultiplier === 2
                                 opacity: enabled ? 1 : 0.5
-                                hint: qsTr("During live capture at 2X, when the current level cannot make the screen refresh, that frame pair uses the next faster level: no dropped frame and no added latency. Uses about 2 GB more VRAM; does nothing when VRAM is short")
+                                hint: qsTr("During a live stream at 2X, when the current level cannot make the screen refresh, that frame pair uses the next faster level: no dropped frame and no added latency. Uses about 2 GB more VRAM; does nothing when VRAM is short")
                                 VSwitch {
                                     objectName: "list-vfg-auto-regulate"
                                     checked: veyra.vfgAutoRegulate
@@ -2051,7 +1892,7 @@ VPage {
                 Layout.fillWidth: true
                 Layout.margins: insp.height < 240 ? 6 : 10
                 spacing: 8
-                VDot { Layout.alignment: Qt.AlignTop; Layout.topMargin: 5; off: !veyra.running; warn: veyra.captureRecovering; err: veyra.failed }
+                VDot { Layout.alignment: Qt.AlignTop; Layout.topMargin: 5; off: !veyra.running; warn: false; err: veyra.failed }
                 Text {
                     id: inspectorStatus
                     objectName: "pro-inspector-status"
@@ -2124,22 +1965,18 @@ VPage {
         id: sourceMenu
         title: qsTr("Source")
         items: (veyra.sourceName.length > 0
-                ? [{ label: (veyra.isCapture ? qsTr("Capture card · ") : "") + veyra.sourceName, note: veyra.sourceSummary,
+                ? [{ label: veyra.sourceName, note: veyra.sourceSummary,
                      checked: true, icon: "video", act: "" }] : [])
             .concat([{ label: qsTr("Open file…"), icon: "folder", act: "file" },
                 { label: qsTr("Open media URL…"), icon: "cast", act: "network" },
                      { label: qsTr("PC streaming…"), icon: "cast", act: "moonlight" },
                      { label: qsTr("Xbox streaming…"), icon: "gamepad", act: "xbox" },
-                     { label: qsTr("Screen capture…"), icon: "monitor", act: "screen" },
-                     { sep: true },
-                     { label: qsTr("Capture card settings…"), icon: "settings", act: "capture" }])
+                     ])
         onPicked: (i, o) => {
             if (o.act === "file") veyra.openFileDialog()
             else if (o.act === "network") veyra.openNetworkDialog()
             else if (o.act === "moonlight") veyra.openMoonlightDialog()
             else if (o.act === "xbox") veyra.openXboxDialog()
-            else if (o.act === "screen") veyra.openScreenCaptureDialog()
-            else if (o.act === "capture") veyra.openCaptureDialog()
         }
     }
     // The design puts Save as / Manage in the professional page's preset menu.
@@ -2218,6 +2055,7 @@ VPage {
         property string tag: ""
         property bool active: false
         Layout.fillWidth: true
+        Layout.fillHeight: true
         Layout.preferredWidth: 1
         implicitHeight: modeCol.implicitHeight + 24
         radius: 12
@@ -2249,7 +2087,7 @@ VPage {
                 font.family: Theme.fontUi; font.pixelSize: 11
                 wrapMode: Text.WordWrap
             }
-            VTag { text: mc.tag; kind: mc.active ? "acc" : "" }
+            VTag { Layout.fillWidth: true; wrap: true; text: mc.tag; kind: mc.active ? "acc" : "" }
         }
     }
     component Bullet: RowLayout {

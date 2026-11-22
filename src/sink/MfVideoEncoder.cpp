@@ -1,5 +1,4 @@
 #include "veyra/sink/VideoEncoder.h"
-#include "veyra/sink/MfLiveEncoder.h"
 #include "veyra/pipeline/EnhanceGraph.h"
 #include "veyra/pipeline/GpuPassUtils.h"
 #include "veyra/gfx/D3D12DeviceContext.h"
@@ -151,18 +150,11 @@ bool listHardwareMfts(bool hevc,uint32_t adapterVendorId,std::vector<MftCandidat
 
 uint32_t alignUp(uint32_t value,uint32_t alignment){return (value+alignment-1)/alignment*alignment;}
 
-class MfVideoEncoder final : public VideoEncoder, public MfLiveEncoder {
+class MfVideoEncoder final : public VideoEncoder {
 public:
     ~MfVideoEncoder() override {close();}
 
     bool open(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& ring,EnhanceGraph& graph,const EncoderConfig& config,PacketWriter writer) override;
-    // Live recorder path (MfLiveEncoder.h): packed NV12 in, microseconds in and out.
-    bool openLive(uint32_t width,uint32_t height,const EncoderConfig& config,PacketWriter writer) override;
-    std::vector<uint8_t> liveHeaders() const override {return extradata_;}
-    bool encodeNv12(const uint8_t* y,uint32_t yPitch,const uint8_t* uv,uint32_t uvPitch,int64_t ptsUs) override;
-    bool finishLive() override {return finish();}
-    std::wstring liveDescription() const override {return describe();}
-    std::wstring liveError() const override {return error_;}
     std::vector<uint8_t> headers() const override {return extradata_;}
     bool encode(unsigned frameSlot,bool generated,int64_t pts) override;
     bool finish() override;
@@ -216,9 +208,6 @@ private:
     std::vector<uint8_t> packed_;
     HANDLE fenceEvent_=nullptr;
     bool mfAcquired_=false;
-    // Live recorder: sample times are microseconds (x10 in MF units) and key
-    // frames are forced every 2 s of media time instead of every N frames.
-    bool liveTimestamps_=false;
     uint64_t submitted_=0,written_=0;
     uint64_t nextKeyframe_=0;
     uint64_t gopLength_=1;
@@ -479,7 +468,7 @@ bool MfVideoEncoder::waitEvents(){
         IMFMediaEvent* event=nullptr;
         const HRESULT hr=events_->GetEvent(MF_EVENT_FLAG_NO_WAIT,&event);
         if(hr==MF_E_NO_EVENTS_AVAILABLE){
-            if(GetTickCount64()-start>(liveTimestamps_?drainTimeoutMs_:kWaitEventTimeoutMs)){
+            if(GetTickCount64()-start>kWaitEventTimeoutMs){
                 error_=L"System encoder event wait timed out";
                 log::error("mf-encoder","timeout waiting for an encoder MFT event");
                 return false;
@@ -520,8 +509,8 @@ bool MfVideoEncoder::writeSample(IMFSample* sample){
     }
     LONGLONG time=0;
     if(FAILED(sample->GetSampleTime(&time)))time=0;
-    // Export: the ordinal frame index. Live recorder: microseconds.
-    const int64_t index=liveTimestamps_?int64_t(time/10):llround(double(time)*double(fpsNum_)/double(fpsDen_)/double(kTicksPerSecond));
+    // Export: the ordinal frame index.
+    const int64_t index=llround(double(time)*double(fpsNum_)/double(fpsDen_)/double(kTicksPerSecond));
     UINT32 clean=0;
     const bool key=SUCCEEDED(sample->GetUINT32(MFSampleExtension_CleanPoint,&clean))&&clean!=0;
     const bool accepted=writer_(data,length,index,key);
@@ -698,54 +687,6 @@ bool MfVideoEncoder::submitSample(IMFSample* sample){
     return async_?drainOutputs(false):drainOutputs(true);
 }
 
-bool MfVideoEncoder::openLive(uint32_t width,uint32_t height,const EncoderConfig& config,PacketWriter writer){
-    writer_=std::move(writer);liveTimestamps_=true;
-    hevc_=config.hevc;bitrateMbps_=config.bitrateMbps;rateControl_=config.rateControl;
-    drainTimeoutMs_=config.drainTimeoutMs?config.drainTimeoutMs:10000;
-    fpsNum_=std::max(1u,config.fpsNum);fpsDen_=std::max(1u,config.fpsDen);
-    width_=width;height_=height;
-    error_=L"Media Foundation startup failed; see worker log";
-    if(width_<16||height_<16||(width_&1)||(height_&1)){
-        log::error("mf-encoder",std::format("unsupported live extent {}x{} for NV12",width_,height_));
-        error_=std::format(L"Unsupported NV12 extent {}x{}",width_,height_);
-        return false;
-    }
-    if(!openTransform(config))return false;
-    if(!check(transform_->ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH,0),L"Flush"))return false;
-    if(!check(transform_->ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING,0),L"BeginStreaming"))return false;
-    if(!check(transform_->ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM,0),L"StartOfStream"))return false;
-    error_.clear();
-    return true;
-}
-
-bool MfVideoEncoder::encodeNv12(const uint8_t* y,uint32_t yPitch,const uint8_t* uv,uint32_t uvPitch,int64_t ptsUs){
-    if(transform_==nullptr||!liveTimestamps_||!y||!uv)return false;
-    // A 2 s GOP of media time whatever the presented rate; the first frame is
-    // forced too, which is what makes vendor MFTs emit their first output.
-    if(ptsUs>=int64_t(nextKeyframe_)&&codecApi_!=nullptr){
-        VARIANT value;VariantInit(&value);value.vt=VT_UI4;value.ulVal=1;
-        const HRESULT forced=codecApi_->SetValue(&kPropForceKeyFrame,&value);
-        if(FAILED(forced))log::info("mf-encoder",std::format("ForceKeyFrame failed hr={} ptsUs={}",hrName(forced),ptsUs));
-        nextKeyframe_=uint64_t(std::max<int64_t>(0,ptsUs))+2000000;
-    }
-    const DWORD size=DWORD(size_t(width_)*height_*3/2);
-    ComPtr<IMFMediaBuffer> buffer;
-    if(FAILED(MFCreateMemoryBuffer(size,&buffer))){error_=L"MFCreateMemoryBuffer failed";return false;}
-    BYTE* data=nullptr;
-    if(FAILED(buffer->Lock(&data,nullptr,nullptr))){error_=L"IMFMediaBuffer::Lock failed";return false;}
-    for(uint32_t row=0;row<height_;++row)std::memcpy(data+size_t(row)*width_,y+size_t(row)*yPitch,width_);
-    uint8_t* chroma=data+size_t(width_)*height_;
-    for(uint32_t row=0;row<height_/2;++row)std::memcpy(chroma+size_t(row)*width_,uv+size_t(row)*uvPitch,width_);
-    buffer->Unlock();
-    buffer->SetCurrentLength(size);
-    ComPtr<IMFSample> created;
-    if(FAILED(MFCreateSample(&created))||FAILED(created->AddBuffer(buffer.Get()))){error_=L"MFCreateSample/AddBuffer failed";return false;}
-    created->SetSampleTime(LONGLONG(ptsUs)*10);
-    created->SetSampleDuration(LONGLONG(kTicksPerSecond)*fpsDen_/fpsNum_);
-    if(!sampleSent_)created->SetUINT32(MFSampleExtension_Discontinuity,TRUE);
-    return submitSample(created.Detach());
-}
-
 bool MfVideoEncoder::finish(){
     if(transform_==nullptr)return true;
     if(!draining_){
@@ -766,7 +707,7 @@ bool MfVideoEncoder::finish(){
             return false;
         }
         if(!async_&&!haveOutput_)drainingDone_=true;
-        if(GetTickCount64()-start>(liveTimestamps_?drainTimeoutMs_*2:kWaitEventTimeoutMs*2)){
+        if(GetTickCount64()-start>kWaitEventTimeoutMs*2){
             log::error("mf-encoder",std::format("drain timeout submitted={}",submitted_));
             return false;
         }
@@ -789,7 +730,6 @@ void MfVideoEncoder::close(){
 } // namespace
 
 std::unique_ptr<VideoEncoder> createMediaFoundationEncoder(){return std::make_unique<MfVideoEncoder>();}
-std::unique_ptr<MfLiveEncoder> createMediaFoundationLiveEncoder(){return std::make_unique<MfVideoEncoder>();}
 
 EncoderCapability queryMediaFoundationEncoder(bool hevc){
     EncoderCapability capability;

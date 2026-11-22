@@ -17,7 +17,6 @@ extern "C" {
 
 #include "veyra/Log.h"
 #include "veyra/media/FFmpegVideoDecoder.h"
-#include "veyra/pipeline/CaptureUploadFrame.h"
 #include "veyra/pipeline/FramePacket.h"
 
 namespace veyra::source {
@@ -107,7 +106,6 @@ struct CaptureCompressedDecoder::Impl {
                 out[2 * x + 1] = uint8_t((unsigned(v0[x]) + v1[x] + 1) >> 1);
             }
         }
-        pipeline::sampleCaptureUploadProxy(*target, frame.data[0], size_t(frame.linesize[0]), false);
         return true;
     }
 
@@ -185,8 +183,6 @@ struct CaptureCompressedDecoder::Impl {
             }
         }
         if (planarToNv12(frame, target)) { copyFrameProperties(frame, target, true); return true; }
-        // swscale cannot supply the analysis pixels of an upload-backed target.
-        pipeline::useCaptureUploadCpuPlanes(*target);
         sws = sws_getCachedContext(sws, frame.width, frame.height, sourceFormat,
             int(width), int(height), AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
         if (sws == nullptr) {

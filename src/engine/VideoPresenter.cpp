@@ -320,7 +320,7 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
     // Pausing keeps the last flip-model buffer visible. Re-submit only when
     // its producer fence, view, comparison, visibility, monitor or size changes.
     // Deferred resize must keep polling until the actual buffers match.
-    if(retainUnchanged&&(!capture_||!capture_->needsFrame())&&retained.producer&&retained.fence&&retainedFrame_&&*retainedFrame_==retained&&
+    if(retainUnchanged&&retained.producer&&retained.fence&&retainedFrame_&&*retainedFrame_==retained&&
         !windowChanging&&targetWidth==sink_.width()&&targetHeight==sink_.height()&&
         SUCCEEDED(ctx.device()->GetDeviceRemovedReason())&&
         !GetEnvironmentVariableW(L"VEYRA_TEST_DISABLE_PAUSED_PRESENT_REUSE",nullptr,0)){
@@ -331,8 +331,8 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
     if(!windowChanging&&(targetWidth!=sink_.width()||targetHeight!=sink_.height())&&GetTickCount64()>=deferUntil&&now-lastResize_>=std::chrono::milliseconds(100)&&sink_.resizeDue()) {
         resized=true;
         if(!ring.drainQueue())return false;sink_.resize(targetWidth,targetHeight);
-        // A capture hook may temporarily retain a DXGI buffer. Keep the old
-        // valid buffers and let DXGI scale them until a later resize succeeds.
+        // Keep the old valid buffers and let DXGI scale them until a later
+        // resize succeeds.
         if(!sink_.currentBackBuffer()||FAILED(ctx.device()->GetDeviceRemovedReason()))return false;
         if(!refresh(ctx.device()))return false;lastResize_=now;xessWasEnabled_=false;
         metadataDirty_=true;
@@ -487,14 +487,6 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
         barriers[1].Transition.StateBefore=D3D12_RESOURCE_STATE_COPY_SOURCE;barriers[1].Transition.StateAfter=D3D12_RESOURCE_STATE_COMMON;
         list->ResourceBarrier(1,&barriers[1]);list->ResourceBarrier(1,&copy);
     }
-    // Live recording reads the frame here, in this list: the source is back in
-    // COMMON, and the consumer fence signalled after this list covers the read.
-    bool captureRecorded=false;
-    struct CaptureGuard{PresentCapture* capture;bool& recorded;~CaptureGuard(){if(recorded&&capture)capture->discarded();}} captureGuard{capture_,captureRecorded};
-    if(capture_){
-        const uint32_t hdrMode=graph.hdrOutput()?(graph.hdr10Output()?2u:1u):0u;
-        captureRecorded=capture_->record(list,{source,graph.outputFormat(),graph.workWidth(),graph.workHeight(),hdrMode,graph.outputDitherStep(),generated,graph.sourceWidth(),graph.sourceHeight(),graph.highQualityPresentation()});
-    }
     // Interpolation region for the XeSS present-sink FG backend.
     // It must follow the PresentBlit view mapping (contain * zoom, view
     // center) rather than assuming the default centered view: the previous
@@ -614,7 +606,6 @@ bool VideoPresenter::present(gfx::D3D12DeviceContext& ctx,gfx::CommandSlotRing& 
     gpuTimer_.mark(list,diagnostics::GpuStage::Blit,true);gpuTimer_.resolve(list);
     if(!ring.submitAndSignal(commandSlot))return false;gpuTimer_.submitted(ring.lastSignaledValue());
     reflex_.blitEnd(reflexFrame);
-    if(captureRecorded){captureRecorded=false;capture_->submitted(fence,ring.lastSignaledValue());}
     if(probeIssued){probePending_=true;probeFenceValue_=ring.lastSignaledValue();}
     // Custom: collect the previous probe as soon as the GPU reports it complete.
     // GetCompletedValue is a plain read, so presentation never waits here.

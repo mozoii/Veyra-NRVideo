@@ -1,7 +1,11 @@
 #include "veyra/pipeline/EnhanceGraph.h"
 #include "veyra/gfx/D3D12DeviceContext.h"
 #include "veyra/gfx/CommandSlotRing.h"
-#include "CaptureFormatGpuCases.h"
+#include "GpuReadbackCases.h"
+extern "C" {
+#include <libavutil/frame.h>
+#include <libavutil/pixfmt.h>
+}
 #include <algorithm>
 #include <chrono>
 #include <cstring>
@@ -68,7 +72,7 @@ int main() {
                 pipeline::EnhanceGraph::FrameOutputs out;
                 std::vector<float> pixels;
                 bool ok = frame && graph.initialize(graphDesc(format, width, 35)) && graph.createViews() &&
-                    graph.process(frame, 0, true, out, 1, &color) && captureReadFp16(ctx, ring, graph.diagnosticLinearInput(), pixels);
+                    graph.process(frame, 0, true, out, 1, &color) && readFp16(ctx, ring, graph.diagnosticLinearInput(), pixels);
                 if (ok) { if (!inverted) reference = pixels; else ok = reference == pixels; }
                 uint64_t hash = 14695981039346656037ull;
                 for (size_t i = 0; i < pixels.size() * sizeof(float); ++i) { hash ^= reinterpret_cast<const uint8_t*>(pixels.data())[i]; hash *= 1099511628211ull; }

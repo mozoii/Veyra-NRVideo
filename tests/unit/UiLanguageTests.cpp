@@ -53,9 +53,6 @@ int main(int argc, char** argv) {
     // A message built from pieces joined by "; ".
     expect(i18n::text(QStringLiteral("HDR video automatically uses HEVC Main10; Video export finished")),
            QStringLiteral("HDR video automáticamente HEVC Main10; Exportación de vídeo terminada"), "segments");
-    // A capture format label with a technical tag at the end.
-    expect(i18n::text(QStringLiteral("1920 x 1080 @ 120.00 fps · NV12 · Native · low latency [format 16]")),
-           QStringLiteral("1920 x 1080 @ 120.00 fps · NV12 · Nativo · baja latencia [format 16]"), "tagged segment");
     // The presentation status (VideoPresenter) joins its pieces with " · "; each is its own entry.
     expect(i18n::text(QStringLiteral("NVIDIA Low Latency: Off · Display sync: auto · no tearing and no VSync wait (lowest latency)")),
            QStringLiteral("NVIDIA Low Latency: Off · Sincronización de pantalla: auto · sin lágrimas y sin espera VSync (latencia más baja)"), "presentation status pieces");

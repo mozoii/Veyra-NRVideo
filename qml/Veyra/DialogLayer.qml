@@ -61,7 +61,7 @@ Rectangle {
     }
     opacity: shown ? 1 : 0
     visible: opacity > 0
-    // A closed dialog leaves the scene. Its live bindings (capture preview, fps text)
+    // A closed dialog leaves the scene. Its live bindings (poster preview, fps text)
     // kept changing while hidden and Qt redrew the window for each change, ~40 times
     // a second during capture; OBS game capture then held the UI instead of the video.
     // Keyed on shown/opacity, never on visible: an item without a parent always

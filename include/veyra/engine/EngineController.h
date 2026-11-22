@@ -25,8 +25,6 @@
 #include "veyra/media/NetworkSettings.h"
 #include "veyra/sink/VideoEncoder.h"
 #include "veyra/engine/ExportOptions.h"
-#include "veyra/engine/LiveRecorder.h"
-#include "veyra/engine/VirtualCamera.h"
 #include "veyra/engine/DisplayStateService.h"
 namespace veyra::source { struct MoonlightConnectDesc; class MoonlightSessionSource; struct XboxConnectDesc; class XboxSessionSource; }
 namespace veyra::input { struct ControllerState;struct ControllerFeedback; }
@@ -45,7 +43,6 @@ struct PlayerOptions { bool nr=false,sr=false,fg=false,realtime=true; uint32_t f
     ExportMediaOptions exportMedia;
     std::wstring exportTemporaryPath; // owned, uniquely reserved by this attempt
     bool captureReplayForTest=false; // file-backed live scheduler test; never enabled by UI
-    bool captureCpuUnpack=false; // N1 diagnostic: legacy per-pixel CPU unpack
     bool softwareDecode=false; // user setting: files skip D3D12VA and decode on the CPU
     bool deinterlace=true; // automatic file deinterlace, preserves progressive bypass
     bool hardwareDecodeOnly=false; // user setting "force hardware decode": files fail instead of falling back to software
@@ -259,29 +256,13 @@ public:
     bool rotatePreviewClockwise(uint64_t session){std::lock_guard lock(mutex_);if(session!=snapshot_.sessionId||(!snapshot_.running&&!snapshot_.image))return false;previewView_.rotateClockwise();return true;}
     PreviewView previewView()const{std::lock_guard lock(mutex_);return previewView_;}
     void setVolume(float gain,bool mute);
-    // Local capture monitoring only. Recording takes PCM before this gain.
+    // Local capture monitoring only.
     void setCaptureAudioMonitoring(bool enabled);
     bool selectAudioTrack(uint64_t sessionId,int streamIndex);
     void seek(double seconds){if(!std::isfinite(seconds)||seconds<0)return;std::lock_guard lock(mutex_);snapshot_.seekTarget=seconds;++snapshot_.seekRequested;seekSeconds_.store(seconds);}
     void saveFrame(const std::wstring& path);
     void startExport(const std::wstring& input,const std::wstring& output,PlayerOptions,bool hevc);
     PlayerSnapshot snapshot()const;
-    // Live recording of the processed picture and the played sound
-    // (LiveRecorder.h). Any thread; the file opens with the next presented
-    // frame and is finished in the background.
-    bool requestRecording(const RecordingSettings& options,std::wstring& error);
-    void stopRecording();
-    RecordingStatus recordingSnapshot()const;
-    bool setVirtualCamera(bool enabled,uint32_t fps,std::wstring& error);
-    bool uninstallVirtualCamera(std::wstring& error);
-    bool installVirtualCamera(std::wstring& error);
-    VirtualCameraStatus virtualCameraSnapshot()const;
-    // Instant replay (#103): while enabled, the last options.replaySeconds of
-    // whatever is presented stay in memory, across sessions; saveReplay()
-    // writes them to a new file in the background. Any thread.
-    bool setReplay(bool enabled,const RecordingSettings& options,std::wstring& error);
-    bool saveReplay(const std::wstring& directory,std::wstring& error);
-    RecordingStatus replaySnapshot()const;
     // Refresh/VRR state of monitors, shared by every session's presenter and
     // the UI; queried in the background on events only. Any thread.
     DisplayStateService& displayStates(){return displayStates_;}
@@ -301,15 +282,6 @@ private:
     std::shared_ptr<source::XboxSessionSource> activeXbox_;
     PreviewView previewView_;
     std::wstring savePath_;
-    // Live recorder: every session's presenter records into it; it owns its
-    // encoder and writer threads. Created before the engine thread starts.
-    std::unique_ptr<LiveRecorder> recorder_=std::make_unique<LiveRecorder>();
-    // The instant replay buffer, a second recorder; both take the presented
-    // frame through captures_.
-    std::unique_ptr<LiveRecorder> replay_=std::make_unique<LiveRecorder>(true);
-    PresentCaptureFanout recordingCaptures_{*recorder_,*replay_};
-    std::unique_ptr<VirtualCamera> virtualCamera_=std::make_unique<VirtualCamera>();
-    PresentCaptureFanout captures_{recordingCaptures_,*virtualCamera_};
     // Declared before worker_: it outlives the engine thread's presenters.
     DisplayStateService displayStates_;
     std::thread worker_;

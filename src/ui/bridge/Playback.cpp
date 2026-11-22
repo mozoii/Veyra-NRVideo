@@ -77,11 +77,10 @@ double QmlPlayerBridge::sourceFps() const { return impl_->snapshot.nominalSource
 int QmlPlayerBridge::sourceRotation() const { return impl_->snapshot.sourceRotationDegrees; }
 int QmlPlayerBridge::previewRotation() const { return int(impl_->engine.previewView().userQuarterTurns)*90; }
 void QmlPlayerBridge::rotatePictureClockwise() {
-    if(impl_->screenCropPreview||!hasSource()||!impl_->engine.rotatePreviewClockwise(impl_->snapshot.sessionId))return;
+    if(!hasSource()||!impl_->engine.rotatePreviewClockwise(impl_->snapshot.sessionId))return;
     // An in-progress protection selection uses the previous coordinate system.
     beginProtectionDraw(QString());
     tickSubtitles();
-    if(gameMode()){updateGameGeometry();updateGameMode();emit gameModeChanged();}
     veyra::log::info("ui-rotation",std::format("session={} clockwise={}",impl_->snapshot.sessionId,previewRotation()));
     emit compareChanged();
 }
@@ -163,7 +162,6 @@ QString QmlPlayerBridge::nrReuseStatus() const {
 }
 bool QmlPlayerBridge::srActive() const { return impl_->snapshot.srActive; }
 bool QmlPlayerBridge::fgActive() const { return impl_->snapshot.fgActive; }
-bool QmlPlayerBridge::captureRecovering() const { return impl_->snapshot.captureRecovering; }
 double QmlPlayerBridge::captureFps() const { return impl_->snapshot.captureFps; }
 double QmlPlayerBridge::captureDropped() const { return double(impl_->snapshot.captureDropped); }
 QString QmlPlayerBridge::backendWarning() const { return uiText(impl_->snapshot.backendWarning); }
@@ -235,7 +233,6 @@ void QmlPlayerBridge::tickPlaylist() {
 
 void QmlPlayerBridge::openPath(const QString& path) {
     if (path.isEmpty()) return;
-    impl_->screenCropPreview = false;
     endExclusionMove(false);
     impl_->exclusionSelected=-1;
     flushHdrMemory();impl_->hdrTitleApplied.clear();
@@ -385,7 +382,6 @@ void QmlPlayerBridge::togglePlayPause() {
     veyra::log::info("ui-transport", pause ? "pause" : "resume");
 }
 void QmlPlayerBridge::stopPlayback() {
-    impl_->screenCropPreview = false;
     flushHdrMemory();
     impl_->playlistSession = 0;
     impl_->playlist->setPlayback(impl_->playlistPath, QStringLiteral("stopped"));
@@ -435,6 +431,32 @@ void QmlPlayerBridge::stepFrame(int direction) {
     impl_->engine.seek(std::max(0.0, impl_->snapshot.position + (direction > 0 ? 1.0 / 60.0 : -1.0 / 60.0)));
 }
 
+void QmlPlayerBridge::openAfterLivePage(const QString& pending, std::function<void()> open, const QString& homeTarget) {
+    const int gen = ++impl_->liveOpenGen;
+    const bool fromHome = impl_->currentPage.isEmpty() || impl_->currentPage == QLatin1String("home");
+    if (fromHome) emit navigate(homeTarget);
+    if (!fromHome) {
+        impl_->pendingLiveText.clear(); open(); return;
+    }
+    // Open after the destination has laid out its video viewport. Cinema also
+    // needs this delay for its window-height animation.
+    impl_->pendingLiveText = pending;
+    emit snapshotChanged();
+    const int delay = reducedMotion() ? 0 : 820;
+    veyra::log::info("ui-live-open", std::format("deferred ms={} gen={}", delay, gen));
+    QTimer::singleShot(delay, this, [this, gen, open = std::move(open)] {
+        if (gen != impl_->liveOpenGen) { veyra::log::info("ui-live-open", std::format("superseded gen={}", gen)); return; }
+        impl_->pendingLiveText.clear();
+        veyra::log::info("ui-live-open", std::format("open gen={}", gen));
+        open();
+        emit snapshotChanged();
+    });
+}
+void QmlPlayerBridge::testBlockUi(int ms) {
+    if (GetEnvironmentVariableW(L"VEYRA_TEST_UI_BLOCK", nullptr, 0) == 0) return;
+    veyra::log::warn("ui-test", std::format("test: GUI thread blocked for {} ms", ms));
+    Sleep(DWORD(std::clamp(ms, 0, 20000)));
+}
 void QmlPlayerBridge::takeScreenshot() {
     if (!hasSource()) { emit notice(tr("Nothing is playing, so no screenshot can be taken"), true); return; }
     if(!impl_->pendingScreenshot.isEmpty()||!impl_->pendingFrameExport.isEmpty()||imageBatchActive()){emit notice(tr("Wait for the current image export to finish"),true);return;}

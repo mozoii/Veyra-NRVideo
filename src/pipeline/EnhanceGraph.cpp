@@ -25,7 +25,6 @@
 #include <thread>
 
 #include "veyra/Log.h"
-#include "veyra/pipeline/CaptureUploadFrame.h"
 #include "veyra/Result.h"
 #include "veyra/gfx/CommandSlotRing.h"
 #include "veyra/gfx/D3D12DeviceContext.h"
@@ -101,46 +100,6 @@ const char* srRuntimeName(uint32_t quality){
     return quality==0?"dlss":quality==engine::kVideoSrFsr?"fsr":engine::vfxVideoSr(quality)?"video-effects":"ngx";
 }
 
-// N1 packed capture ingress helpers. Codes match pipeline::packedInputCode:
-// 1 BGR24, 2 RGB555, 3 RGB565, 4 UYVY, 5 YVYU, 6 v210, 7 RGBXLE10.
-unsigned packedIngressRowBytes(uint32_t code,unsigned width){
-    if(code==6)return ((width+5)/6)*16;
-    if(code==7)return width*4;
-    return code==1?width*3:width*2;
-}
-unsigned packedIngressTexels(uint32_t code,unsigned width){
-    return (packedIngressRowBytes(code,width)+3)/4;
-}
-AVPixelFormat packedIngressFormat(uint32_t code){
-    switch(code){
-    case 1:return AV_PIX_FMT_BGR24;
-    case 2:return AV_PIX_FMT_RGB555LE;
-    case 3:return AV_PIX_FMT_RGB565LE;
-    case 4:return AV_PIX_FMT_UYVY422;
-    case 5:return AV_PIX_FMT_YVYU422;
-    case 6:case 7:return AV_PIX_FMT_BGRA; // raw storage carrier, explicitly unpacked
-    default:break;
-    }
-    return AV_PIX_FMT_NONE;
-}
-// Coarse luma sample for scene analysis; mirrors the CPU luma weights.
-uint8_t packedIngressLuma(const uint8_t* data,ptrdiff_t linesize,uint32_t code,unsigned x,unsigned y){
-    const auto* p=data+ptrdiff_t(y)*linesize;
-    switch(code){
-    case 1:{const auto* q=p+x*3;return uint8_t((54*unsigned(q[2])+183*unsigned(q[1])+19*unsigned(q[0])+128)>>8);}
-    case 2:{const unsigned w=unsigned(p[x*2])|(unsigned(p[x*2+1])<<8);
-        const unsigned r=(w>>10)&31,g=(w>>5)&31,b=w&31;return uint8_t((54*(r<<3|r>>2)+183*(g<<3|g>>2)+19*(b<<3|b>>2)+128)>>8);}
-    case 3:{const unsigned w=unsigned(p[x*2])|(unsigned(p[x*2+1])<<8);
-        const unsigned r=(w>>11)&31,g=(w>>5)&63,b=w&31;return uint8_t((54*(r<<3|r>>2)+183*(g<<2|g>>4)+19*(b<<3|b>>2)+128)>>8);}
-    case 4:return p[x*2+1]; // UYVY: Y0 follows U
-    case 5:return p[x*2];   // YVYU: Y0 leads
-    case 6:{const auto* q=p+(x/6)*16;uint32_t words[4];std::memcpy(words,q,16);
-        constexpr unsigned word[]={0,1,1,2,3,3},shift[]={10,0,20,10,0,20};return uint8_t(((words[word[x%6]]>>shift[x%6])&1023)>>2);}
-    case 7:{uint32_t word;std::memcpy(&word,p+x*4,4);const auto r=(word>>22)&1023,g=(word>>12)&1023,b=(word>>2)&1023;return uint8_t(std::min(255u,(54*r+183*g+19*b+512)>>10));}
-    default:break;
-    }
-    return 0;
-}
 
 } // namespace
 
@@ -959,10 +918,8 @@ bool EnhanceGraph::createResources()
     upZeroMotion_ = makeUploadBuffer(context_.device(), dPitch_ * workH_);
     lumaTex_ = makeTexture(context_.device(), srcW_, srcH_, desc_.wideYuvInput()?DXGI_FORMAT_R16_UNORM:DXGI_FORMAT_R8_UNORM, true);
     chromaTex_ = makeTexture(context_.device(), (srcW_+1) / 2, (srcH_+1) / 2, desc_.wideYuvInput()?DXGI_FORMAT_R16G16_UNORM:DXGI_FORMAT_R8G8_UNORM, true);
-    if(desc_.rgbInput||desc_.yuy2Input||desc_.packedInput){
-        if((desc_.yuy2Input||desc_.packedInput==4||desc_.packedInput==5)&&srcW_%2)return false;
-        if(desc_.rgbInput&&(desc_.yuy2Input||desc_.packedInput))return false;
-        const unsigned packedWidth=desc_.packedInput?packedIngressTexels(desc_.packedInput,srcW_):desc_.yuy2Input?srcW_/2:srcW_;
+    if(desc_.rgbInput){
+        const unsigned packedWidth=srcW_;
         rgbPitch_=(size_t(packedWidth)*4+255)&~size_t(255);
         rgbTex_=makeTexture(context_.device(),packedWidth,srcH_,DXGI_FORMAT_R8G8B8A8_UNORM,false);
         if(!rgbTex_)return false;
@@ -2238,8 +2195,7 @@ bool EnhanceGraph::createComputePasses()
     // extraSrvCount covers t8..t14: the five colour-grade tables plus the three
     // Dolby Vision profile 7 enhancement layer planes (luma, chroma, curve).
     if (!yuvPass_.loadShader("YuvToLinearRgb.dxil", cs) || !yuvPass_.create(context_.device(), cs, 16, 2, ingressUavCount, 12+kColorGradeConstantCount+kDolbyVisionP5ConstantCount, 7)) return false;
-    const char* rgbShader=desc_.packedInput?"PackedCaptureToLinear.dxil":desc_.yuy2Input?"Yuy2ToLinear.dxil":"RgbToLinear.dxil";
-    if((desc_.rgbInput||desc_.yuy2Input||desc_.packedInput)&&(!rgbPass_.loadShader(rgbShader,cs)||!rgbPass_.create(context_.device(),cs,12,1,ingressUavCount,(desc_.packedInput?12:8)+kColorGradeConstantCount,4)))return false;
+    if(desc_.rgbInput&&(!rgbPass_.loadShader("RgbToLinear.dxil",cs)||!rgbPass_.create(context_.device(),cs,12,1,ingressUavCount,8+kColorGradeConstantCount,4)))return false;
     // Descriptor budget grows with the NR stack: encode needs one SRV+UAV pair
     // per layer, decode needs three SRVs and one UAV per layer. The base 8
     // slots the single-layer graph always used are kept as the floor.
@@ -2488,7 +2444,7 @@ bool EnhanceGraph::createViews()
         makeUav(context_.device(),workRgba_.Get(),DXGI_FORMAT_R16G16B16A16_FLOAT,cpu(srResolvePass_,3));
     }
     // Immutable per-resource views.
-    if(desc_.rgbInput||desc_.yuy2Input||desc_.packedInput){
+    if(desc_.rgbInput){
         stagedSrv(rgbTex_.Get(),DXGI_FORMAT_R8G8B8A8_UNORM,rgbPass_,0);
         makeUav(context_.device(),srcRgba_.Get(),DXGI_FORMAT_R16G16B16A16_FLOAT,cpu(rgbPass_,1));
         if(preGradeRgba_)makeUav(context_.device(),preGradeRgba_.Get(),DXGI_FORMAT_R32G32B32A32_FLOAT,cpu(rgbPass_,2));
@@ -2920,9 +2876,8 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
     }
     const bool gpuRgb=desc_.rgbInput&&frame->format==AV_PIX_FMT_D3D11&&hardwareSurface&&hardwareSurface->present();
     if(resolved.scRgb&&(!gpuRgb||resolved.transfer!=TransferFunction::Linear||resolved.primaries!=ColorPrimaries::BT709||hardwareSurface->texture->GetDesc().Format!=DXGI_FORMAT_R16G16B16A16_FLOAT))return false;
-    const bool packedHdr=desc_.packedInput==6||desc_.packedInput==7;
-    if (resolved.isHdrPath()&&(!desc_.hdrInput||(!resolved.scRgb&&desc_.rgbInput)||desc_.yuy2Input||(desc_.packedInput&&!packedHdr))) {
-        veyra::log::error("graph", "HDR input requires an explicit YUV HDR contract; RGB/YUY2 HDR ingress is unsupported"); return false;
+    if (resolved.isHdrPath()&&(!desc_.hdrInput||(!resolved.scRgb&&desc_.rgbInput))) {
+        veyra::log::error("graph", "HDR input requires an explicit YUV HDR contract; RGB HDR ingress is unsupported"); return false;
     }
     if(std::abs(ptsMs)>9e13){veyra::log::error("timeline","PTS outside representable range");return false;}
     if(prevValid_&&(std::llround(ptsMs*10000)-std::llround(prevPtsMs_*10000)<4||ptsMs-prevPtsMs_>1000)){
@@ -2955,9 +2910,6 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         if(FAILED(hr)){veyra::log::error("graph",std::format("presentation handoff wait hr=0x{:X}",unsigned(hr)));return false;}
     }
     hardwareInputFrames_[parity].reset();
-    // Set when this frame's own upload buffer feeds the GPU copy (see
-    // CaptureUploadFrame.h); its read fence is recorded after submission.
-    CaptureUploadFrame* gpuDirectFrame=nullptr;
     if(frame->format==AV_PIX_FMT_D3D12||frame->format==AV_PIX_FMT_D3D11){
         auto* retained=av_frame_clone(frame);
         if(!retained)return false;
@@ -3009,22 +2961,15 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         srv.Shader4ComponentMapping=D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;srv.Texture2D.MipLevels=1;
         stager_.stageSrv(texture,&srv,rgbPass_.heap.Get(),3+parity);
         tracker_.transition(list,texture,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    }else if(desc_.rgbInput||desc_.yuy2Input||desc_.packedInput){
-        const bool packed=desc_.packedInput!=0;
-        if(packed?frame->format!=packedIngressFormat(desc_.packedInput):(desc_.yuy2Input?frame->format!=AV_PIX_FMT_YUYV422:(frame->format!=AV_PIX_FMT_RGBA&&frame->format!=AV_PIX_FMT_BGRA&&frame->format!=AV_PIX_FMT_RGB0&&frame->format!=AV_PIX_FMT_BGR0))){
-            veyra::log::error("graph",std::format("direct capture input contract mismatch packing={} frameFormat={}",desc_.packedInput,int(frame->format)));return false;
+    }else if(desc_.rgbInput){
+        if(frame->format!=AV_PIX_FMT_RGBA&&frame->format!=AV_PIX_FMT_BGRA&&frame->format!=AV_PIX_FMT_RGB0&&frame->format!=AV_PIX_FMT_BGR0){
+            veyra::log::error("graph",std::format("direct RGB input contract mismatch frameFormat={}",int(frame->format)));return false;
         }
-        const unsigned ingressRowBytes=packed?packedIngressRowBytes(desc_.packedInput,srcW_):srcW_*(desc_.yuy2Input?2:4);
+        const unsigned ingressRowBytes=srcW_*4;
         if(frame->width!=int(srcW_)||frame->height!=int(srcH_)||!frame->data[0]||std::abs(int64_t(frame->linesize[0]))<int64_t(ingressRowBytes))return false;
-        const unsigned ingressTexels=packed?packedIngressTexels(desc_.packedInput,srcW_):desc_.yuy2Input?srcW_/2:srcW_;
-        // Live capture frame already in an upload buffer of this device
-        // (CaptureUploadFrame.h): the GPU copies from the frame's own buffer.
-        if(auto* upload=(packed||desc_.yuy2Input)?captureUploadFrame(frame):nullptr;upload&&upload->direct&&upload->proxyValid&&upload->planes==1&&
-           upload->device.Get()==context_.device()&&frame->data[0]==upload->mapped&&upload->width==srcW_&&upload->height==srcH_&&
-           upload->pitch>=ingressTexels*4&&upload->pixelBytes==(packed&&desc_.packedInput>=6?4u:packed&&desc_.packedInput==1?3u:2u))gpuDirectFrame=upload;
-        if(!gpuDirectFrame)for(uint32_t y=0;y<srcH_;++y){
+        for(uint32_t y=0;y<srcH_;++y){
             auto* dst=mappedRgb_[parity]+y*rgbPitch_;const auto* src=frame->data[0]+ptrdiff_t(y)*frame->linesize[0];
-            if(packed||desc_.yuy2Input||frame->format==AV_PIX_FMT_RGBA)std::memcpy(dst,src,size_t(ingressRowBytes));
+            if(frame->format==AV_PIX_FMT_RGBA)std::memcpy(dst,src,size_t(ingressRowBytes));
             else for(uint32_t x=0;x<srcW_;++x){
                 const bool bgr=frame->format==AV_PIX_FMT_BGRA||frame->format==AV_PIX_FMT_BGR0;
                 dst[x*4]=src[x*4+(bgr?2:0)];dst[x*4+1]=src[x*4+1];dst[x*4+2]=src[x*4+(bgr?0:2)];
@@ -3034,22 +2979,16 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         if(!desc_.stillImage){
             auto& sample=lumaSample_;sample.clear();sample.reserve(64*36);
             const bool bgr=frame->format==AV_PIX_FMT_BGRA||frame->format==AV_PIX_FMT_BGR0;
-            // Upload-backed frames carry the same 64x36 pixels, sampled by the
-            // capture callback; the write-combined buffer is never read here.
-            const uint8_t* sampleData=gpuDirectFrame?gpuDirectFrame->proxy:frame->data[0];
-            const ptrdiff_t samplePitch=gpuDirectFrame?ptrdiff_t(gpuDirectFrame->proxyPitch()):ptrdiff_t(frame->linesize[0]);
             for(unsigned y=0;y<36;++y)for(unsigned x=0;x<64;++x){
-                const unsigned sx=gpuDirectFrame?x:x*srcW_/64,sy=gpuDirectFrame?y:y*srcH_/36;
-                if(packed)sample.push_back(packedIngressLuma(sampleData,samplePitch,desc_.packedInput,sx,sy));
-                else{const auto* p=sampleData+ptrdiff_t(sy)*samplePitch+sx*(desc_.yuy2Input?2:4);
-                    sample.push_back(desc_.yuy2Input?p[0]:uint8_t((54*unsigned(p[bgr?2:0])+183*unsigned(p[1])+19*unsigned(p[bgr?0:2])+128)>>8));}
+                const auto* p=frame->data[0]+ptrdiff_t(y*srcH_/36)*frame->linesize[0]+(x*srcW_/64)*4;
+                sample.push_back(uint8_t((54*unsigned(p[bgr?2:0])+183*unsigned(p[1])+19*unsigned(p[bgr?0:2])+128)>>8));
             }
             analyzeLuma(sample);
         }
         tracker_.transition(list,rgbTex_.Get(),D3D12_RESOURCE_STATE_COPY_DEST);
         D3D12_TEXTURE_COPY_LOCATION dst{},src{};dst.pResource=rgbTex_.Get();dst.Type=D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        src.pResource=gpuDirectFrame?gpuDirectFrame->resource.Get():upRgb_[parity].Get();src.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        src.PlacedFootprint.Footprint={DXGI_FORMAT_R8G8B8A8_UNORM,ingressTexels,srcH_,1,gpuDirectFrame?gpuDirectFrame->pitch:UINT(rgbPitch_)};
+        src.pResource=upRgb_[parity].Get();src.Type=D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src.PlacedFootprint.Footprint={DXGI_FORMAT_R8G8B8A8_UNORM,srcW_,srcH_,1,UINT(rgbPitch_)};
         list->CopyTextureRegion(&dst,0,0,0,&src,nullptr);
         tracker_.transition(list,rgbTex_.Get(),D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     } else if (frame->format == AV_PIX_FMT_D3D12 || frame->format == AV_PIX_FMT_D3D11) {
@@ -3138,12 +3077,7 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         const bool directUpload=sameLayout||(!desc_.wideYuvInput()&&(frame->format==AV_PIX_FMT_YUV420P||frame->format==AV_PIX_FMT_YUVJ420P));
         uint8_t* planes[4] = { directUpload?mappedLuma_[parity]:nv12Buf_.data(), directUpload?mappedChroma_[parity]:nv12Buf_.data() + lumaSize_ };
         const int strides[4] = { static_cast<int>(lumaPitch_), static_cast<int>(chromaPitch_) };
-        // Live capture frame already in an upload buffer of this device: no
-        // CPU copy at all, the GPU copies from the frame's own buffer.
-        if(auto* upload=sameLayout?captureUploadFrame(frame):nullptr;upload&&upload->direct&&upload->proxyValid&&upload->device.Get()==context_.device()&&
-           frame->data[0]==upload->mapped&&upload->width==srcW_&&upload->height==srcH_&&upload->planes==2&&upload->pixelBytes==sampleBytes)gpuDirectFrame=upload;
-        if(gpuDirectFrame){
-        }else if(sameLayout){
+        if(sameLayout){
             // Native semiplanar capture already matches the upload textures.
             // Copy rows once, preserving every code value and signed stride.
             const size_t rowBytes[2]={size_t(srcW_)*sampleBytes,size_t((srcW_+1)/2)*2*sampleBytes};
@@ -3180,11 +3114,7 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
         const auto* sampleLuma=directUpload?frame->data[0]:planes[0];
         const auto samplePitch=directUpload?ptrdiff_t(frame->linesize[0]):ptrdiff_t(lumaPitch_);
         auto& sample=lumaSample_;sample.clear();sample.reserve(64*36);
-        static_assert(CaptureUploadFrame::kProxyWidth==64&&CaptureUploadFrame::kProxyHeight==36);
-        // Same 64x36 points, sampled by the capture callback from the driver
-        // sample: the upload buffer is write-combined and is never read here.
-        if(gpuDirectFrame)for(unsigned i=0;i<64*36;++i)sample.push_back(gpuDirectFrame->proxy[i*sampleBytes+(sampleBytes-1)]);
-        else for(unsigned y=0;y<36;++y)for(unsigned x=0;x<64;++x)
+        for(unsigned y=0;y<36;++y)for(unsigned x=0;x<64;++x)
             sample.push_back(sampleLuma[ptrdiff_t(y*srcH_/36)*samplePitch+(x*srcW_/64)*sampleBytes+(sampleBytes-1)]);
         analyzeLuma(sample);
         if(!directUpload){for (uint32_t y = 0; y < srcH_; ++y)
@@ -3203,10 +3133,10 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
             src.PlacedFootprint.Footprint = {format, width, height, 1, pitch};
             list->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
         };
-        copyPlane(lumaTex_.Get(), gpuDirectFrame?gpuDirectFrame->resource.Get():upLuma_[parity].Get(), desc_.wideYuvInput()?DXGI_FORMAT_R16_UNORM:DXGI_FORMAT_R8_UNORM,
-                  srcW_, srcH_, gpuDirectFrame?gpuDirectFrame->pitch:static_cast<UINT>(lumaPitch_));
-        copyPlane(chromaTex_.Get(), gpuDirectFrame?gpuDirectFrame->resource.Get():upChroma_[parity].Get(), desc_.wideYuvInput()?DXGI_FORMAT_R16G16_UNORM:DXGI_FORMAT_R8G8_UNORM,
-                  (srcW_+1)/2, (srcH_+1)/2, gpuDirectFrame?gpuDirectFrame->pitch:static_cast<UINT>(chromaPitch_), gpuDirectFrame?gpuDirectFrame->chromaOffset:0);
+        copyPlane(lumaTex_.Get(), upLuma_[parity].Get(), desc_.wideYuvInput()?DXGI_FORMAT_R16_UNORM:DXGI_FORMAT_R8_UNORM,
+                  srcW_, srcH_, static_cast<UINT>(lumaPitch_));
+        copyPlane(chromaTex_.Get(), upChroma_[parity].Get(), desc_.wideYuvInput()?DXGI_FORMAT_R16G16_UNORM:DXGI_FORMAT_R8G8_UNORM,
+                  (srcW_+1)/2, (srcH_+1)/2, static_cast<UINT>(chromaPitch_), 0);
         tracker_.transition(list, lumaTex_.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         tracker_.transition(list, chromaTex_.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     }
@@ -3218,11 +3148,10 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
     if(colorActive_&&colorDirty_&&!uploadColorTables(list,slot))return false;
     auto convertInput=[&](bool grade, ID3D12Resource* target, UINT uavSlot){
     tracker_.transition(list, target, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-    if(desc_.rgbInput||desc_.yuy2Input||desc_.packedInput){
+    if(desc_.rgbInput){
         float c[12+kColorGradeConstantCount]={uintBits(srcW_),uintBits(srcH_),uintBits(resolved.transfer==TransferFunction::PQ?4u:resolved.transfer==TransferFunction::HLG?5u:workingTransferCode(resolved)),uintBits(resolved.range==ColorRange::Limited?1u:0u),
-            resolved.range==ColorRange::Full?0.0f:1.0f,resolved.matrix==YuvMatrix::BT2020NCL?2.0f:resolved.matrix==YuvMatrix::BT601?0.0f:1.0f,resolved.primaries==ColorPrimaries::BT2020?1.0f:0.0f,uintBits(desc_.packedInput)};
-        if(desc_.packedInput){c[8]=desc_.hdrWorking()?1.f:0.f;c[9]=toneMapPeakNits_;c[10]=203.f;}
-        if(grade)packColorGradeConstants(colorTables_,c+(desc_.packedInput?12:8));
+            resolved.range==ColorRange::Full?0.0f:1.0f,resolved.matrix==YuvMatrix::BT2020NCL?2.0f:resolved.matrix==YuvMatrix::BT601?0.0f:1.0f,resolved.primaries==ColorPrimaries::BT2020?1.0f:0.0f,0};
+        if(grade)packColorGradeConstants(colorTables_,c+8);
         if(resolved.scRgb){c[4]=desc_.hdrWorking()?1.f:2.f;c[5]=toneMapPeakNits_;}
         rgbPass_.bind(list,c,gpuHandleOf(rgbPass_,gpuRgb?3+parity:0).ptr,gpuHandleOf(rgbPass_,1+uavSlot).ptr,gpuHandleOf(rgbPass_,8).ptr);
         list->Dispatch((srcW_+15)/16,(srcH_+15)/16,1);
@@ -4408,7 +4337,6 @@ bool EnhanceGraph::process(const AVFrame* frame, double ptsMs, bool reset, Frame
     uploadFences_[parity]=ring_.lastSignaledValue();
     // The capture callback must not rewrite this frame's buffer before the
     // lists submitted above have read it.
-    if(gpuDirectFrame)gpuDirectFrame->gpuRead(context_.fence(),uploadFences_[parity]);
 
     prevPtsMs_ = ptsMs;
     prevValid_ = true;

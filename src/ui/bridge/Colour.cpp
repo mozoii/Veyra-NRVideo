@@ -472,6 +472,14 @@ bool QmlPlayerBridge::exportColourLook(int index, const QString& path) {
 
 bool QmlPlayerBridge::doviFollow()const{return settings().doviFollow;}
 
+bool QmlPlayerBridge::forceSdrPreview()const{return settings().forceSdrPreview;}
+
+void QmlPlayerBridge::setForceSdrPreview(bool value){
+    auto s=settings();if(s.forceSdrPreview==value)return;s.forceSdrPreview=value;
+    if(impl_->commit(std::move(s))){impl_->prefs[QStringLiteral("captureForceSdr")]=value;if(!impl_->savePrefs())emit notice(tr("Could not save the display setting. Check that the configuration folder is writable"),true);}
+    emit settingsChanged();
+}
+
 void QmlPlayerBridge::setDoviFollow(bool on){
     auto s=settings();if(s.doviFollow==on)return;s.doviFollow=on;
     // The shell preference is the global fallback: it re-applies at the next start
