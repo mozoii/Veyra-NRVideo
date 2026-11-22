@@ -207,7 +207,7 @@ void EngineController::openMoonlight(HWND window,source::MoonlightConnectDesc de
 void EngineController::openXbox(HWND window,source::XboxConnectDesc desc,PlayerOptions opts){
     auto request=std::make_shared<source::XboxConnectDesc>(std::move(desc));
     {std::lock_guard lock(mutex_);snapshot_={};requestedPlaybackRate_=1;activeFlow_.reset();previewView_={};fgMultiFrameMaxCap_=0;xessMaxInterpolatedFramesCap_=0;fsrMaxGeneratedFramesCap_=0;snapshot_.sessionId=++sessionId_;snapshot_.transport=TransportState::Opening;snapshot_.xboxActive=true;snapshot_.capture=true;savePath_.clear();desired_=opts.snapshot();desiredNodeOrder_=opts.nodeOrder;desired_.revision=++nextRevision_;snapshot_.desired=desired_;opts=PlayerOptions::from(desired_,desiredNodeOrder_,&opts);}
-    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"xbox:",opts,request);});
+    post([this,window,request,opts]{paused_=false;seekSeconds_=-1;run(window,L"xbox:",opts,nullptr,request);});
 }
 #endif
 void EngineController::stop(){

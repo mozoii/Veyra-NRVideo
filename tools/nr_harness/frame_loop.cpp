@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <filesystem>
 #include <fstream>
 #include <vector>
 
@@ -69,7 +70,11 @@ struct LocalIdentity {
 
 bool loadLocalIdentity(const std::wstring& runtimeDir, LocalIdentity& identity)
 {
-    const std::wstring configPath = runtimeDir + L"\\..\\config\\ngx-local.json";
+    std::filesystem::path runtimePath(runtimeDir);
+    std::filesystem::path configPath = runtimePath.parent_path() / L"config" / L"ngx-local.json";
+    if (!std::filesystem::exists(configPath)) {
+        configPath = runtimePath.parent_path().parent_path() / L"config" / L"ngx-local.json";
+    }
     std::ifstream stream(configPath, std::ios::binary);
     if (!stream.is_open()) {
         return false;

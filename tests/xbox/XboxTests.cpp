@@ -207,7 +207,7 @@ void resolutionTests() {
           "mode names parse");
     check(resolutionModeFromName("bogus") == ResolutionMode::Auto && resolutionModeFromName("") == ResolutionMode::Auto,
           "an unknown mode falls back to Auto");
-    check(resolutionModeName(ResolutionMode::P1440) == "p1440" && resolutionModeName(ResolutionMode::Auto) == "auto",
+    check(std::string(resolutionModeName(ResolutionMode::P1440)) == "p1440" && std::string(resolutionModeName(ResolutionMode::Auto)) == "auto",
           "mode names round-trip");
 
     // Device info: exact JSON fields per tier. Width/height and the spoofed OS name are the
@@ -241,9 +241,9 @@ void resolutionTests() {
         check(body["settings"]["locale"] == "de-DE", "the play body carries the requested locale");
         check(body["settings"]["timezoneOffsetMinutes"] == 480, "the timezone offset is unchanged");
         check(body["settings"]["sdkType"] == "web" && body["serverId"] == "F1", "the settings block keeps the Greenlight-derived fields");
-        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
-        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 2560 &&
-              info["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 1440,
+        const json hdr = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(hdr["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 2560 &&
+              hdr["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 1440,
               "the device info header carries the 1440p dimensions");
     }
     http->add(host, "/v5/sessions/home/play", 200, R"({"sessionPath":"v5/sessions/home/TIER-2","state":"Provisioning"})");
@@ -251,9 +251,9 @@ void resolutionTests() {
     {
         const json body = json::parse(http->seen.back().body);
         check(body["settings"]["osName"] == "android", "the 720p HQ tier sends the provisional android profile");
-        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
-        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1280 &&
-              info["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 720,
+        const json hdr = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(hdr["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1280 &&
+              hdr["dev"]["displayInfo"]["dimensions"]["heightInPixels"] == 720,
               "the 720p HQ device info advertises 1280x720");
     }
     http->add(host, "/v5/sessions/home/play", 200, R"({"sessionPath":"v5/sessions/home/TIER-3","state":"Provisioning"})");
@@ -261,8 +261,8 @@ void resolutionTests() {
     {
         const json body = json::parse(http->seen.back().body);
         check(body["settings"]["osName"] == "windows", "Auto keeps the current windows profile (provisional)");
-        const json info = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
-        check(info["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1920, "Auto keeps the 1080p advertisement");
+        const json hdr = json::parse(http->seen.back().headers["X-MS-Device-Info"]);
+        check(hdr["dev"]["displayInfo"]["dimensions"]["widthInPixels"] == 1920, "Auto keeps the 1080p advertisement");
     }
 }
 
@@ -641,18 +641,20 @@ void resolutionProfileTests() {
         check(gamepadCount == 3, "pad 0 is announced add/remove/add");
     }
     check(console.waitFor([&] {
+        bool caps = false, dims = false;
         for (const auto& raw : console.rawMessages) {
-            if (raw.find("clientdevicecapabilities") != std::string::npos) return true;
+            if (raw.find("clientdevicecapabilities") != std::string::npos) caps = true;
+            if (raw.find("dimensionschanged") != std::string::npos) dims = true;
         }
-        return false;
+        return caps && dims;
     }), "the rich capability block arrives");
     {
         std::lock_guard l(console.mutex);
         bool found = false;
         for (const auto& raw : console.rawMessages) {
             const auto env = json::parse(raw);
-            if (env.value("target", "") != "/streaming/characteristics/clientdevicecapabilities") continue;
-            const auto content = json::parse(env.value("content", "{}"));
+            if (env.value("target", std::string()) != "/streaming/characteristics/clientdevicecapabilities") continue;
+            const auto content = json::parse(env.value("content", std::string("{}")));
             found = content.value("maxWidth", 0) == 2560 && content.value("maxHeight", 0) == 1440 &&
                     content.value("maxBitrateKbps", 0) == 30000 && content.value("supportsFps", 0) == 60 &&
                     content.value("supportsCustomResolution", false) == true &&
@@ -667,8 +669,8 @@ void resolutionProfileTests() {
         bool found = false;
         for (const auto& raw : console.rawMessages) {
             const auto env = json::parse(raw);
-            if (env.value("target", "") != "/streaming/characteristics/dimensionschanged") continue;
-            const auto content = json::parse(env.value("content", "{}"));
+            if (env.value("target", std::string()) != "/streaming/characteristics/dimensionschanged") continue;
+            const auto content = json::parse(env.value("content", std::string("{}")));
             found = content.value("horizontal", 0) == 2560 && content.value("vertical", 0) == 1440 &&
                     content.value("preferredWidth", 0) == 2560 && content.value("preferredHeight", 0) == 1440 &&
                     content.value("safeAreaRight", 0) == 2560 && content.value("safeAreaBottom", 0) == 1440;

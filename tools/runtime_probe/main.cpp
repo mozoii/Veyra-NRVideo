@@ -29,9 +29,9 @@
 
 namespace {
 
-constexpr uint64_t kExpectedDllSize = 165840496ull;
-const char* kExpectedDllSha256 = "E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E";
-const wchar_t* kExpectedDllFileVersion = L"310.8.0.0";
+constexpr uint64_t kExpectedDllSize = 266424944ull;
+const char* kExpectedDllSha256 = "2BC19BC09A7B89DD44F73E2AC0108FCC586E2154BDD0830F242F4F040E28789F";
+const wchar_t* kExpectedDllFileVersion = L"310.9.16.0";
 
 const char* kRequiredExports[] = {
     "NVSDK_NGX_D3D12_Init_Ext",

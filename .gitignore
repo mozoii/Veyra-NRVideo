@@ -9,6 +9,7 @@
 # Build outputs and local presets
 /out/
 /build/
+/build-local/
 /.vs/
 /vcpkg_installed/
 CMakeUserPresets.json

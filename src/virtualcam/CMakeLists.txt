@@ -37,12 +37,16 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   target_include_directories(veyra_virtualcam_transport PUBLIC "${VCAM_VENDOR}/ipc")
   target_compile_definitions(veyra_virtualcam_transport PRIVATE UNICODE _UNICODE)
   include(ExternalProject)
+  # The 32-bit companion module is built by the matching VS generator when it is installed.
+  # Set VEYRA_VIRTUALCAM_GENERATOR to the generator name CMake understands for the installed
+  # Visual Studio (e.g. "Visual Studio 17 2022" or "Visual Studio 18 2026").
+  set(VEYRA_VIRTUALCAM_GENERATOR "Visual Studio 17 2022" CACHE STRING "Generator for the 32-bit virtualcam companion module")
   ExternalProject_Add(veyra_virtualcam_x86
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     BINARY_DIR "${CMAKE_BINARY_DIR}/virtualcam-x86"
     DOWNLOAD_COMMAND "" UPDATE_COMMAND ""
     BUILD_ALWAYS TRUE
-    CMAKE_GENERATOR "Visual Studio 17 2022"
+    CMAKE_GENERATOR "${VEYRA_VIRTUALCAM_GENERATOR}"
     CMAKE_GENERATOR_PLATFORM Win32
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
     BUILD_COMMAND "${CMAKE_COMMAND}" --build <BINARY_DIR> --config Release --parallel 1 --target veyra_virtualcam_module

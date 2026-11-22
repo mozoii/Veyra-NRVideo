@@ -156,7 +156,7 @@ constexpr std::string_view nrRuntimeName(NrRuntime runtime) {
     case NrRuntime::Original:return "community-Lecram-RTX50";
     case NrRuntime::Community:return "community-SF-RTX20-RTX50-legacy40";
     case NrRuntime::Ampere:return "community-SF-RTX20-RTX50";
-    case NrRuntime::NvidiaOriginal:return "NVIDIA-original-RTX50-310.8.0";
+    case NrRuntime::NvidiaOriginal:return "NVIDIA-original-RTX50-310.9.16";
     case NrRuntime::LmxxfAmd:return "AMD-NR-auto"; // persisted legacy ID4, RX7000/9000 providers route by actual adapter
     }
     return "unknown";

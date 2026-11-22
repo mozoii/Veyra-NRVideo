@@ -53,7 +53,7 @@ inline void paintDashboard(HWND h,HDC dc,int w,int height,const engine::PlayerSn
     text(std::format(L"{} frames {}",active?f.pendingOutputFrames:0,xess?L" *":L""),20,bottom+27,bw-20,23,17,textColor);
     std::wstring status=L"Standby";COLORREF color=RGB(145,151,149);
     if(s.failed){status=L"Error";color=RGB(245,86,86);}
-    else if(s.remoteRecovering){status=L"Recovering";color=RGB(242,185,65);}
+    else if(s.captureRecovering){status=L"Recovering";color=RGB(242,185,65);}
     else if(active&&!s.applying&&f.rateWindowReady){status=history.rateStatus(s);color=status!=L"Normal"?RGB(242,185,65):RGB(111,211,127);}
     else if(s.applying&&s.running)status=L"Adjusting";else if(active)status=L"Sampling";else if(s.transport==engine::TransportState::Paused)status=L"Paused";
     text(L"Current status",26+bw,bottom+6,bw-20,18,10,secondary);

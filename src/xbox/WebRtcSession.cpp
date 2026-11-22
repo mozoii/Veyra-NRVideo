@@ -275,12 +275,12 @@ bool WebRtcSession::sendClientConfig() {
     sent &= sendMessageJson(message("/streaming/properties/clientappinstallidchanged", {{"clientAppInstallId", "c97d7ee0-73b2-4239-bf1d-9d805a338429"}}));
     sent &= sendMessageJson(message("/streaming/characteristics/orientationchanged", {{"orientation", 0}}));
     sent &= sendMessageJson(message("/streaming/characteristics/touchinputenabledchanged", {{"touchInputEnabled", false}}));
-    sent &= sendMessageJson(message("/streaming/characteristics/clientdevicecapabilities", {{
+    sent &= sendMessageJson(message("/streaming/characteristics/clientdevicecapabilities", {
         {"supportsCustomResolution", true}, {"supportsHevc", false}, {"supportsHdr", false},
         {"supportsFps", profile.fps}, {"maxWidth", profile.width}, {"maxHeight", profile.height},
         {"maxBitrateKbps", profile.maxBitrateKbps},
         {"video", {{"width", profile.width}, {"height", profile.height}, {"maxWidth", profile.width},
-                    {"maxHeight", profile.height}, {"maxBitrateKbps", profile.maxBitrateKbps}}}}}));
+                    {"maxHeight", profile.height}, {"maxBitrateKbps", profile.maxBitrateKbps}}}}));
     sent &= sendMessageJson(message("/streaming/characteristics/dimensionschanged", {
         {"horizontal", profile.width}, {"vertical", profile.height},
         {"preferredWidth", profile.width}, {"preferredHeight", profile.height},

@@ -39,7 +39,7 @@ This is the Xbox-only, English-only fork of Veyra-NRVideo. PS5 Remote Play and C
 
 ## Sources, runtime and delivery
 
-- Proprietary SDKs, DLLs, models, headers, LIBs, captured frames, credentials and configs do not enter source Git/LFS/resources/base64. Do not modify, re-sign, mask or extract binaries from game/driver caches.
+- Proprietary SDKs, DLLs, models, headers, LIBs, captured frames, credentials and configs do not enter source Git/LFS/resources/base64. Do not modify, re-sign or mask binaries from game/driver caches.
 - Users may replace DLLs; the software does not refuse replacements by hash or signature, but default release components are audited file-by-file. Do not expand the public distribution scope automatically; ANR Beta assets stay excluded.
 - OBS/libdshowcapture camera source is documented in THIRD_PARTY_NOTICES and UPSTREAM.json. ReShade/RenoDX add-ons do not enter the main line or runtime package.
 - BGM confirmed for distribution goes only in the runtime package media directory, never in source Git or the source ZIP.

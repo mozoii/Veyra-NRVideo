@@ -632,6 +632,13 @@ if(VEYRA_NVOF_SDK_ROOT AND EXISTS "${VEYRA_NVOF_SDK_ROOT}/NvOFInterface/nvOptica
   target_link_libraries(veyra_nvof_probe PRIVATE veyra_gfx veyra_base)
 endif()
 
+# veyra_nvof is optional (NVIDIA Optical Flow SDK, third_party_local only). Optional consumers
+# link it only when it was built so NVOF-less builds still link the engine and probes.
+set(VEYRA_NVOF_LINK "")
+if(TARGET veyra_nvof)
+  set(VEYRA_NVOF_LINK veyra_nvof)
+endif()
+
 # Resolve FFmpeg before any consumer, including the shared enhancement graph.
 if(VEYRA_FFMPEG_ROOT AND EXISTS "${VEYRA_FFMPEG_ROOT}/include/libavformat/avformat.h")
   list(APPEND CMAKE_MODULE_PATH "${VEYRA_FFMPEG_ROOT}/share/ffmpeg")
@@ -1160,7 +1167,7 @@ include_directories(${FFMPEG_INCLUDE_DIRS})
   target_compile_features(veyra_repair_parameter_tests PRIVATE cxx_std_20)
   target_include_directories(veyra_repair_parameter_tests PRIVATE ${FFMPEG_INCLUDE_DIRS})
   target_compile_definitions(veyra_repair_parameter_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN VEYRA_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(veyra_repair_parameter_tests PRIVATE veyra_pipeline veyra_sinks veyra_nvof)
+  target_link_libraries(veyra_repair_parameter_tests PRIVATE veyra_pipeline veyra_sinks ${VEYRA_NVOF_LINK})
   add_executable(veyra_repair_fg_tests tests/integration/RepairFgTests.cpp)
   add_executable(veyra_export_frame_pool_tests tests/integration/ExportFramePoolTests.cpp)
   add_executable(veyra_export_worker_failure_tests tests/integration/ExportWorkerFailureTests.cpp)
@@ -1401,21 +1408,23 @@ if(VEYRA_BUILD_QML_UI AND Qt6_FOUND)
     target_compile_definitions(veyra_moonlight_model PUBLIC VEYRA_ENABLE_MOONLIGHT=1 PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(veyra_moonlight_model PUBLIC veyra_moonlight_protocol veyra_base veyra_ui_i18n Qt6::Core Qt6::Gui)
     target_link_libraries(veyra_qml_bridge PUBLIC veyra_moonlight_model)
-    if(VEYRA_ENABLE_XBOX)
-      add_library(veyra_xbox_model STATIC src/ui/XboxModel.cpp include/veyra/ui/XboxModel.h)
-      set_target_properties(veyra_xbox_model PROPERTIES AUTOMOC ON)
-      target_compile_features(veyra_xbox_model PUBLIC cxx_std_20)
-      target_include_directories(veyra_xbox_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${FFMPEG_INCLUDE_DIRS})
-      target_compile_definitions(veyra_xbox_model PUBLIC VEYRA_ENABLE_XBOX=1 PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-      target_link_libraries(veyra_xbox_model PUBLIC veyra_xbox_protocol veyra_base veyra_ui_i18n Qt6::Core Qt6::Gui)
-      target_link_libraries(veyra_qml_bridge PUBLIC veyra_xbox_model)
-    endif()
 
     add_executable(veyra_moonlight_model_tests tests/moonlight/ModelTests.cpp)
     target_compile_features(veyra_moonlight_model_tests PRIVATE cxx_std_20)
     target_compile_definitions(veyra_moonlight_model_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_include_directories(veyra_moonlight_model_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/moonlight)
     target_link_libraries(veyra_moonlight_model_tests PRIVATE veyra_moonlight_model)
+  endif()
+
+  # Xbox model: independent of Moonlight so the Xbox-only fork builds it.
+  if(VEYRA_ENABLE_XBOX)
+    add_library(veyra_xbox_model STATIC src/ui/XboxModel.cpp include/veyra/ui/XboxModel.h)
+    set_target_properties(veyra_xbox_model PROPERTIES AUTOMOC ON)
+    target_compile_features(veyra_xbox_model PUBLIC cxx_std_20)
+    target_include_directories(veyra_xbox_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${FFMPEG_INCLUDE_DIRS})
+    target_compile_definitions(veyra_xbox_model PUBLIC VEYRA_ENABLE_XBOX=1 PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(veyra_xbox_model PUBLIC veyra_xbox_protocol veyra_base veyra_ui_i18n Qt6::Core Qt6::Gui)
+    target_link_libraries(veyra_qml_bridge PUBLIC veyra_xbox_model)
   endif()
   target_compile_features(veyra_qml_bridge PRIVATE cxx_std_20)
   target_include_directories(veyra_qml_bridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${FFMPEG_INCLUDE_DIRS}
@@ -1594,7 +1603,7 @@ add_executable(veyra_sr_reconstruction_tests tests/integration/SrReconstructionT
   target_link_libraries(veyra_depth_response_tests PRIVATE veyra_engine)
   add_executable(veyra_bidirectional_flow_tests tests/integration/BidirectionalFlowTests.cpp)
   target_compile_features(veyra_bidirectional_flow_tests PRIVATE cxx_std_20)
-  target_link_libraries(veyra_bidirectional_flow_tests PRIVATE veyra_pipeline veyra_nvof)
+  target_link_libraries(veyra_bidirectional_flow_tests PRIVATE veyra_pipeline ${VEYRA_NVOF_LINK})
   target_compile_features(veyra_motion_validation_tests PRIVATE cxx_std_20)
   target_link_libraries(veyra_motion_validation_tests PRIVATE veyra_pipeline)
   add_executable(veyra_repair_shader_tests tests/integration/RepairShaderTests.cpp)
@@ -1722,7 +1731,7 @@ add_executable(veyra_sr_reconstruction_tests tests/integration/SrReconstructionT
   target_include_directories(veyra_repair_fg_tests PRIVATE ${FFMPEG_INCLUDE_DIRS})
   target_compile_features(veyra_repair_fg_tests PRIVATE cxx_std_20)
   target_compile_definitions(veyra_repair_fg_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN VEYRA_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(veyra_repair_fg_tests PRIVATE veyra_pipeline veyra_sinks veyra_nvof)
+  target_link_libraries(veyra_repair_fg_tests PRIVATE veyra_pipeline veyra_sinks ${VEYRA_NVOF_LINK})
 
   # Headless quality-core runner (Playbook R3.3): the phase5 gate's quality
   add_library(veyra_engine STATIC src/engine/EngineController.cpp src/engine/EngineWatchdog.cpp src/engine/PreviewGpuSession.cpp src/engine/EngineControllerImage.cpp src/engine/PosterFrame.cpp src/engine/EffectChain.cpp src/engine/PresetLibrary.cpp src/ui/PlayerUiFacade.cpp src/engine/TiledImageProcessor.cpp src/engine/PresetStore.cpp src/engine/VideoPresenter.cpp src/engine/DisplayStateService.cpp src/engine/VideoExportJob.cpp src/engine/ExportStreams.cpp src/engine/ExportQueue.cpp src/engine/ExportJobManager.cpp src/engine/Subtitles.cpp src/engine/FgCompatibilityProbe.cpp src/engine/LiveRecorder.cpp src/engine/ReplayBuffer.cpp src/engine/MicrophoneCapture.cpp)
@@ -1746,7 +1755,7 @@ add_executable(veyra_sr_reconstruction_tests tests/integration/SrReconstructionT
   add_dependencies(veyra_engine veyra_shader_virtual_camera_nv12)
   target_compile_options(veyra_engine PRIVATE /utf-8)
   target_compile_definitions(veyra_engine PUBLIC VEYRA_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}" VEYRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders")
-  target_link_libraries(veyra_engine PUBLIC veyra_pipeline veyra_sources veyra_sinks veyra_ngx veyra_nvof)
+  target_link_libraries(veyra_engine PUBLIC veyra_pipeline veyra_sources veyra_sinks veyra_ngx ${VEYRA_NVOF_LINK})
   add_executable(veyra_vfg_export_probe tests/integration/VfgExportProbe.cpp)
   target_compile_features(veyra_vfg_export_probe PRIVATE cxx_std_20)
   target_compile_options(veyra_vfg_export_probe PRIVATE /utf-8)
@@ -1973,7 +1982,7 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
     VEYRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders")
   target_include_directories(veyra_quality_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(veyra_quality_probe PRIVATE
-    veyra_pipeline veyra_sources veyra_media veyra_ngx veyra_nvof veyra_sinks
+    veyra_pipeline veyra_sources veyra_media veyra_ngx ${VEYRA_NVOF_LINK} veyra_sinks
     ${FFMPEG_LIBRARIES} psapi dxgi shell32)
   add_dependencies(veyra_quality_probe
     veyra_shader_yuv_to_rgb veyra_shader_parity_encode
@@ -1987,7 +1996,7 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
   target_compile_definitions(veyra_chain_hash_probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
   target_include_directories(veyra_chain_hash_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(veyra_chain_hash_probe PRIVATE
-    veyra_pipeline veyra_sources veyra_media veyra_ngx veyra_nvof veyra_sinks
+    veyra_pipeline veyra_sources veyra_media veyra_ngx ${VEYRA_NVOF_LINK} veyra_sinks
     ${FFMPEG_LIBRARIES} dxgi shell32)
   add_dependencies(veyra_chain_hash_probe veyra_quality_probe)
 
@@ -2004,7 +2013,7 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
       UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
       VEYRA_SHADER_DIR="${CMAKE_BINARY_DIR}/shaders")
     target_link_libraries(veyra_player_probe PRIVATE
-      veyra_media veyra_gfx veyra_ngx veyra_nvof veyra_parity veyra_sinks veyra_pipeline
+      veyra_media veyra_gfx veyra_ngx ${VEYRA_NVOF_LINK} veyra_parity veyra_sinks veyra_pipeline
       ${FFMPEG_LIBRARIES} psapi ole32 mmdevapi avrt)
     add_dependencies(veyra_player_probe
       veyra_shader_yuv_to_rgb veyra_shader_parity_encode

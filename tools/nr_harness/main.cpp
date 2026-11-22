@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <format>
 #include <fstream>
+#include <filesystem>
 #include <string>
 
 #include "veyra/FileIdentity.h"
@@ -28,9 +29,9 @@
 
 namespace {
 
-constexpr uint64_t kExpectedDllSize = 165840496ull;
-const char* kExpectedDllSha256 = "E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E";
-const wchar_t* kExpectedDllFileVersion = L"310.8.0.0";
+constexpr uint64_t kExpectedDllSize = 266424944ull;
+const char* kExpectedDllSha256 = "2BC19BC09A7B89DD44F73E2AC0108FCC586E2154BDD0830F242F4F040E28789F";
+const wchar_t* kExpectedDllFileVersion = L"310.9.16.0";
 
 std::string narrow(const std::wstring& text)
 {
@@ -78,10 +79,14 @@ struct LocalIdentity {
 
 bool loadLocalIdentity(const std::wstring& runtimeDir, LocalIdentity& identity)
 {
-    const std::wstring configPath = runtimeDir + L"\\..\\config\\ngx-local.json";
+    std::filesystem::path runtimePath(runtimeDir);
+    std::filesystem::path configPath = runtimePath.parent_path() / L"config" / L"ngx-local.json";
+    if (!std::filesystem::exists(configPath)) {
+        configPath = runtimePath.parent_path().parent_path() / L"config" / L"ngx-local.json";
+    }
     std::ifstream stream(configPath, std::ios::binary);
     if (!stream.is_open()) {
-        veyra::log::error("harness", std::format("load-only: identity file missing path={}", narrow(configPath)));
+        veyra::log::error("harness", std::format("load-only: identity file missing path={}", narrow(configPath.wstring())));
         return false;
     }
     std::string text((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
