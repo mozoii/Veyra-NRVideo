@@ -12,11 +12,16 @@ This fork is Xbox-only and English-only. PS5 Remote Play and Chiaki are removed.
 
 Windows 11 x64 with Qt 6.8.3, DirectX 12 dependencies, libdatachannel, nlohmann-json, Opus, patched FFmpeg (retained `scripts/ffmpeg/ps5-h264-slices.patch`) and libdovi. `vcpkg`-style dependency trees are expected at the paths the build scripts hardcode; the handoff notes this environment lacked cmake/ninja, so this fork's build must run on a Windows 11 x64 machine.
 
-`VEYRA_ENABLE_XBOX=ON` is the default. The PS5 option no longer exists. Expected targets include `veyra_qml_ui`, `veyra_xbox_tests` and `veyra_ui_i18n_tests`.
+`VEYRA_ENABLE_XBOX=ON` is the default. The PS5 option no longer exists. Expected targets include `veyra_qml_ui`, `veyra_xbox_tests`,
+`veyra_xbox_web_gamepad_tests` (V2 gamepad bridge mapping) and
+`veyra_ui_i18n_tests`. V2 (WebView2) requires the `webview2` vcpkg port
+(`vcpkg install webview2:x64-windows-static --classic` from the vcpkg root in
+this manifest-mode tree) and the WebView2 Evergreen runtime. V1 remains the
+default transport.
 
 ```powershell
 cmake --preset x64-release -S . -B build/x64-release -DVEYRA_ENABLE_XBOX=ON
-cmake --build build/x64-release --target veyra_qml_ui veyra_xbox_tests veyra_ui_i18n_tests --parallel 2
+cmake --build build/x64-release --target veyra_qml_ui veyra_xbox_tests veyra_xbox_web_gamepad_tests veyra_ui_i18n_tests --parallel 2
 ```
 
 Keep build concurrency ≤ 2 and ≤ 900 s per build invocation when building locally. Tests must be short-lived; per-test ≤ 300 s.

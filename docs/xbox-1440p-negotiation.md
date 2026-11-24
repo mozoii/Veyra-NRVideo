@@ -7,6 +7,23 @@ guessed from them. Nothing in this document is baked into the client as fact.
 
 Date: 2026-11-22. Branch: `feature/xbox-1440p-english` (from `main` at `fe8df53`).
 
+## Physical console observations (user-reported 2026-11-22, not a wire capture)
+
+The user confirmed that 1440p60 Remote Play is live on stable and works from a
+physical Series X. During that session the Windows-side receive counter read
+**30.7 Mbps**, above the advertised `maxBitrateKbps=30000` in
+`include/veyra/xbox/ResolutionMode.h` (provisional) and above iGreenLight's
+17-28 Mbps comment. This is a host network-counter reading, not an SDP capture
+and not the official client's wire trace; the exact offer/answer SDP, fmtp and
+capability block from the physical console are still uncaptured. It does answer
+one question: the console is not being held below the advertised ceiling by the
+receiver's current advertisement, so REMB / `b=AS` / L5.1 fmtp changes are
+confirmations at most, must not carry a value under the observed plateau, and
+are not shipped without a recorded rollback. No tier constant changed from this
+evidence. The stream stats HUD was fixed in the same session (it was compiled
+out when `VEYRA_ENABLE_MOONLIGHT=OFF`); its payload Mbps reads slightly below the
+wire counter because it counts depacketized bytes.
+
 ## What the official announcement says (secondary reporting)
 
 The official Xbox Wire article
@@ -123,6 +140,39 @@ acceptance gate; an SDP can advertise it, but the service decides what to send.
 - SDP offer: H.264 Main `4d001f`, Constrained Baseline `42e01f`, Baseline
   `42001f`; no `b=AS`; no `VideoPreference`/`userRequestedResolutionUpdate`;
   empty `clientdevicecapabilities`; dimensions 1920x1080.
+
+## Native software decode and V2 (2026-11-23)
+
+Native-size software decode no longer scales a 1440p stream into a fixed
+requested target: a null `nv12Target` makes the decoder own an NV12 frame at
+the bitstream's decoded size, and `XboxSessionSource` clones it before
+publishing. The V1 tier mapping, `X-MS-Device-Info`, settings body and control
+messages (`VideoPreference`, `userRequestedResolutionUpdate`,
+`dimensionschanged`) are unchanged by that decode fix. The physical capture is
+still the gate; do not treat the native-size test as proof of 1440p delivery.
+
+The V2 transport (Chromium reference player in WebView2) adds a separate 1440p
+question. The shipped bundle (728,046 bytes, SHA-256
+`852C72B20E919420CB0D31C5ABC192485889DF0416E2838122B7BB2210DE8892`) has one
+hardcoded `dimensionschanged` payload at 1920x1080 and contains no
+`VideoPreference`, `userRequestedResolutionUpdate` or resolution-alias handling.
+Its control channel sends `authorizationRequest` and `gamepadChanged` only;
+`Channel/Base.ts` encodes data-channel messages as UTF-8 bytes, and
+`Channel/Message.ts` sends `dimensionschanged` as `{type:"Message",
+content:"<json>", id, target, cv}`. The player source at base `8e178aef` plus
+patch `e4c12bd` is not published, so Route 1 (source patch and rebuild) is
+blocked. Two Route 2 clients were tried and removed: an
+`RTCDataChannel.prototype.send` shim, then a build-time port of Greenlight PR
+#1752 that wrapped the player's channel **instance** methods after `bind()`.
+Neither produced a 2560x1440 decode on a live console. The pinned bundle is
+embedded unchanged.
+
+On 2026-11-24 the user selected 1440p with V2 on a physical Series X. The HUD
+reported a 1920x1080 decode, so V2 is a 1080p-class engine and is not supported
+for 1440p. The decoded size in the HUD is the only proof, never the SDP or a
+client-side log. The UI now routes a 1440p selection to V1 and says so. The V1
+tier mapping and control messages are unchanged and 1440p there remains
+provisional pending the physical capture.
 
 ## Decision recorded for the Build agent
 
