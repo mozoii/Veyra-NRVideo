@@ -23,7 +23,7 @@ This is the Xbox-only, English-only fork of Veyra-NRVideo. PS5 Remote Play and C
 - New build/test/download/diagnostic/temporary/packaging/extract artifacts go under the task directory (E:/项目/Veyra/{build,tests,logs,reports,tmp,downloads,deps,test-packages,releases,verify,archives,worktrees}). Source and controlled scripts/docs go in the source tree. Do not create R&D artifacts in Desktop, Downloads, C drive or system Temp.
 - System Virtual Camera at `C:/Program Files/VeyraVirtualCamera` is a real system component; do not delete it as R&D garbage.
 - The real patched FFmpeg with its corresponding source, patch and license is retained: the high-slice-capacity H.264 patch (originally a PS5-era fix, still valid for the shared FFmpeg build), dav1d and the zlib needed for compressed PGS subtitles. Do not revert to the unpatched base package.
-- Legal and vendor notices stay untranslated and unmodified: `LICENSE`, `licenses/`, `THIRD_PARTY_NOTICES.md`, `UPSTREAM.json`, vendor notices.
+- Legal and vendor notices stay untranslated: `LICENSE`, `licenses/`, `THIRD_PARTY_NOTICES.md`, `UPSTREAM.json`, vendor notices. They may be updated to add or correct a notice for a component that is actually present in the build, with the change reviewed and limited to the affected notice. Do not translate, restyle or remove existing notices.
 
 ## Product and implementation contracts
 
