@@ -28,24 +28,7 @@ Turn local video, network streams and console streaming into one real-time GPU e
 
 <br>
 
-[![GitHub Stars](https://img.shields.io/github/stars/mozoii/Veyra-NRVideo?style=for-the-badge&logo=github&label=Stars)](https://github.com/mozoii/Veyra-NRVideo/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/mozoii/Veyra-NRVideo?style=for-the-badge&logo=github&label=Forks)](https://github.com/mozoii/Veyra-NRVideo/network/members)
-[![Latest Release](https://img.shields.io/github/v/release/mozoii/Veyra-NRVideo?style=for-the-badge&logo=github&label=Release)](https://github.com/mozoii/Veyra-NRVideo/releases/latest)
 [![License](https://img.shields.io/github/license/mozoii/Veyra-NRVideo?style=for-the-badge&label=License)](LICENSE)
-
-<br>
-
-[**⬇ Download Latest Release**](https://github.com/mozoii/Veyra-NRVideo/releases/latest)
-&nbsp;&nbsp;·&nbsp;&nbsp;
-[**📖 User Guide**](README.md)
-&nbsp;&nbsp;·&nbsp;&nbsp;
-[**🐛 Report an Issue**](https://github.com/mozoii/Veyra-NRVideo/issues)
-
-</div>
-
-<br>
-
-<p align="center"><i>One engine. Any source. Real-time enhancement.</i></p>
 
 ---
 
