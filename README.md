@@ -14,7 +14,7 @@
 <!-- veyra-creator-and-tutorials:end -->
 
 <!-- veyra-main-pr-integration -->
-**Veyra — Xbox/English fork** · fork of [Likely7/Veyra-NRVideo](https://github.com/Likely7/Veyra-NRVideo)
+**Veyra — Xbox Series X streaming fork** · fork of [Likely7/Veyra-NRVideo](https://github.com/Likely7/Veyra-NRVideo)
 
 ### Real-time GPU video enhancement for Windows
 
@@ -22,7 +22,7 @@
 
 Turn local video, network streams and console streaming into one real-time GPU enhancement pipeline.
 
-> **This is an Xbox-only, English-only fork.** The PS5 / Chiaki path has been removed entirely. Xbox home streaming is the primary console source, with Auto as the default resolution. 1440p is exposed as the ceiling but is **provisional**: the official wire-level mapping has not yet been confirmed by a physical console capture on this fork. See [docs/xbox-1440p-negotiation.md](docs/xbox-1440p-negotiation.md).
+> **This is an Xbox-only, English-only fork aimed exclusively at Xbox Series X|S home streaming among console sources.** The PS5 / Chiaki path has been removed entirely. Local files, network streams and PC/Moonlight remain as general video sources. Auto is the default resolution. 1440p is exposed as the ceiling on the native V1 transport but is **provisional**: the wire-level mapping has not been confirmed by a physical capture on this fork. V2 (WebView2) is a 1080p-class engine. See [docs/xbox-1440p-negotiation.md](docs/xbox-1440p-negotiation.md).
 
 </div>
 
@@ -55,15 +55,25 @@ Veyra is a Windows 11 x64, DirectX 12, Qt 6.8.3 / QML application for real-time 
 
 This fork:
 
-- **Removes PS5 Remote Play and Chiaki entirely** (source, UI, CMake blocks, tests, scripts and licenses).
-- **Makes Xbox home streaming the primary console source.** Resolution modes: **Auto** (default), **720p**, **720p HQ**, **1080p**, **1080p HQ** and **1440p**, with 1440p as the ceiling.
+- **Targets Xbox Series X|S home streaming exclusively as its console source.** PS5 Remote Play and Chiaki are removed entirely (source, UI, CMake blocks, tests, scripts and licenses).
+- **Offers resolution modes:** **Auto** (default), **720p**, **720p HQ**, **1080p**, **1080p HQ** and **1440p**, with 1440p as the ceiling on V1.
 - **Is English-only.** All first-party UI text, comments and docs are in English.
+
+## Upstream credits
+
+This fork hand-ported the relevant hunks of three pull requests from the original project. No PR branch was merged directly. The full adopted and non-adopted lists are in [docs/UPSTREAM_PR_MERGES_2026-11-23.md](docs/UPSTREAM_PR_MERGES_2026-11-23.md).
+
+- **PR #274** — native-size software H.264 decode and tests, by **SenjuWoo** ([@SenjuWoo](https://github.com/SenjuWoo)). The fork's 1440p tier table and control messages predate this merge.
+- **PR #287** — per-frame gamepad physicality, zero touch points, touch-controls decline and tests, by **Kevin** ([@kevinmx21](https://github.com/kevinmx21)).
+- **PR #289** — streaming token refresh, keepalive pulse, full Teredo expansion, optional STUN and bitrate cap, RTP NACK/reordering loss recovery with HUD counters, D3D11VA decode option, the settings-load fix and the V2 WebView2 transport, by **RyanBB** ([@RyanLookchard](https://github.com/RyanLookchard)).
+
+The V2 player bundle is a build of [Geocld/XStreaming-player](https://github.com/Geocld/XStreaming-player) (MIT, with the Veyra encoded-export patch); WebView2 is Microsoft's SDK. Licenses and notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `licenses/xbox/`. Greenlight PR #1752 by iu5gal was researched as a route to 1440p on V2 and was not adopted; the finding is recorded in [docs/WEBVIEW2_1440P_RESEARCH_2026-11-24.md](docs/WEBVIEW2_1440P_RESEARCH_2026-11-24.md).
 
 ## Highlights
 
 - **NR controls** — each NR layer's enhancement strength reaches 5. Picture-control defaults off; enable it for Automatic or Manual styles.
 - **Rebuilt interface** — Home, Cinema, Professional List, Nodes, Colour, Export and Settings; English source strings with nine translated columns (zh-CN, zh-TW, ja, ko, es, fr, de, pt-BR, ru).
-- **PC / Xbox streaming** — Moonlight/Sunshine-compatible PC streaming and unofficial experimental Xbox support, alongside local files, images and network streams.
+- **Xbox / PC streaming** — unofficial Xbox Series X|S home streaming as the console focus, plus optional Moonlight/Sunshine-compatible PC streaming, local files, images and network streams.
 - **Enhancement and compatibility** — DLSS/XeSS/FSR options, streaming improvements and monitoring-overlay compatibility.
 - **New export workflow** — editable ordered queue, trimming, MP4/MKV, multiple audio/embedded subtitle tracks, cancellation/retry and completion sound.
 
@@ -91,7 +101,7 @@ Home offers files, network streams, PC and Xbox streaming. Files/images can also
 | PC | Install/configure Sunshine yourself; discover/add the host, PIN-pair, select app/desktop and connect. Sunshine is not bundled. |
 | Network | Open a media URL (HTTP, HTTPS, RTSP) or a server-hosted file. |
 
-**Xbox resolution modes:** Auto (default), 720p, 720p HQ, 1080p, 1080p HQ, 1440p. Auto lets the service pick the best eligible tier. 1440p is the ceiling and is **provisional** — see the negotiation notes. Two software-decoder switches are available (Xbox dialog) for corruption workarounds.
+**Xbox resolution modes:** Auto (default), 720p, 720p HQ, 1080p, 1080p HQ, 1440p. Auto lets the service pick the best eligible tier. 1440p is the ceiling on the native V1 transport and is **provisional** — see the negotiation notes. The optional V2 WebView2 transport is 1080p-class; selecting 1440p with V2 routes to V1 and the dialog says so. Two software-decoder switches are available (Xbox dialog) for corruption workarounds.
 
 Pausing a stream freezes the preview while keeping the session, not the host game. Physical hardware, networks, HDR and controllers need individual validation.
 
@@ -107,7 +117,7 @@ ANR Beta runtime files are user-supplied and **excluded from this public fork** 
 
 ## Limitations
 
-- 1440p is **not yet verified** on a physical Series X/S. The tiers and wire values are provisional pending a physical console capture; 1080p and below are the tested path.
+- 1440p wire values and tiers are **provisional** pending a physical capture; 1080p and below are the tested path. V2 does not support 1440p and routes that selection to V1.
 - Unofficial Xbox support depends on Microsoft's streaming service, which may change without notice.
 - 6X upscaling, some NR TDR/VRAM-growth reports and cross-device streaming retain unresolved/unverified cases.
 - Submitted FPS is not physical display FPS or end-to-end latency. Frame generation submits a higher rate; the display may or may not show it, and the committed frame pacing is not an end-to-end claim.
