@@ -66,6 +66,19 @@
    "ru": "  ·  восстановлено FEC "
   },
   {
+   "en": "  ·  NACKs ",
+   "src": "qml/StreamHud.qml",
+   "zh": "  ·  NACK 重传请求 ",
+   "zh-TW": "  ·  NACK 重傳請求 ",
+   "ja": "  ·  NACK 再送要求 ",
+   "ko": "  · NACK 재전송 요청 ",
+   "es": "  ·  NACK ",
+   "fr": "  ·  NACK ",
+   "de": "  ·  NACK ",
+   "pt-BR": "  ·  NACK ",
+   "ru": "  ·  NACK "
+  },
+  {
    "en": "  ·  bitrate ",
    "src": "qml/StreamHud.qml",
    "zh": "  ·  码率 ",
@@ -144,6 +157,19 @@
    "ru": "  ·  получено "
   },
   {
+   "en": "  ·  retransmit recovered ",
+   "src": "qml/StreamHud.qml",
+   "zh": "  ·  重传恢复 ",
+   "zh-TW": "  ·  重傳恢復 ",
+   "ja": "  ·  再送回復 ",
+   "ko": "  · 재전송 복구 ",
+   "es": "  ·  recuperados por retransmisión ",
+   "fr": "  ·  récupérés par retransmission ",
+   "de": "  ·  durch Wiederholung wiederhergestellt ",
+   "pt-BR": "  ·  recuperados por retransmissão ",
+   "ru": "  ·  восстановлено повторной передачей "
+  },
+  {
    "en": "  ·  round trip ",
    "src": "qml/StreamHud.qml",
    "zh": "  ·  往返 ",
@@ -168,6 +194,19 @@
    "de": "  ·  nicht wiederhergestellt ",
    "pt-BR": "  ·  não recuperados ",
    "ru": "  ·  не восстановлено "
+  },
+  {
+   "en": "  ·  whole-frame drops ",
+   "src": "qml/StreamHud.qml",
+   "zh": "  ·  整帧丢弃 ",
+   "zh-TW": "  ·  整幀丟棄 ",
+   "ja": "  ·  フレーム全体のドロップ ",
+   "ko": "  · 전체 프레임 드롭 ",
+   "es": "  ·  descartes de fotograma completo ",
+   "fr": "  ·  images entières perdues ",
+   "de": "  ·  verworfene Gesamtframes ",
+   "pt-BR": "  ·  quadros inteiros descartados ",
+   "ru": "  ·  отброшено целых кадров "
   },
   {
    "en": " (MKV can keep more)",
@@ -1249,6 +1288,19 @@
    "ru": "0 = использовать значение, сообщенное системой"
   },
   {
+   "en": "0 lets the console decide. Do not set this below the rate the console already sends; a lower b=AS can cap the stream.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "0 表示由主机决定。请勿设置低于主机当前发送的码率；过低的 b=AS 可能限制码流。",
+   "zh-TW": "0 表示由主機決定。請勿設定低於主機目前傳送的位元率；過低的 b=AS 可能限制串流。",
+   "ja": "0 はコンソールに任せます。コンソールが既に送信しているレートより低く設定しないでください。b=AS が低すぎるとストリームが制限されます。",
+   "ko": "0은 콘솔이 결정합니다. 콘솔이 이미 보내는 비트레이트보다 낮게 설정하지 마세요. b=AS가 너무 낮으면 스트림이 제한될 수 있습니다.",
+   "es": "0 deja que la consola decida. No lo establezca por debajo de la tasa que la consola ya envía; un b=AS más bajo puede limitar el flujo.",
+   "fr": "0 laisse la console décider. Ne définissez pas une valeur inférieure au débit déjà envoyé par la console ; un b=AS trop bas peut limiter le flux.",
+   "de": "0 überlässt die Entscheidung der Konsole. Nicht unter die von der Konsole bereits gesendete Rate stellen; ein zu niedriges b=AS kann den Stream drosseln.",
+   "pt-BR": "0 deixa o console decidir. Não defina abaixo da taxa que o console já envia; um b=AS menor pode limitar o fluxo.",
+   "ru": "0 — решение остаётся за консолью. Не указывайте значение ниже скорости, которую консоль уже передаёт; слишком низкий b=AS может ограничить поток."
+  },
+  {
    "en": "0 retains raw changes; 1 applies this style’s full correction",
    "src": "qml/NrLayerEditor.qml",
    "zh": "0 保留原始变化；1 按当前风格完整纠偏",
@@ -1312,6 +1364,19 @@
    "de": "1080p · Standard",
    "pt-BR": "1080p · padrão",
    "ru": "1080p · по умолчанию"
+  },
+  {
+   "en": "1440p on V2",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "V2 上的 1440p",
+   "zh-TW": "V2 上的 1440p",
+   "ja": "V2 の 1440p",
+   "ko": "V2의 1440p",
+   "es": "1440p en V2",
+   "fr": "1440p sur V2",
+   "de": "1440p unter V2",
+   "pt-BR": "1440p no V2",
+   "ru": "1440p в V2"
   },
   {
    "en": "2 items",
@@ -2094,6 +2159,19 @@
    "ru": "Активно"
   },
   {
+   "en": "Active controller",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "当前手柄",
+   "zh-TW": "目前手把",
+   "ja": "アクティブなコントローラー",
+   "ko": "활성 컨트롤러",
+   "es": "Controlador activo",
+   "fr": "Manette active",
+   "de": "Aktiver Controller",
+   "pt-BR": "Controle ativo",
+   "ru": "Активный контроллер"
+  },
+  {
    "en": "Active preset: %1",
    "src": "qml/ProDisplayPanel.qml",
    "zh": "当前生效：整档预设「%1」",
@@ -2443,6 +2521,32 @@
    "de": "Fügt Kontrast zu flachen oder verblassten Transfers hinzu.",
    "pt-BR": "Adiciona contraste a transferências planas ou desbotadas.",
    "ru": "Добавляет контраст плоским или выцветшим трансферам."
+  },
+  {
+   "en": "Adds the extra IPv4 candidates the reference clients try. Leave off unless connecting across NATs fails.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "添加参考客户端会尝试的额外 IPv4 候选。除非跨 NAT 连接失败，否则保持关闭。",
+   "zh-TW": "加入參考用戶端會嘗試的額外 IPv4 候選。除非跨 NAT 連線失敗，否則保持關閉。",
+   "ja": "リファレンスクライアントが試す追加の IPv4 候補を追加します。NAT 間接続が失敗しない限りオフのままにしてください。",
+   "ko": "참조 클라이언트가 시도하는 추가 IPv4 후보를 추가합니다. NAT 간 연결이 실패하지 않는 한 꺼두세요.",
+   "es": "Añade los candidatos IPv4 adicionales que prueban los clientes de referencia. Déjalo desactivado salvo que falle la conexión entre NAT.",
+   "fr": "Ajoute les candidats IPv4 supplémentaires essayés par les clients de référence. Laissez désactivé sauf si la connexion entre NAT échoue.",
+   "de": "Fügt die zusätzlichen IPv4-Kandidaten hinzu, die die Referenz-Clients versuchen. Deaktiviert lassen, es sei denn, die Verbindung über NATs schlägt fehl.",
+   "pt-BR": "Adiciona os candidatos IPv4 extras que os clientes de referência tentam. Deixe desativado, a menos que a conexão entre NATs falhe.",
+   "ru": "Добавляет дополнительные IPv4-кандидаты, которые пробуют эталонные клиенты. Оставляйте выключенным, если только соединение через NAT не завершается ошибкой."
+  },
+  {
+   "en": "Adds the reference clients' public STUN servers for NAT traversal. Leave off on a local network.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "添加参考客户端使用的公共 STUN 服务器以进行 NAT 穿透。在局域网内保持关闭。",
+   "zh-TW": "加入參考用戶端使用的公開 STUN 伺服器以進行 NAT 穿透。在區域網路內保持關閉。",
+   "ja": "NAT 通過のためにリファレンスクライアントが使う公開 STUN サーバーを追加します。ローカルネットワークではオフのままにしてください。",
+   "ko": "NAT 통과를 위해 참조 클라이언트가 사용하는 공개 STUN 서버를 추가합니다. 로컬 네트워크에서는 꺼두세요.",
+   "es": "Añade los servidores STUN públicos que usan los clientes de referencia para el recorrido NAT. Déjalo desactivado en una red local.",
+   "fr": "Ajoute les serveurs STUN publics utilisés par les clients de référence pour la traversée NAT. Laissez désactivé sur un réseau local.",
+   "de": "Fügt die öffentlichen STUN-Server hinzu, die die Referenz-Clients für NAT-Durchquerung nutzen. Im lokalen Netzwerk deaktiviert lassen.",
+   "pt-BR": "Adiciona os servidores STUN públicos usados pelos clientes de referência para travessia de NAT. Deixe desativado em rede local.",
+   "ru": "Добавляет публичные STUN-серверы, используемые эталонными клиентами для обхода NAT. В локальной сети оставляйте выключенным."
   },
   {
    "en": "Adjusting",
@@ -3459,6 +3563,19 @@
    "ru": "Авто"
   },
   {
+   "en": "Auto (D3D12VA)",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "自动 (D3D12VA)",
+   "zh-TW": "自動 (D3D12VA)",
+   "ja": "自動 (D3D12VA)",
+   "ko": "자동 (D3D12VA)",
+   "es": "Automático (D3D12VA)",
+   "fr": "Automatique (D3D12VA)",
+   "de": "Automatisch (D3D12VA)",
+   "pt-BR": "Automático (D3D12VA)",
+   "ru": "Авто (D3D12VA)"
+  },
+  {
    "en": "Auto (by load)",
    "src": "qml/NrLayerEditor.qml",
    "zh": "自动（按负载）",
@@ -3704,6 +3821,19 @@
    "de": "Automatische Maske · experimentell",
    "pt-BR": "Máscara automática · experimental",
    "ru": "Автомаска · экспериментально"
+  },
+  {
+   "en": "Auto uses D3D12VA. Pick D3D11VA (DXVA) if Intel integrated graphics corrupts the picture; both are hardware decode. Reconnect to apply.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "自动使用 D3D12VA。如果 Intel 集成显卡导致画面损坏，请选择 D3D11VA (DXVA)；两者都是硬件解码。重新连接后生效。",
+   "zh-TW": "自動使用 D3D12VA。若 Intel 整合顯示卡導致畫面損壞，請選擇 D3D11VA (DXVA)；兩者皆為硬體解碼。重新連線後生效。",
+   "ja": "自動は D3D12VA を使用します。Intel の内蔵グラフィックスで画質が壊れる場合は D3D11VA (DXVA) を選んでください。どちらもハードウェアデコードです。再接続で反映されます。",
+   "ko": "자동은 D3D12VA를 사용합니다. Intel 내장 그래픽에서 화면이 손상되면 D3D11VA(DXVA)를 선택하세요. 둘 다 하드웨어 디코딩입니다. 다시 연결하면 적용됩니다.",
+   "es": "Automático usa D3D12VA. Elija D3D11VA (DXVA) si los gráficos integrados de Intel dañan la imagen; ambos son decodificación por hardware. Vuelva a conectar para aplicar.",
+   "fr": "Automatique utilise D3D12VA. Choisissez D3D11VA (DXVA) si les graphiques intégrés Intel endommagent l'image ; les deux sont du décodage matériel. Reconnectez pour appliquer.",
+   "de": "Automatisch verwendet D3D12VA. Wählen Sie D3D11VA (DXVA), wenn integrierte Intel-Grafik das Bild beschädigt; beide sind Hardware-Dekodierung. Zum Anwenden erneut verbinden.",
+   "pt-BR": "Automático usa D3D12VA. Escolha D3D11VA (DXVA) se os gráficos integrados da Intel corromperem a imagem; ambos são decodificação por hardware. Reconecte para aplicar.",
+   "ru": "Авто использует D3D12VA. Если встроенная графика Intel искажает изображение, выберите D3D11VA (DXVA); оба варианта — аппаратное декодирование. Для применения переподключитесь."
   },
   {
    "en": "Auto · constant quality",
@@ -4419,6 +4549,19 @@
    "de": "Bitrate (Mbit/s)",
    "pt-BR": "Taxa de bits (Mbps)",
    "ru": "Битрейт (Мбит/с)"
+  },
+  {
+   "en": "Bitrate cap (Mbps)",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "码率上限 (Mbps)",
+   "zh-TW": "位元率上限 (Mbps)",
+   "ja": "ビットレート上限 (Mbps)",
+   "ko": "비트레이트 상한 (Mbps)",
+   "es": "Límite de tasa de bits (Mbps)",
+   "fr": "Plafond de débit (Mbps)",
+   "de": "Bitrate-Obergrenze (Mbps)",
+   "pt-BR": "Limite de taxa de bits (Mbps)",
+   "ru": "Ограничение битрейта (Мбит/с)"
   },
   {
    "en": "Black and white",
@@ -6696,6 +6839,19 @@
    "ru": "Контроллер"
   },
   {
+   "en": "Controller device",
+   "src": "qml/CineBar.qml",
+   "zh": "手柄设备",
+   "zh-TW": "手把裝置",
+   "ja": "コントローラー端末",
+   "ko": "컨트롤러 기기",
+   "es": "Dispositivo de control",
+   "fr": "Périphérique de manette",
+   "de": "Controller-Gerät",
+   "pt-BR": "Dispositivo de controle",
+   "ru": "Устройство контроллера"
+  },
+  {
    "en": "Convert SDR to HDR here",
    "src": "qml/OnboardingGuide.qml",
    "zh": "SDR 转 HDR 在这里",
@@ -8475,6 +8631,19 @@
    "de": "Benutzerdefiniert…",
    "pt-BR": "Personalizado…",
    "ru": "Свой…"
+  },
+  {
+   "en": "D3D11VA (DXVA)",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "D3D11VA (DXVA)",
+   "zh-TW": "D3D11VA (DXVA)",
+   "ja": "D3D11VA (DXVA)",
+   "ko": "D3D11VA (DXVA)",
+   "es": "D3D11VA (DXVA)",
+   "fr": "D3D11VA (DXVA)",
+   "de": "D3D11VA (DXVA)",
+   "pt-BR": "D3D11VA (DXVA)",
+   "ru": "D3D11VA (DXVA)"
   },
   {
    "en": "D3D12 initialization failed; see diagnostics",
@@ -11857,6 +12026,19 @@
    "ru": "Полный"
   },
   {
+   "en": "Full Teredo",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "完整 Teredo",
+   "zh-TW": "完整 Teredo",
+   "ja": "フル Teredo",
+   "ko": "전체 Teredo",
+   "es": "Teredo completo",
+   "fr": "Teredo complet",
+   "de": "Vollständiges Teredo",
+   "pt-BR": "Teredo completo",
+   "ru": "Полный Teredo"
+  },
+  {
    "en": "Full copy of the settings, placed aside, not connected",
    "src": "qml/NodePage.qml",
    "zh": "完整参数副本，旁置未连接",
@@ -12427,6 +12609,19 @@
    "de": "Halbe Auflösung",
    "pt-BR": "Meia resolução",
    "ru": "Половинное разрешение"
+  },
+  {
+   "en": "Hardware decode API",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "硬件解码 API",
+   "zh-TW": "硬體解碼 API",
+   "ja": "ハードウェアデコード API",
+   "ko": "하드웨어 디코딩 API",
+   "es": "API de decodificación por hardware",
+   "fr": "API de décodage matériel",
+   "de": "Hardware-Dekodierungs-API",
+   "pt-BR": "API de decodificação por hardware",
+   "ru": "API аппаратного декодирования"
   },
   {
    "en": "Hardware decoding",
@@ -14377,6 +14572,19 @@
    "de": "Speichert den jüngsten Teil des Livestreams in bis zu 256 MiB Arbeitsspeicher. Höhere Bitraten verkürzen den verfügbaren Zeitraum.",
    "pt-BR": "Guarda o conteúdo recente da transmissão em até 256 MiB de memória. Taxas de bits maiores reduzem o tempo disponível.",
    "ru": "Хранит последние фрагменты эфира в памяти объёмом до 256 МиБ. Чем выше битрейт, тем короче доступный интервал."
+  },
+  {
+   "en": "Keep the source colours and limit lightness drift while NR reduces flicker and smear",
+   "src": "qml/NrLayerEditor.qml",
+   "zh": "保留源色彩并限制亮度漂移，同时由 NR 减少闪烁和拖影",
+   "zh-TW": "保留來源色彩並限制亮度漂移，同時由 NR 減少閃爍和拖影",
+   "ja": "NR がフリッカーやスミアを抑えつつ、元の色を保ち明るさの変化を抑えます",
+   "ko": "NR이 깜빡임과 번짐을 줄이면서 원본 색상과 밝기 변화를 유지합니다",
+   "es": "Conserva los colores originales y limita la deriva de luminancia mientras NR reduce el parpadeo y el barrido",
+   "fr": "Conserve les couleurs source et limite la dérive de luminosité tandis que NR réduit le scintillement et les traînées",
+   "de": "Behält die Quellfarben bei und begrenzt Helligkeitsdrift, während NR Flackern und Schmieren reduziert",
+   "pt-BR": "Mantém as cores originais e limita a deriva de luminosidade enquanto o NR reduz cintilação e borramento",
+   "ru": "Сохраняет исходные цвета и ограничивает изменение яркости, пока NR подавляет мерцание и размытие"
   },
   {
    "en": "Keeps all tracks by default; click a file on the left to choose separately.",
@@ -17239,6 +17447,19 @@
    "ru": "Под этим аккаунтом консоль не была найдена. Войдите в консоль с той же учетной записью и включите удаленные функции."
   },
   {
+   "en": "No controller detected",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "未检测到手柄",
+   "zh-TW": "未偵測到手把",
+   "ja": "コントローラーが見つかりません",
+   "ko": "컨트롤러가 검색되지 않았습니다",
+   "es": "No se detectó ningún controlador",
+   "fr": "Aucune manette détectée",
+   "de": "Kein Controller erkannt",
+   "pt-BR": "Nenhum controle detectado",
+   "ru": "Контроллер не обнаружен"
+  },
+  {
    "en": "No displayable subtitles decoded",
    "src": "src/engine/Subtitles.cpp",
    "zh": "未解码出可显示的字幕",
@@ -17432,6 +17653,19 @@
    "de": "Keine Ausgabe",
    "pt-BR": "Sem saída",
    "ru": "Нет вывода"
+  },
+  {
+   "en": "No pad is open yet; start a stream to use the selection",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "尚未打开手柄；开始串流后使用所选设备",
+   "zh-TW": "尚未開啟手把；開始串流後使用所選裝置",
+   "ja": "パッドはまだ開かれていません。ストリーミングを開始すると選択したデバイスが使われます",
+   "ko": "아직 패드가 열리지 않았습니다. 스트리밍을 시작하면 선택한 기기가 사용됩니다",
+   "es": "Aún no hay ningún control abierto; inicia una transmisión para usar la selección",
+   "fr": "Aucune manette ouverte pour l'instant ; lancez le flux pour utiliser la sélection",
+   "de": "Noch kein Pad geöffnet. Starte den Stream, um die Auswahl zu verwenden",
+   "pt-BR": "Nenhum controle aberto ainda; inicie a transmissão para usar a seleção",
+   "ru": "Пока ни один геймпад не открыт; начните трансляцию, чтобы использовать выбранное устройство"
   },
   {
    "en": "No parts to join",
@@ -20127,6 +20361,19 @@
    "ru": "Присутствует CPU P95: %1ms"
   },
   {
+   "en": "Preserve source look",
+   "src": "qml/NrLayerEditor.qml",
+   "zh": "保留源画面观感",
+   "zh-TW": "保留來源畫面觀感",
+   "ja": "元の画質を保持",
+   "ko": "원본 화면 유지",
+   "es": "Conservar el aspecto original",
+   "fr": "Préserver l'apparence source",
+   "de": "Quellbild beibehalten",
+   "pt-BR": "Preservar a aparência original",
+   "ru": "Сохранить исходный вид"
+  },
+  {
    "en": "Preset copied",
    "src": "qml/ManagePresetsDialog.qml",
    "zh": "预设已复制",
@@ -20866,6 +21113,19 @@
    "de": "Lichter schützen",
    "pt-BR": "Proteger realces",
    "ru": "Защищать света"
+  },
+  {
+   "en": "Public STUN",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "公共 STUN",
+   "zh-TW": "公開 STUN",
+   "ja": "公開 STUN",
+   "ko": "공개 STUN",
+   "es": "STUN público",
+   "fr": "STUN public",
+   "de": "Öffentliches STUN",
+   "pt-BR": "STUN público",
+   "ru": "Публичный STUN"
   },
   {
    "en": "Punch",
@@ -28980,6 +29240,19 @@
    "ru": "В этом пакете отсутствуют компоненты среды выполнения для этой функции"
   },
   {
+   "en": "This pad sends input while streaming",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "串流期间由此手柄发送输入",
+   "zh-TW": "串流期間由此手把傳送輸入",
+   "ja": "ストリーミング中はこのパッドが入力を送信します",
+   "ko": "스트리밍 중 이 패드가 입력을 전송합니다",
+   "es": "Este control envía entradas durante la transmisión",
+   "fr": "Cette manette envoie les entrées pendant le flux",
+   "de": "Dieses Pad sendet während des Streams Eingaben",
+   "pt-BR": "Este controle envia entradas durante a transmissão",
+   "ru": "Этот геймпад отправляет ввод во время трансляции"
+  },
+  {
    "en": "This preset library version does not support DLAA anti-aliasing",
    "src": "src/engine/PresetLibrary.cpp",
    "zh": "预设库版本不支持 DLAA 抗锯齿",
@@ -29342,6 +29615,19 @@
    "de": "Die Übersetzung beginnt bei laufender Wiedergabe",
    "pt-BR": "A tradução começa quando a fonte é reproduzida",
    "ru": "Перевод начнётся при воспроизведении источника"
+  },
+  {
+   "en": "Transport engine",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "传输引擎",
+   "zh-TW": "傳輸引擎",
+   "ja": "トランスポートエンジン",
+   "ko": "전송 엔진",
+   "es": "Motor de transporte",
+   "fr": "Moteur de transport",
+   "de": "Transport-Engine",
+   "pt-BR": "Motor de transporte",
+   "ru": "Транспортный движок"
   },
   {
    "en": "Treats the chosen multiplier as a ceiling and, for each pair of frames, uses the one that lands closest to the target (the output cap or the screen refresh rate) at the game's live frame rate, so the output stays even when the game dips; frame generation is not rebuilt · off by default",
@@ -29914,6 +30200,58 @@
    "de": "Nur Treiber-Frame-Generierung verwenden: Frame-Generierung auf der Frame-Generierungs-Registerkarte Pro ausschalten, dann Smooth Motion (AI Frame-Interpolation) in der NVIDIA App einschalten.",
    "pt-BR": "Utilizando apenas a geração de quadros do condutor: desliga a geração de quadros na guia de geração de quadros do modo Pro, depois ativa Smooth Motion (AI interpolação de quadros) na aplicação NVIDIA.",
    "ru": "Используя только генерацию кадров драйвера: выключите генерацию кадров на вкладке генерации кадров в режиме Pro, затем включите Smooth Motion (интерполяция кадров AI) в приложении NVIDIA."
+  },
+  {
+   "en": "V1 native",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "V1 原生",
+   "zh-TW": "V1 原生",
+   "ja": "V1 ネイティブ",
+   "ko": "V1 네이티브",
+   "es": "V1 nativo",
+   "fr": "V1 natif",
+   "de": "V1 nativ",
+   "pt-BR": "V1 nativo",
+   "ru": "V1 нативный"
+  },
+  {
+   "en": "V1 native is the default and the tested path. V2 enhanced runs the Chromium reference player in WebView2; its 1440p support is not verified on a physical console yet, so a 1440p selection uses V1.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "V1 原生是默认且经过测试的路径。V2 增强版在 WebView2 中运行 Chromium 参考播放器；其 1440p 支持尚未在实体主机上验证，因此选择 1440p 时会使用 V1。",
+   "zh-TW": "V1 原生是預設且經過測試的路徑。V2 增強版在 WebView2 中執行 Chromium 參考播放器；其 1440p 支援尚未在實體host上驗證，因此選擇 1440p 時會使用 V1。",
+   "ja": "V1 ネイティブがデフォルトでテスト済みのパスです。V2 拡張は WebView2 で Chromium リファレンスプレーヤーを実行します。1440p サポートは実機で未検証のため、1440p 選択時は V1 を使用します。",
+   "ko": "V1 네이티브가 기본이며 테스트된 경로입니다. V2 향상은 WebView2에서 Chromium 참조 플레이어를 실행합니다. 1440p 지원은 실제 콘솔에서 검증되지 않았으므로 1440p 선택 시 V1을 사용합니다.",
+   "es": "V1 nativo es el valor predeterminado y la ruta probada. V2 mejorado ejecuta el reproductor de referencia de Chromium en WebView2; su compatibilidad con 1440p aún no está verificada en una consola real, por lo que al elegir 1440p se usa V1.",
+   "fr": "V1 natif est la valeur par défaut et la voie testée. V2 amélioré exécute le lecteur de référence Chromium dans WebView2 ; sa prise en charge 1440p n'est pas encore vérifiée sur une console physique, donc choisir 1440p utilise V1.",
+   "de": "V1 nativ ist der Standard und der getestete Pfad. V2 erweitert führt den Chromium-Referenzplayer in WebView2 aus; die 1440p-Unterstützung ist auf einer echten Konsole noch nicht verifiziert, daher wird bei 1440p V1 verwendet.",
+   "pt-BR": "V1 nativo é o padrão e o caminho testado. V2 aprimorado executa o player de referência do Chromium no WebView2; o suporte a 1440p ainda não foi verificado em um console físico, então ao escolher 1440p o V1 é usado.",
+   "ru": "V1 нативный — режим по умолчанию и проверенный путь. V2 расширенный запускает эталонный плеер Chromium в WebView2; поддержка 1440p ещё не проверена на реальной консоли, поэтому при выборе 1440p используется V1."
+  },
+  {
+   "en": "V2 1440p is not verified on a physical console. This session will use V1; the decoded size in the HUD is the proof.",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "V2 的 1440p 尚未在实体主机上验证。本次会话将使用 V1；HUD 中的解码尺寸才是凭据。",
+   "zh-TW": "V2 的 1440p 尚未在實體host上驗證。本次工作階段將使用 V1；HUD 中的解碼尺寸才是憑據。",
+   "ja": "V2 の 1440p は実機で未検証です。このセッションでは V1 を使用します。HUD のデコードサイズが証拠です。",
+   "ko": "V2의 1440p는 실제 콘솔에서 검증되지 않았습니다. 이 세션에서는 V1을 사용합니다. HUD의 디코딩 크기가 증거입니다.",
+   "es": "El 1440p de V2 no está verificado en una consola real. Esta sesión usará V1; la prueba es el tamaño decodificado en el HUD.",
+   "fr": "Le 1440p de V2 n'est pas vérifié sur une console physique. Cette session utilisera V1 ; la preuve est la taille décodée dans le HUD.",
+   "de": "1440p unter V2 ist auf einer echten Konsole nicht verifiziert. Diese Sitzung verwendet V1; die dekodierte Größe im HUD ist der Beweis.",
+   "pt-BR": "O 1440p do V2 não foi verificado em um console físico. Esta sessão usará o V1; a prova é o tamanho decodificado no HUD.",
+   "ru": "1440p в V2 не проверен на реальной консоли. В этом сеансе используется V1; доказательство — размер декодирования в HUD."
+  },
+  {
+   "en": "V2 enhanced (WebView2)",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "V2 增强版 (WebView2)",
+   "zh-TW": "V2 增強版 (WebView2)",
+   "ja": "V2 拡張 (WebView2)",
+   "ko": "V2 향상 (WebView2)",
+   "es": "V2 mejorado (WebView2)",
+   "fr": "V2 amélioré (WebView2)",
+   "de": "V2 erweitert (WebView2)",
+   "pt-BR": "V2 aprimorado (WebView2)",
+   "ru": "V2 расширенный (WebView2)"
   },
   {
    "en": "VFG auto regulation",
@@ -30850,6 +31188,19 @@
    "de": "Beim Einschalten berücksichtigt der Highlight-Start auch die durchschnittliche Helligkeit jedes Frames: dunkle Filme komprimieren früher, helle halten mehr Highlights.",
    "pt-BR": "Quando ligado, o início do destaque também considera o brilho médio de cada quadro: filmes escuros comprimem mais cedo, os brilhantes mantêm mais destaques. Off usa apenas o pico.",
    "ru": "При включении подсветка также учитывает среднюю яркость каждого кадра: темные пленки сжимаются раньше, яркие сохраняют больше подсветок. Off использует только пик."
+  },
+  {
+   "en": "Which connected gamepad sends input to the console; Auto picks the first one",
+   "src": "qml/XboxSourceDialog.qml",
+   "zh": "选择向主机发送输入的已连接手柄；“自动”选择第一个",
+   "zh-TW": "選擇向主機傳送輸入的已連線手把；「自動」會選擇第一個",
+   "ja": "本体に入力を送る接続済みコントローラーを選択します。「自動」は最初のものを選びます",
+   "ko": "콘솔로 입력을 보낼 연결된 컨트롤러를 선택합니다. '자동'은 첫 번째 기기를 선택합니다",
+   "es": "Qué gamepad conectado envía entradas a la consola; Auto elige el primero",
+   "fr": "Quelle manette connectée envoie les entrées à la console ; Auto choisit la première",
+   "de": "Welches verbundene Gamepad sendet Eingaben an die Konsole; Auto wählt das erste",
+   "pt-BR": "Qual controle conectado envia entradas ao console; Auto escolhe o primeiro",
+   "ru": "Какой подключённый геймпад отправляет ввод на консоль; «Авто» выбирает первый"
   },
   {
    "en": "White",

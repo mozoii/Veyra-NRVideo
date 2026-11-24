@@ -31,7 +31,7 @@ DialogLayer {
     }
     Connections {
         target: xbDialog
-        function onShownChanged() { if (xbDialog.shown && xbDialog.xb) xbDialog.xb.load() }
+        function onShownChanged() { if (xbDialog.shown && xbDialog.xb) { xbDialog.xb.load(); veyra.refreshControllers() } }
     }
     Connections {
         target: xbDialog.xb
@@ -139,6 +139,28 @@ DialogLayer {
             VSwitch { objectName: "xbox-gamepad"; checked: xbDialog.st.gamepad !== false; onToggled: checked => xbDialog.xb.set("gamepad", checked) }
         }
         VRow {
+            objectName: "xbox-controller-picker"
+            label: qsTr("Controller device")
+            hint: qsTr("Which connected gamepad sends input to the console; Auto picks the first one")
+            VSelect {
+                objectName: "xbox-controller"
+                implicitWidth: 170
+                options: veyra.controllerChoices || []
+                value: {
+                    const cur = xbDialog.st.controllerGuid || ""
+                    const opt = (veyra.controllerChoices || []).find(o => o.id === cur)
+                    return opt ? opt.label : qsTr("Auto")
+                }
+                onPicked: guid => veyra.setController(guid)
+            }
+        }
+        VRow {
+            objectName: "xbox-controller-status"
+            label: qsTr("Active controller")
+            hint: veyra.controllerName ? qsTr("This pad sends input while streaming")
+                                       : ((veyra.controllerChoices || []).length > 1 ? qsTr("No pad is open yet; start a stream to use the selection") : qsTr("No controller detected"))
+        }
+        VRow {
             label: qsTr("Resolution")
             hint: qsTr("Requested quality tier; Auto lets the service pick the highest tier the device and network support")
             VSelect {
@@ -157,6 +179,60 @@ DialogLayer {
             label: qsTr("Software video decoding")
             hint: qsTr("Compatibility option: try this if picture corruption persists, then disconnect and reconnect. May increase CPU usage and latency; super resolution and frame generation still use the GPU.")
             VSwitch { objectName: "xbox-software-decode"; checked: xbDialog.st.softwareDecode === true; onToggled: checked => xbDialog.xb.set("softwareDecode", checked) }
+        }
+        VRow {
+            label: qsTr("Transport engine")
+            hint: qsTr("V1 native is the default and the tested path. V2 enhanced runs the Chromium reference player in WebView2; its 1440p support is not verified on a physical console yet, so a 1440p selection uses V1.")
+            hintBelow: true
+            VSelect {
+                objectName: "xbox-transport-engine"
+                implicitWidth: 170
+                title: qsTr("Transport engine")
+                options: [{id:"1",label:qsTr("V1 native")},{id:"2",label:qsTr("V2 enhanced (WebView2)")}]
+                value: xbDialog.st.transportEngine === 2 ? qsTr("V2 enhanced (WebView2)") : qsTr("V1 native")
+                onPicked: id => xbDialog.xb.set("transportEngine", Number(id))
+            }
+        }
+        VRow {
+            visible: xbDialog.st.transportEngine === 2 && (xbDialog.st.resolutionMode || "") === "p1440"
+            label: qsTr("1440p on V2")
+            hint: qsTr("V2 1440p is not verified on a physical console. This session will use V1; the decoded size in the HUD is the proof.")
+            hintBelow: true
+        }
+        VRow {
+            label: qsTr("Hardware decode API")
+            hint: qsTr("Auto uses D3D12VA. Pick D3D11VA (DXVA) if Intel integrated graphics corrupts the picture; both are hardware decode. Reconnect to apply.")
+            hintBelow: true
+            VSelect {
+                objectName: "xbox-decode-backend"
+                implicitWidth: 170
+                title: qsTr("Hardware decode API")
+                options: [{id:"0",label:qsTr("Auto (D3D12VA)")},{id:"1",label:qsTr("D3D11VA (DXVA)")}]
+                value: xbDialog.st.decodeBackend === 1 ? qsTr("D3D11VA (DXVA)") : qsTr("Auto (D3D12VA)")
+                onPicked: id => xbDialog.xb.set("decodeBackend", Number(id))
+            }
+        }
+        VRow {
+            label: qsTr("Bitrate cap (Mbps)")
+            hint: qsTr("0 lets the console decide. Do not set this below the rate the console already sends; a lower b=AS can cap the stream.")
+            hintBelow: true
+            DialogTextField {
+                objectName: "xbox-bitrate"
+                implicitWidth: 110
+                placeholder: "0"
+                text: String(Math.round((xbDialog.st.videoBitrateKbps || 0) / 1000))
+                onTyped: text => xbDialog.xb.set("videoBitrateKbps", Math.max(0, Math.min(40, parseInt(text) || 0)) * 1000)
+            }
+        }
+        VRow {
+            label: qsTr("Public STUN")
+            hint: qsTr("Adds the reference clients' public STUN servers for NAT traversal. Leave off on a local network.")
+            VSwitch { objectName: "xbox-use-stun"; checked: xbDialog.st.useStun === true; onToggled: checked => xbDialog.xb.set("useStun", checked) }
+        }
+        VRow {
+            label: qsTr("Full Teredo")
+            hint: qsTr("Adds the extra IPv4 candidates the reference clients try. Leave off unless connecting across NATs fails.")
+            VSwitch { objectName: "xbox-full-teredo"; checked: xbDialog.st.fullTeredo === true; onToggled: checked => xbDialog.xb.set("fullTeredo", checked) }
         }
     }
     DialogNote { objectName: "xbox-status"; visible: (xbDialog.st.status || "").length > 0; text: (xbDialog.st.busy ? qsTr("Processing · ") : "") + (xbDialog.st.status || "") }

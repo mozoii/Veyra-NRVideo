@@ -17,7 +17,7 @@ namespace veyra::ui {
 
 class XboxModel final : public QObject {
     Q_OBJECT
-    // {signedIn, busy, status, code, verificationUri, selected, gamepad, streaming, stream{...}, lastLabel}
+    // {signedIn, busy, status, code, verificationUri, selected, gamepad, controllerGuid, streaming, stream{...}, lastLabel}
     Q_PROPERTY(QVariantMap state READ state NOTIFY changed)
     // [{id, name, type, power, selected}]
     Q_PROPERTY(QVariantList consoles READ consoles NOTIFY changed)
@@ -64,8 +64,11 @@ private:
     LaunchFn launch_;
     std::shared_ptr<xbox::Account> account_;
     QVariantList consoles_;
-    QString selected_, status_, code_, verificationUri_, lastId_, lastName_;
+    QString selected_, status_, code_, verificationUri_, lastId_, lastName_, controllerGuid_;
     bool busy_ = false, gamepad_ = true, softwareDecode_ = false, loaded_ = false, streamActive_ = false, signingIn_ = false;
+    int videoBitrateKbps_ = 0, decodeBackend_ = 0; // 0 = no b=AS / Auto (D3D12VA), 1 = D3D11VA
+    bool useStun_ = false, fullTeredo_ = false;
+    int transportEngine_ = 1; // 1 = V1 native (default), 2 = V2 WebView2
     QVariantMap stream_;
     std::string resolutionMode_ = "auto";
     std::atomic<bool> cancel_{false};

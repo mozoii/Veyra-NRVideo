@@ -9,6 +9,7 @@
 #include <QMetaObject>
 #include <QSaveFile>
 #include <QUrl>
+#include <algorithm>
 #include <chrono>
 
 #include "veyra/Log.h"
@@ -73,7 +74,14 @@ void XboxModel::loadSettings() {
     lastId_ = o.value("lastConsole").toString();
     lastName_ = o.value("lastName").toString();
     gamepad_ = o.value("gamepad").toBool(true);
+    controllerGuid_ = o.value("controllerGuid").toString();
     softwareDecode_ = o.value("softwareDecode").toBool(false);
+    videoBitrateKbps_ = std::clamp(o.value("videoBitrateKbps").toInt(0), 0, 40000);
+    decodeBackend_ = o.value("decodeBackend").toInt(0) == 1 ? 1 : 0;
+    useStun_ = o.value("useStun").toBool(false);
+    fullTeredo_ = o.value("fullTeredo").toBool(false);
+    const int engine = o.value("transportEngine").toInt(1);
+    transportEngine_ = (engine == 2) ? 2 : 1;
     const QString saved = o.value("resolutionMode").toString();
     const auto parsed = xbox::resolutionModeFromName(saved.toStdString(), xbox::ResolutionMode::Auto);
     resolutionMode_ = xbox::resolutionModeName(parsed);
@@ -84,7 +92,8 @@ void XboxModel::saveSettings() const {
     std::filesystem::create_directories(xbox::dataDirectory(), ec);
     QSaveFile file(settingsPath());
     if (!file.open(QIODevice::WriteOnly)) return;
-    file.write(QJsonDocument(QJsonObject{{"lastConsole", lastId_}, {"lastName", lastName_}, {"gamepad", gamepad_}, {"softwareDecode", softwareDecode_}, {"resolutionMode", QString::fromStdString(resolutionMode_)}}).toJson());
+    file.write(QJsonDocument(QJsonObject{{"lastConsole", lastId_}, {"lastName", lastName_}, {"gamepad", gamepad_}, {"controllerGuid", controllerGuid_}, {"softwareDecode", softwareDecode_}, {"resolutionMode", QString::fromStdString(resolutionMode_)},
+                                         {"videoBitrateKbps", videoBitrateKbps_}, {"decodeBackend", decodeBackend_}, {"useStun", useStun_}, {"fullTeredo", fullTeredo_}, {"transportEngine", transportEngine_}}).toJson());
     file.commit();
 }
 
@@ -93,6 +102,9 @@ QVariantMap XboxModel::state() const {
         {"signedIn", account_->signedIn()}, {"busy", busy_}, {"status", status_}, {"code", code_},
         {"verificationUri", verificationUri_}, {"signingIn", signingIn_}, {"selected", selected_}, {"gamepad", gamepad_},
         {"streaming", streamActive_}, {"stream", stream_}, {"lastLabel", lastName_}, {"softwareDecode", softwareDecode_},
+        {"controllerGuid", controllerGuid_},
+        {"videoBitrateKbps", videoBitrateKbps_}, {"decodeBackend", decodeBackend_}, {"useStun", useStun_}, {"fullTeredo", fullTeredo_},
+        {"transportEngine", transportEngine_},
         {"resolutionMode", QString::fromStdString(resolutionMode_)}, {"resolutionLabels", resolutionLabels()},
     };
 }
@@ -217,8 +229,15 @@ void XboxModel::select(const QString& id) {
 }
 
 bool XboxModel::set(const QString& key, const QVariant& value) {
+    if (!loaded_) { loadSettings(); loaded_ = true; }
     if (key == "gamepad") { gamepad_ = value.toBool(); saveSettings(); emit changed(); return true; }
+    if (key == "controllerGuid") { controllerGuid_ = value.toString(); saveSettings(); emit changed(); return true; }
     if (key == "softwareDecode") { softwareDecode_ = value.toBool(); saveSettings(); emit changed(); return true; }
+    if (key == "videoBitrateKbps") { videoBitrateKbps_ = std::clamp(value.toInt(), 0, 40000); saveSettings(); emit changed(); return true; }
+    if (key == "decodeBackend") { decodeBackend_ = value.toInt() == 1 ? 1 : 0; saveSettings(); emit changed(); return true; }
+    if (key == "useStun") { useStun_ = value.toBool(); saveSettings(); emit changed(); return true; }
+    if (key == "fullTeredo") { fullTeredo_ = value.toBool(); saveSettings(); emit changed(); return true; }
+    if (key == "transportEngine") { const int engine = value.toInt(); transportEngine_ = (engine == 2) ? 2 : 1; saveSettings(); emit changed(); return true; }
     if (key == "resolutionMode") {
         const QString raw = value.toString().trimmed().toLower();
         const auto parsed = xbox::resolutionModeFromName(raw.toStdString(), xbox::ResolutionMode::Auto);
@@ -240,14 +259,34 @@ bool XboxModel::launchConsole(const QString& id, const QString& name) {
     launch.desc.serverId = id.toStdString();
     launch.desc.consoleName = name.toStdString();
     launch.desc.gamepad = gamepad_;
+    launch.desc.controllerGuid = controllerGuid_.toStdString();
     launch.desc.softwareDecode = softwareDecode_;
     launch.desc.resolutionMode = xbox::resolutionModeFromName(resolutionMode_);
+    launch.desc.transport.videoBitrateKbps = videoBitrateKbps_;
+    launch.desc.transport.decodeBackend = decodeBackend_ == 1 ? xbox::DecodeBackend::D3D11VA : xbox::DecodeBackend::Auto;
+    launch.desc.transport.useStun = useStun_;
+    launch.desc.transport.fullTeredo = fullTeredo_;
+    const auto mode = xbox::resolutionModeFromName(resolutionMode_);
+    launch.desc.transportEngine = transportEngine_;
+    bool routedToV1 = false;
+    if (mode == xbox::ResolutionMode::P1440 && transportEngine_ == 2) {
+        // V2 is a 1080p-class engine: a live console returned a 1920x1080
+        // decode for a 1440p selection. Route to V1 and say so; no silent
+        // downgrade and no unverified V2 1440p claim.
+        launch.desc.transportEngine = 1;
+        routedToV1 = true;
+    }
     launch.label = name.isEmpty() ? QStringLiteral("Xbox") : name;
     if (!launch_(std::move(launch))) { status_ = tr("Could not start streaming; see the log."); emit changed(); return false; }
     lastId_ = id;
     lastName_ = name;
     saveSettings();
     status_ = tr("Connecting to the host… (waking a sleeping host takes a moment)");
+    if (routedToV1) {
+        const QString note = tr("V2 1440p is not verified on a physical console; using V1 for this 1440p session.");
+        status_ = note + QStringLiteral(" ") + status_;
+        emit notice(note, false);
+    }
     emit changed();
     emit started();
     return true;
@@ -276,6 +315,7 @@ void XboxModel::updateStream(bool active, const source::XboxStats& s) {
             {"receivedFps", s.receivedFps}, {"decodedFps", s.decodedFps}, {"videoMbps", s.videoMbps},
             {"decodeMs", s.decodeMs}, {"rttMs", s.rttMs}, {"dropped", double(s.dropped)},
             {"decodeErrors", double(s.decodeErrors)}, {"keyframes", double(s.keyframeRequests)},
+            {"nacks", double(s.nacks)}, {"recovered", double(s.recovered)}, {"incompleteDrops", double(s.incompleteDrops)},
         };
     }
     if (now == stream_ && active == streamActive_) return;

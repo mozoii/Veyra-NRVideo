@@ -60,6 +60,7 @@ Rectangle {
         Text {
             text: hud.xboxOn
                 ? qsTr("Received ") + hud.num(s.receivedFps) + qsTr(" / decoded ") + hud.num(s.decodedFps) + qsTr(" fps  ·  dropped ") + (s.dropped || 0) + qsTr("  ·  keyframe requests ") + (s.keyframes || 0)
+                  + qsTr("  ·  NACKs ") + (s.nacks || 0) + qsTr("  ·  retransmit recovered ") + (s.recovered || 0) + qsTr("  ·  whole-frame drops ") + (s.incompleteDrops || 0)
                 : qsTr("Received ") + hud.num(s.receivedFps) + qsTr(" / decoded ") + hud.num(s.decodedFps) + qsTr(" fps  ·  packets ") + (s.packets || 0)
                   + qsTr("  ·  FEC recovered ") + (s.recovered || 0) + qsTr("  ·  unrecovered ") + (s.lost || 0) + qsTr("  ·  dropped ") + (s.dropped || 0)
             color: (s.lost || 0) > 0 ? Theme.warn : Theme.t2
