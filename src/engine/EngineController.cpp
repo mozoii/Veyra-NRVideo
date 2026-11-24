@@ -33,6 +33,10 @@
 #include "veyra/source/MediaFileSource.h"
 #include "veyra/source/LiveSourceMetrics.h"
 #include "veyra/xbox/DisconnectPolicy.h"
+#ifdef VEYRA_ENABLE_XBOX
+#include "veyra/source/XboxSessionSource.h"
+#include "veyra/source/XboxWebSource.h"
+#endif
 #include "veyra/pipeline/EnhanceGraph.h"
 #include "veyra/pipeline/FramePictureCompare.h"
 #include "veyra/pipeline/ResetCoordinator.h"
@@ -188,8 +192,8 @@ void EngineController::moonlightReleaseInput(){VEYRA_MOONLIGHT_INPUT(releaseInpu
 #undef VEYRA_MOONLIGHT_INPUT
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-void EngineController::xboxController(const input::ControllerState& state){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}if(x)x->controller(state);}
-input::ControllerFeedback EngineController::xboxFeedback(){std::shared_ptr<source::XboxSessionSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}return x?x->takeFeedback():input::ControllerFeedback{};}
+void EngineController::xboxController(const input::ControllerState& state){std::shared_ptr<source::IXboxSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}if(x)x->controller(state);}
+input::ControllerFeedback EngineController::xboxFeedback(){std::shared_ptr<source::IXboxSource> x;{std::lock_guard lock(mutex_);x=activeXbox_;}return x?x->takeFeedback():input::ControllerFeedback{};}
 #endif
 #ifdef VEYRA_ENABLE_MOONLIGHT
 void EngineController::openMoonlight(HWND window,source::MoonlightConnectDesc desc,PlayerOptions opts){
@@ -288,7 +292,7 @@ PlayerSnapshot EngineController::snapshot()const{
     std::shared_ptr<source::MoonlightSessionSource> activeMoonlight;
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-    std::shared_ptr<source::XboxSessionSource> activeXbox;
+    std::shared_ptr<source::IXboxSource> activeXbox;
 #endif
     {std::lock_guard lock(mutex_);copy=snapshot_;copy.presentation=presentation_;flowWindow=activeFlow_;
 #ifdef VEYRA_ENABLE_MOONLIGHT
@@ -315,6 +319,7 @@ PlayerSnapshot EngineController::snapshot()const{
     }
 #endif
 #ifdef VEYRA_ENABLE_XBOX
+    if(copy.transport==TransportState::Empty)copy.xboxActive=false;
     if(copy.xboxActive&&activeXbox){
         copy.xbox=activeXbox->stats();
         copy.captureAudio=activeXbox->audioState();copy.audioAvailable=copy.captureAudio.available;
@@ -371,7 +376,14 @@ void EngineController::run(HWND window,std::wstring path,PlayerOptions options,s
     (void)moonlightRequest;const bool isMoonlight=false;
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-    auto xb=xboxRequest?std::make_shared<source::XboxSessionSource>():nullptr;
+    // V1 (native libdatachannel) remains the default; V2 is selectable and
+    // keeps the same IXboxSource contract. 1440p stays on V1 until V2 1440p
+    // is verified on a physical console.
+    std::shared_ptr<source::IXboxSource> xb;
+    if (xboxRequest) {
+        if (xboxRequest->transportEngine == 2) xb = std::make_shared<source::XboxWebSource>();
+        else xb = std::make_shared<source::XboxSessionSource>();
+    }
     xbox::ReconnectBudget xboxReconnectBudget;
     const bool isXbox=bool(xb);
     {std::lock_guard lock(mutex_);activeXbox_=xb;}

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Physicality bits, zero touch points and touch-controls decline ported from
+// PR #287 by Kevin (@kevinmx21), adapted to this fork's combined inputReport.
 // The data-channel protocol of Xbox home streaming, as Greenlight's player speaks it
 // (unknownskl/greenlight packages/player, MIT): the JSON handshake and messages on "message" and
 // "control", and the little-endian binary reports on "input". Pure functions only, tested offline.
@@ -25,6 +27,19 @@ enum GamepadButton : uint16_t {
     BtnLeftShoulder = 4096, BtnRightShoulder = 8192, BtnLeftThumb = 16384, BtnRightThumb = 32768,
 };
 
+// Which inputs the player is physically touching, sent with every pad. Games that read input through
+// GameInput ignore buttons and sticks whose physicality bit is clear, so a fixed value leaves only the
+// system-handled Xbox button working in game. Bit layout from the Xbox streaming client
+// (Geocld/XStreaming abc02ff "fix: some games input issue"; kirtarget/jadebox vendored player).
+enum GamepadPhysicality : uint32_t {
+    PhysDPadUp = 0x1, PhysDPadDown = 0x2, PhysDPadLeft = 0x4, PhysDPadRight = 0x8,
+    PhysMenu = 0x10, PhysView = 0x20, PhysLeftThumb = 0x40, PhysRightThumb = 0x80,
+    PhysLeftShoulder = 0x100, PhysRightShoulder = 0x200, PhysNexus = 0x400,
+    PhysA = 0x1000, PhysB = 0x2000, PhysX = 0x4000, PhysY = 0x8000,
+    PhysLeftTrigger = 0x10000, PhysRightTrigger = 0x20000,
+    PhysLeftThumbX = 0x40000, PhysLeftThumbY = 0x80000, PhysRightThumbX = 0x100000, PhysRightThumbY = 0x200000,
+};
+
 struct GamepadFrame {
     uint8_t index = 0;
     uint16_t buttons = 0;
@@ -49,7 +64,9 @@ inline uint32_t get32(const uint8_t* p) { return uint32_t(p[0]) | (uint32_t(p[1]
 }
 
 // Header: report type (u16), sequence (u32), timestamp in ms (f64) = 14 bytes.
-inline std::vector<uint8_t> clientMetadataReport(uint32_t sequence, double timeMs, uint8_t maxTouchPoints = 1) {
+// maxTouchPoints 0: a client that reports touch gets the touch-controls layout, which games such as
+// GTA Online then prefer over the gamepad.
+inline std::vector<uint8_t> clientMetadataReport(uint32_t sequence, double timeMs, uint8_t maxTouchPoints = 0) {
     std::vector<uint8_t> b(15, 0);
     detail::put16(b, 0, ReportClientMetadata);
     detail::put32(b, 2, sequence);
@@ -72,9 +89,25 @@ inline std::vector<uint8_t> videoFeedbackReport(uint32_t sequence,double timeMs,
     return b;
 }
 
+inline uint32_t gamepadPhysicality(const GamepadFrame& p) {
+    struct Pair { uint16_t button; uint32_t bit; };
+    static constexpr Pair map[] = {
+        {BtnUp, PhysDPadUp}, {BtnDown, PhysDPadDown}, {BtnLeft, PhysDPadLeft}, {BtnRight, PhysDPadRight},
+        {BtnMenu, PhysMenu}, {BtnView, PhysView}, {BtnLeftThumb, PhysLeftThumb}, {BtnRightThumb, PhysRightThumb},
+        {BtnLeftShoulder, PhysLeftShoulder}, {BtnRightShoulder, PhysRightShoulder}, {BtnNexus, PhysNexus},
+        {BtnA, PhysA}, {BtnB, PhysB}, {BtnX, PhysX}, {BtnY, PhysY},
+    };
+    uint32_t bits = 0;
+    for (const auto& m : map) if (p.buttons & m.button) bits |= m.bit;
+    if (p.leftTrigger) bits |= PhysLeftTrigger;
+    if (p.rightTrigger) bits |= PhysRightTrigger;
+    if (p.leftX || p.leftY) bits |= PhysLeftThumbX | PhysLeftThumbY;
+    if (p.rightX || p.rightY) bits |= PhysRightThumbX | PhysRightThumbY;
+    return bits;
+}
+
 // One report with up to a few gamepads: count (u8), then per pad 23 bytes: index, buttons, 4 axes,
-// 2 triggers, physicality (u32 LE 1) and virtual physicality (u32 written big-endian 1, as the
-// reference client does).
+// 2 triggers, physicality (u32 LE, the inputs in use) and virtual physicality (u32 LE 0).
 inline std::vector<uint8_t> gamepadReport(uint32_t sequence, double timeMs, const std::vector<GamepadFrame>& pads) {
     std::vector<uint8_t> b(14 + 1 + 23 * pads.size(), 0);
     detail::put16(b, 0, ReportGamepad);
@@ -91,9 +124,52 @@ inline std::vector<uint8_t> gamepadReport(uint32_t sequence, double timeMs, cons
         detail::put16(b, at + 8, uint16_t(p.rightY));
         detail::put16(b, at + 10, p.leftTrigger);
         detail::put16(b, at + 12, p.rightTrigger);
-        detail::put32(b, at + 14, 1);
-        b[at + 18] = 0; b[at + 19] = 0; b[at + 20] = 0; b[at + 21] = 1;   // big-endian 1
+        detail::put32(b, at + 14, gamepadPhysicality(p));
+        detail::put32(b, at + 18, 0);
         at += 22;
+    }
+    return b;
+}
+
+// Greenlight InputQueue.sendQueue(): one packet can carry video metadata and
+// gamepad frames together. Each present section has its own count byte, in
+// metadata-then-gamepad order; the report type is the OR of the section bits.
+inline std::vector<uint8_t> inputReport(uint16_t types, uint32_t sequence, double timeMs,
+                                        const std::vector<VideoFeedback>& metadata,
+                                        const std::vector<GamepadFrame>& pads) {
+    size_t size = 14;
+    if (!metadata.empty()) size += 1 + 28 * metadata.size();
+    if (!pads.empty()) size += 1 + 23 * pads.size();
+    std::vector<uint8_t> b(size, 0);
+    detail::put16(b, 0, types);
+    detail::put32(b, 2, sequence);
+    detail::putDouble(b, 6, timeMs);
+    size_t at = 14;
+    if (!metadata.empty()) {
+        b[at++] = uint8_t(metadata.size());
+        for (const auto& f : metadata) {
+            const uint32_t values[] = {f.rtpTimestamp, f.arrivalMs, f.submittedMs,
+                                       f.decodedMs, f.renderedMs,
+                                       uint32_t(uint64_t(timeMs)), uint32_t(uint64_t(timeMs))};
+            for (size_t i = 0; i < 7; ++i) detail::put32(b, at + 4 * i, values[i]);
+            at += 28;
+        }
+    }
+    if (!pads.empty()) {
+        b[at++] = uint8_t(pads.size());
+        for (const auto& p : pads) {
+            b[at++] = p.index;
+            detail::put16(b, at, p.buttons);
+            detail::put16(b, at + 2, uint16_t(p.leftX));
+            detail::put16(b, at + 4, uint16_t(p.leftY));
+            detail::put16(b, at + 6, uint16_t(p.rightX));
+            detail::put16(b, at + 8, uint16_t(p.rightY));
+            detail::put16(b, at + 10, p.leftTrigger);
+            detail::put16(b, at + 12, p.rightTrigger);
+            detail::put32(b, at + 14, gamepadPhysicality(p));
+            detail::put32(b, at + 18, 0);
+            at += 22;
+        }
     }
     return b;
 }

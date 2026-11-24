@@ -19,14 +19,14 @@
 #include "veyra/source/MoonlightSessionSource.h"
 #endif
 #ifdef VEYRA_ENABLE_XBOX
-#include "veyra/source/XboxSessionSource.h"
+#include "veyra/source/IXboxSource.h"
 #endif
 #include "veyra/media/AudioTrack.h"
 #include "veyra/media/NetworkSettings.h"
 #include "veyra/sink/VideoEncoder.h"
 #include "veyra/engine/ExportOptions.h"
 #include "veyra/engine/DisplayStateService.h"
-namespace veyra::source { struct MoonlightConnectDesc; class MoonlightSessionSource; struct XboxConnectDesc; class XboxSessionSource; }
+namespace veyra::source { struct MoonlightConnectDesc; class MoonlightSessionSource; struct XboxConnectDesc; class IXboxSource; }
 namespace veyra::input { struct ControllerState;struct ControllerFeedback; }
 namespace veyra::sink { struct RgbaImage; }
 namespace veyra::gfx { class D3D12DeviceContext; class CommandSlotRing; }
@@ -279,7 +279,7 @@ private:
     uint64_t presentationRevision_=1;
     std::shared_ptr<FrameFlowWindow> activeFlow_;
     std::shared_ptr<source::MoonlightSessionSource> activeMoonlight_;
-    std::shared_ptr<source::XboxSessionSource> activeXbox_;
+    std::shared_ptr<source::IXboxSource> activeXbox_;
     PreviewView previewView_;
     std::wstring savePath_;
     // Declared before worker_: it outlives the engine thread's presenters.

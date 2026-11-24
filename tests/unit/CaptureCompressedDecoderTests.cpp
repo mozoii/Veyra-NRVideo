@@ -329,23 +329,26 @@ bool decoderReplacement(ElementaryStream& stream, gfx::D3D12DeviceContext& devic
 
 } // namespace
 
-// Xbox may advertise one size while the SPS describes another. The software
-// fallback scales into the advertised target, so sws_scale returns target rows.
-// Comparing those rows with the decoded source height rejects every good frame.
-bool softwareScalingTest(const ElementaryStream& stream)
+// Xbox can send a different size than the client requested. The native path
+// keeps all decoded pixels at the bitstream size; fixed-size callers still get
+// their scaled target. Ported from PR #274 by SenjuWoo (@SenjuWoo).
+bool softwareScalingTest(const ElementaryStream& stream, bool native)
 {
     const unsigned width = unsigned(std::max(2, (stream.width / 4) * 2));
     const unsigned height = unsigned(std::max(2, (stream.height / 4) * 2));
-    if (height == unsigned(stream.height)) return false;
     source::CaptureCompressedDecoder decoder;
     decoder.setStreamProfile(true);
     if (!decoder.open(stream.codec, width, height, nullptr, 0, nullptr, nullptr)) return false;
-    AVFrame* target = av_frame_alloc();
-    if (!target) return false;
-    target->format = AV_PIX_FMT_NV12;
-    target->width = int(width);
-    target->height = int(height);
-    bool ok = av_frame_get_buffer(target, 32) >= 0;
+    AVFrame* target = native ? nullptr : av_frame_alloc();
+    bool ok = native || target != nullptr;
+    if (target) {
+        target->format = AV_PIX_FMT_NV12;
+        target->width = int(width);
+        target->height = int(height);
+        ok = av_frame_get_buffer(target, 32) >= 0;
+    }
+    AVFrame* retained = nullptr;
+    uint32_t firstRow = 0;
     uint64_t frames = 0;
     for (size_t i = 0; ok && i < stream.accessUnits.size(); ++i) {
         const auto& unit = stream.accessUnits[i];
@@ -353,12 +356,23 @@ bool softwareScalingTest(const ElementaryStream& stream)
         bool hardware = false;
         if (decoder.decode(unit.data(), unit.size(), stream.pts[i], target, &out, hardware)) {
             ++frames;
-            ok = !hardware && out == target && out->width == int(width) && out->height == int(height);
+            ok = !hardware && out && out->format == AV_PIX_FMT_NV12 &&
+                 out->width == (native ? stream.width : int(width)) &&
+                 out->height == (native ? stream.height : int(height));
+            if (!native) ok = ok && out == target;
+            if (ok && native && !retained) {
+                retained = av_frame_clone(out);
+                ok = retained != nullptr;
+                if (ok) firstRow = av_adler32_update(1, out->data[0], out->width);
+            }
         } else if (!decoder.waitingForInput()) {
             std::cout << "software scaling error: " << decoder.lastError() << '\n';
             ok = false;
         }
     }
+    decoder.close();
+    if (native) ok = ok && retained && firstRow == av_adler32_update(1, retained->data[0], retained->width);
+    av_frame_free(&retained);
     av_frame_free(&target);
     return ok && frames > 0;
 }
@@ -401,7 +415,8 @@ int wmain(int argc, wchar_t** argv)
     check(hardware.failures == 0 && hardware.frames > 0, "hardware decode produces frames without errors");
     check(hardware.sawHardwareFrame, "hardware backend returns importable D3D12 frames");
     check(software.failures == 0 && software.frames > 0, "software decode produces frames without errors");
-    check(softwareScalingTest(stream), "software stream decode accepts a different output height");
+    check(softwareScalingTest(stream, false), "software stream decode accepts a different fixed output height");
+    check(softwareScalingTest(stream, true), "Xbox software decode preserves the native dimensions and retained frame");
     bool samePixels=true;for(const auto& [pts,pixels]:recovery.pixels){auto found=software.pixels.find(pts);samePixels=samePixels&&found!=software.pixels.end()&&found->second==pixels;}
     check(recovery.recovered&&recovery.failures==0&&samePixels,"packet loss resumes at keyframe with reference-identical pixels and PTS");
     check(hardErrorRecovery(stream,nullptr,nullptr),"Xbox hard-error boundary recovers on the software codec");

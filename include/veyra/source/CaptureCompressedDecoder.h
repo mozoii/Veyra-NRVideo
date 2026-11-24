@@ -46,6 +46,12 @@ public:
     // the original behaviour.
     void setStreamProfile(bool enabled);
 
+    // Streaming sources may prefer D3D11VA for H.264 as well (the HEVC stream
+    // path already uses it). Intel's D3D12VA H.264 output can be silently
+    // damaged while its D3D11VA/DXVA path is clean; the decoded surfaces still
+    // reach the graph through the same borrowed shared-texture view.
+    void setPreferD3D11VA(bool enabled);
+
     bool open(CaptureCodec codec, unsigned width, unsigned height,
         const uint8_t* extradata, size_t extradataBytes,
         ID3D12Device* device, ID3D12CommandQueue* queue);
@@ -55,7 +61,8 @@ public:
     // On success `*out` is a frame whose lifetime the
     // caller must not extend past the next decode():
     //  - hardware=true:  decoder-owned D3D12 surface (AV_PIX_FMT_D3D12);
-    //  - hardware=false: converted into `nv12Target` (owned by the caller).
+    //  - hardware=false: converted into `nv12Target` (owned by the caller), or
+    //    a decoder-owned NV12 frame at the decoded size when `nv12Target` is null.
     // Returns false when the payload produced no frame (pending input) or the
     // decoder reported an error; see lastError()/waitingForInput().
     bool decode(const uint8_t* data, size_t bytes, int64_t pts100ns,

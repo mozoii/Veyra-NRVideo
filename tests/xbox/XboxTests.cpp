@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <algorithm>
 #include <deque>
@@ -27,9 +28,11 @@
 #include "veyra/xbox/Account.h"
 #include "veyra/xbox/Protocol.h"
 #include "veyra/xbox/StreamApi.h"
+#include "veyra/xbox/StreamProfile.h"
 #include "veyra/xbox/WebRtcSession.h"
 #include "veyra/xbox/DisconnectPolicy.h"
 #include "veyra/xbox/VideoDecodeRecovery.h"
+#include "veyra/xbox/VideoLossRecovery.h"
 
 using namespace veyra::xbox;
 using json = nlohmann::json;
@@ -43,6 +46,8 @@ void check(bool ok, const char* what) {
     else if (GetEnvironmentVariableA("VEYRA_TEST_VERBOSE", nullptr, 0) > 0) std::printf("ok   %s\n", what);
     std::fflush(stdout);
 }
+
+uint8_t byteAt(uint32_t value, unsigned shift) { return uint8_t((value >> shift) & 0xFF); }
 
 // ---------------------------------------------------------------- scripted HTTPS
 
@@ -66,8 +71,8 @@ struct FakeTransport final : HttpsTransport {
 // ---------------------------------------------------------------- protocol
 
 void protocolTests() {
-    const auto meta = clientMetadataReport(0, 12.5, 1);
-    check(meta.size() == 15 && meta[0] == 8 && meta[1] == 0 && meta[14] == 1, "client metadata report: type 8, 15 bytes, touch points last");
+    const auto meta = clientMetadataReport(0, 12.5);
+    check(meta.size() == 15 && meta[0] == 8 && meta[1] == 0 && meta[14] == 0, "client metadata report: type 8, 15 bytes, zero touch points");
     double t = 0;
     std::memcpy(&t, meta.data() + 6, 8);
     check(t == 12.5, "report timestamp is a little-endian double at offset 6");
@@ -83,8 +88,23 @@ void protocolTests() {
     check(r[16] == uint8_t((BtnA | BtnMenu | BtnNexus) & 0xFF) && r[17] == 0, "button mask little-endian");
     check(r[18] == 0xE8 && r[19] == 0x03 && r[20] == 0xFE && r[21] == 0xFF, "left stick X/Y as signed little-endian");
     check(r[26] == 0xFF && r[27] == 0xFF && r[28] == 0x01 && r[29] == 0x01, "triggers 0..65535");
-    check(r[30] == 1 && r[31] == 0 && r[32] == 0 && r[33] == 0 && r[34] == 0 && r[35] == 0 && r[36] == 0 && r[37] == 1,
-          "physicality LE 1 then virtual physicality written big-endian, as the reference client");
+    const uint32_t phys = PhysA | PhysMenu | PhysNexus | PhysLeftTrigger | PhysRightTrigger |
+                          PhysLeftThumbX | PhysLeftThumbY | PhysRightThumbX | PhysRightThumbY;
+    check(r[30] == byteAt(phys, 0) && r[31] == byteAt(phys, 8) && r[32] == byteAt(phys, 16) && r[33] == byteAt(phys, 24),
+          "physicality: little-endian bits for every button, trigger and stick in use");
+    check(r[34] == 0 && r[35] == 0 && r[36] == 0 && r[37] == 0, "virtual physicality 0");
+    check(gamepadPhysicality(GamepadFrame{}) == 0, "an idle pad reports no physicality");
+    check(clientMetadataReport(0, 0)[14] == 0, "client metadata defaults to no touch points");
+
+    const auto combined = inputReport(ReportMetadata | ReportGamepad, 9, 0,
+                                      {VideoFeedback{7, 1, 2, 3, 4}}, {pad});
+    check(combined.size() == 14 + 1 + 28 + 1 + 23 && combined[0] == 3 && combined[2] == 9
+          && combined[14] == 1 && combined[43] == 1 && combined[44] == 0 && combined[45] == 22 && combined[46] == 0,
+          "combined input packet: metadata section then gamepad section, both counted");
+    check(combined[59] == byteAt(phys, 0) && combined[60] == byteAt(phys, 8)
+          && combined[61] == byteAt(phys, 16) && combined[62] == byteAt(phys, 24)
+          && combined[63] == 0 && combined[64] == 0 && combined[65] == 0 && combined[66] == 0,
+          "combined input pad section carries the same physicality and virtual 0");
 
     veyra::input::ControllerState s;
     s.inputActive = true;
@@ -197,6 +217,171 @@ void apiTests() {
         check(nullableIce.size() == 1 && nullableIce[0].sdpMid == "0" && nullableIce[0].sdpMLineIndex == 0,
               "null ICE metadata and end markers do not abort the connection after SDP succeeds");
     } catch (const std::exception&) { check(false, "null ICE metadata and end markers do not abort the connection after SDP succeeds"); }
+}
+
+// ---------------------------------------------------------------- transport profile / ICE
+
+// Ported from PR #289 by RyanBB (@RyanLookchard), adapted to the fork's ResolutionMode tier table.
+void profileTests() {
+    std::string host; uint16_t port = 0; bool turn = true;
+    check(parseIceServerUrl("stun:stun.l.google.com:19302", &host, &port, &turn) && host == "stun.l.google.com" && port == 19302 && !turn,
+          "a STUN URL parses with its port");
+    check(parseIceServerUrl("turn:relay.example.com", &host, &port, &turn) && host == "relay.example.com" && port == 3478 && turn,
+          "a TURN URL without a port defaults to 3478");
+    check(parseIceServerUrl("stun:[2001:db8::1]:3478", &host, &port, &turn) && host == "2001:db8::1" && port == 3478,
+          "bracketed IPv6 literals parse");
+    check(!parseIceServerUrl("turns:secure.example.com:5349", &host, &port, &turn) &&
+          !parseIceServerUrl("stun:", &host, &port, &turn) &&
+          !parseIceServerUrl("stun:host:0", &host, &port, &turn) &&
+          !parseIceServerUrl("stun:host:99999", &host, &port, &turn) &&
+          !parseIceServerUrl("http:host:80", &host, &port, &turn),
+          "unknown schemes, empty hosts and invalid ports are rejected");
+    check(defaultStunServers().size() == 7, "the reference STUN list has seven entries");
+
+    // Full Teredo expansion: client4/server4 x decoded/candidate/3074 ports, deduplicated.
+    const auto full = StreamApi::parseIce(R"([{"candidate":"a=candidate:1 1 UDP 100 2001:0:4136:e378:8000:63bf:3fff:fdd2 9002 typ host","sdpMid":"0","sdpMLineIndex":"0"},{"candidate":"a=end-of-candidates"}])", true);
+    check(full.size() == 6, "full expansion adds five IPv4 candidates and keeps the Teredo one");
+    std::string server4, client4;
+    int teredoPort = 0;
+    check(StreamApi::teredoIpv4("2001:0:4136:e378:8000:63bf:3fff:fdd2", &client4, &teredoPort, &server4) && server4 == "65.54.227.120",
+          "the Teredo server IPv4 is bytes 4..7, unobfuscated");
+    bool hasClientPort = false, hasServerCandidate = false, hasClientCandidate = false, hasServer3074 = false, hasClient3074 = false;
+    for (const auto& c : full) {
+        hasClientPort |= c.candidate.find("192.0.2.45 40000") != std::string::npos;
+        hasServerCandidate |= c.candidate.find("65.54.227.120 9002") != std::string::npos;
+        hasClientCandidate |= c.candidate.find("192.0.2.45 9002") != std::string::npos;
+        hasServer3074 |= c.candidate.find("65.54.227.120 3074") != std::string::npos;
+        hasClient3074 |= c.candidate.find("192.0.2.45 3074") != std::string::npos;
+    }
+    check(hasClientPort && hasServerCandidate && hasClientCandidate && hasServer3074 && hasClient3074,
+          "the five combinations cover client/server addresses and the decoded/candidate/3074 ports");
+    const auto dedup = StreamApi::parseIce(R"([{"candidate":"a=candidate:1 1 UDP 100 2001:0:4136:e378:8000:63bf:3fff:fdd2 3074 typ host","sdpMid":"0","sdpMLineIndex":"0"}])", true);
+    check(dedup.size() == 4, "a candidate already on port 3074 does not duplicate the 3074 pairs");
+}
+
+// ---------------------------------------------------------------- token refresh / pulse
+
+void resilienceTests() {
+    auto http = std::make_shared<FakeTransport>();
+    const std::string host = "uks.core.gssv-play-prodxhome.xboxlive.com";
+    StreamApi api(http, host, "OLD");
+    api.setRetryDelayMs(1);
+    int refreshes = 0;
+    api.setTokenRefresh([&] { ++refreshes; return std::string("NEW"); });
+    http->add(host, "/v5/sessions/home/S1/keepalive", 401, R"({"code":"Unauthorized"})");
+    http->add(host, "/v5/sessions/home/S1/keepalive", 200, "{}");
+    api.keepalive("S1");
+    check(refreshes == 1 && http->seen.size() == 2 && http->seen.back().headers["Authorization"] == "Bearer NEW",
+          "a 401 refreshes the token once and replays the request");
+    http->add(host, "/v5/sessions/home/S1/keepalive", 401, "{}");
+    http->add(host, "/v5/sessions/home/S1/keepalive", 401, "{}");
+    bool threw = false;
+    try { api.keepalive("S1"); } catch (const ServiceError& e) { threw = e.status == 401; }
+    check(threw && refreshes == 2, "a second refusal is a real error; the refresh is not looped");
+
+    auto plain = std::make_shared<FakeTransport>();
+    StreamApi noRefresh(plain, host, "GS");
+    noRefresh.setRetryDelayMs(1);
+    plain->add(host, "/v5/sessions/home/S1/keepalive", 403, "{}");
+    threw = false;
+    try { noRefresh.keepalive("S1"); } catch (const ServiceError& e) { threw = e.status == 403; }
+    check(threw && plain->seen.size() == 1, "without a refresh callback a 403 is not retried");
+
+    http->add(host, "/v5/sessions/home/S1/configuration", 200, R"({"keepAlivePulseInSeconds":120})");
+    check(api.keepAlivePulseInSeconds("S1") == 120, "the configuration pulse is read");
+    http->add(host, "/v5/sessions/home/S1/configuration", 200, R"({"serverDetails":{}})");
+    check(api.keepAlivePulseInSeconds("S1") == 0, "a missing pulse falls back to the caller's default");
+    http->add(host, "/v5/sessions/home/S1/configuration", 200, "not json");
+    check(api.keepAlivePulseInSeconds("S1") == 0, "a malformed configuration does not break the session");
+}
+
+// ---------------------------------------------------------------- RTP loss recovery
+
+namespace {
+
+rtc::message_ptr lossPacket(uint16_t seq, uint32_t timestamp, bool marker, uint8_t payload) {
+    auto message = std::make_shared<rtc::Message>(sizeof(rtc::RtpHeader) + 1, rtc::Message::Binary);
+    std::fill(message->begin(), message->end(), std::byte{0});
+    auto* header = reinterpret_cast<rtc::RtpHeader*>(message->data());
+    header->preparePacket();
+    header->setSsrc(0x12345678);
+    header->setPayloadType(102);
+    header->setSeqNumber(seq);
+    header->setTimestamp(timestamp);
+    header->setMarker(marker);
+    (*message)[sizeof(rtc::RtpHeader)] = std::byte{payload};
+    return message;
+}
+
+uint16_t lossSeq(const rtc::message_ptr& message) {
+    return reinterpret_cast<const rtc::RtpHeader*>(message->data())->seqNumber();
+}
+
+uint8_t lossPayload(const rtc::message_ptr& message) {
+    return std::to_integer<uint8_t>((*message)[sizeof(rtc::RtpHeader)]);
+}
+
+} // namespace
+
+// Exercises the PR #289 reorder/NACK handler with real RTP headers on synthetic packets.
+void lossRecoveryTests() {
+    using namespace std::chrono_literals;
+    const uint32_t ts = 90000;
+
+    {
+        VideoLossRecovery recovery(20ms);
+        rtc::message_vector in{lossPacket(100, ts, false, 1), lossPacket(101, ts, false, 2), lossPacket(102, ts, true, 3)};
+        int nacks = 0;
+        recovery.incoming(in, [&](rtc::message_ptr) { ++nacks; });
+        check(in.size() == 3 && lossSeq(in[0]) == 100 && lossSeq(in[1]) == 101 && lossSeq(in[2]) == 102 &&
+              lossPayload(in[0]) == 1 && lossPayload(in[2]) == 3 && nacks == 0,
+              "an in-order complete frame passes through unchanged and in order");
+        check(recovery.stats().packetsReceived == 3 && recovery.stats().framesDropped == 0,
+              "an in-order frame is not dropped");
+    }
+
+    {
+        VideoLossRecovery recovery(20ms);
+        rtc::message_vector in{lossPacket(101, ts, false, 2), lossPacket(100, ts, false, 1), lossPacket(102, ts, true, 3)};
+        int nacks = 0;
+        recovery.incoming(in, [&](rtc::message_ptr) { ++nacks; });
+        check(in.size() == 3 && lossSeq(in[0]) == 100 && lossSeq(in[1]) == 101 && lossSeq(in[2]) == 102,
+              "out-of-order packets are reordered before the depacketizer");
+        check(recovery.stats().packetsReordered >= 1 && nacks == 0,
+              "reordering is counted and needs no NACK");
+    }
+
+    {
+        VideoLossRecovery recovery(20ms);
+        rtc::message_vector in{lossPacket(200, ts, false, 1), lossPacket(202, ts, true, 3)};
+        int nacks = 0;
+        recovery.incoming(in, [&](rtc::message_ptr) { ++nacks; });
+        check(nacks >= 1 && in.empty() && recovery.stats().framesDropped == 0,
+              "a missing middle packet produces a NACK and the incomplete frame is held");
+        rtc::message_vector keep{std::make_shared<rtc::Message>(2, rtc::Message::Control)};
+        recovery.incoming(keep, [&](rtc::message_ptr) { ++nacks; });
+        check(keep.size() == 1 && recovery.stats().framesDropped == 0,
+              "the held frame is not released before the wait window");
+        std::this_thread::sleep_for(45ms);
+        rtc::message_vector late{std::make_shared<rtc::Message>(2, rtc::Message::Control)};
+        recovery.incoming(late, [&](rtc::message_ptr) { ++nacks; });
+        check(late.size() == 1 && recovery.stats().framesDropped == 1,
+              "a frame still incomplete after the deadline is dropped whole");
+    }
+
+    {
+        VideoLossRecovery recovery(60ms);
+        int nacks = 0;
+        rtc::message_vector first{lossPacket(300, ts, false, 1), lossPacket(302, ts, true, 3)};
+        recovery.incoming(first, [&](rtc::message_ptr) { ++nacks; });
+        rtc::message_vector retransmit{lossPacket(301, ts, false, 2)};
+        recovery.incoming(retransmit, [&](rtc::message_ptr) { ++nacks; });
+        check(nacks >= 1 && retransmit.size() == 3 && lossSeq(retransmit[0]) == 300 &&
+              lossSeq(retransmit[1]) == 301 && lossSeq(retransmit[2]) == 302,
+              "a retransmitted missing packet before the deadline completes the frame in order");
+        check(recovery.stats().packetsRecovered >= 1 && recovery.stats().framesDropped == 0,
+              "the recovered packet is counted and the frame is not dropped");
+    }
 }
 
 // ---------------------------------------------------------------- resolution tiers
@@ -577,6 +762,7 @@ void webrtcTests() {
     console.message->send(std::string("{\"type\":null}"));
     console.message->send(std::string("{\"type\":\"Message\",\"target\":null}"));
     session.videoPresented(0xFABCDE12,1000000,1100000,1200000,1300000);
+    session.flushInput();
     check(console.waitFor([&]{for(const auto& report:console.reports)if(report.size()==43&&report[0]==ReportMetadata)return true;return false;}),"rendered video feedback is sent even without a gamepad change");
     {
         std::lock_guard lock(console.mutex);
@@ -590,6 +776,16 @@ void webrtcTests() {
           detail::get32(encoded.data()+23)==102&&detail::get32(encoded.data()+27)==103&&
           detail::get32(encoded.data()+31)==104&&detail::get32(encoded.data()+35)==1234&&
           detail::get32(encoded.data()+39)==1234,"frame feedback matches Greenlight's seven-field wire format");
+    // A touch-controls transaction from the console is declined on the message channel.
+    console.message->send(json{{"type","TransactionStart"},{"target","/streaming/touchcontrols/gamepadChanged"},{"id","touch-test"},{"content","\"\""}}.dump());
+    check(console.waitFor([&] {
+        for (const auto& s : console.rawMessages) {
+            const auto j = json::parse(s, nullptr, false);
+            if (j.is_object() && j.value("type", "") == "ReceiverCancel" && j.value("id", "") == "touch-test") return true;
+        }
+        return false;
+    }), "a touch-controls TransactionStart receives ReceiverCancel");
+
     // Exercise real transport shutdown while the caller sends input/keyframe
     console.message->send(json{{"type","TransactionStart"},{"target","/streaming/sessionLifetimeManagement/serverInitiatedDisconnect"},{"id","shutdown-test"},{"content",json{{"reason","KickForServerShutdown"}}.dump()}}.dump());
     for(unsigned i=0;i<100;++i){ {std::lock_guard l(m);if(!endedReason.empty())break;} std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
@@ -743,6 +939,9 @@ int main(int argc, char** argv) {
     }
     protocolTests();
     apiTests();
+    profileTests();
+    resilienceTests();
+    lossRecoveryTests();
     resolutionTests();
     accountTests();
     webrtcTests();
