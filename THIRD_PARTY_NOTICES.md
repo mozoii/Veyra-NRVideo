@@ -1169,3 +1169,34 @@ Linux OBS filter work is adopted from andreanjoes PR #96 at
 validates malformed cube LUTs, clears failed LUT selections, samples LUT texel
 centres and preserves premultiplied transparency. OBS's public colour-filter
 shader was consulted for the alpha contract; no OBS DLL is bundled here.
+
+## Xbox V2 transport: WebView2 and the reference player (2026-11-23)
+
+The selectable V2 engine (`-DVEYRA_ENABLE_XBOX=ON`, `XboxWebSource`) terminates
+WebRTC inside an offscreen **Microsoft Edge WebView2** and exports encoded
+H.264/Opus frames before the shared decode chain. V1 (libdatachannel) remains
+the default; its notices above are unchanged.
+
+- **WebView2 SDK**: vcpkg port `webview2` (the port formerly named
+  `unofficial-webview2`), version 1.0.4191.47, with the static loader
+  `WebView2LoaderStatic.lib`; no loader DLL ships. The Evergreen runtime must
+  be installed on the user's machine and is not bundled in source Git. The
+  loader's BSD-style copyright is preserved in `licenses/xbox/webview2.txt`.
+- **XStreaming-player** (https://github.com/Geocld/XStreaming-player, MIT per
+  `package.json`, v0.3.4): the bundled player is a fork of base
+  `8e178aef067ec31625311865e5ee51a6924823e2` plus patch
+  `e4c12bd27f73e99b08b7f54eeccd2c27c330bff9` (encoded transform attached before
+  negotiation, export via `postMessage`, ICE gathering wait). Only the built
+  bundle `resources/xbox-player/veyra-xbox-player.js` (728,046 bytes, SHA-256
+  `852C72B20E919420CB0D31C5ABC192485889DF0416E2838122B7BB2210DE8892`) is
+  vendored. Provenance and rebuild steps are in `resources/xbox-player/README.md`;
+  the MIT text is in `licenses/xbox/xstreaming-player-MIT.txt`.
+- The WebView2 pre-script shim rewrites the bundle's hardcoded 1920x1080
+  `dimensionschanged` payload and injects `VideoPreference` plus
+  `userRequestedResolutionUpdate` for the selected `ResolutionMode`. V2 1440p
+  is **not verified** until a physical console returns a 2560x1440 decode;
+  V2 + 1440p is nonetheless attempted when selected (routing guard removed for
+  live testing). A live console returned a 1920x1080 decode for a 1440p
+  selection, so V2 is a 1080p-class engine and 1440p routes to V1. An attempted
+  build-time patch porting Greenlight PR #1752 was removed after that test;
+  the pinned bundle and this notice are unchanged by it.

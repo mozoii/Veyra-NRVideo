@@ -772,13 +772,16 @@ if(VEYRA_FFMPEG_ROOT AND EXISTS "${VEYRA_FFMPEG_ROOT}/include/libavformat/avform
     target_link_libraries(veyra_sources PUBLIC veyra_moonlight_protocol veyra_moonlight_common_c PRIVATE Opus::opus)
   endif()
 
+  # Xbox home streaming: V1 native libdatachannel (default) and V2 Chromium
+  # reference player inside WebView2. Both feed the same decode/audio chain.
   if(VEYRA_ENABLE_XBOX)
     set(VEYRA_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
     include(VeyraXbox)
+    include(cmake/VeyraXboxWeb.cmake)
     find_package(Opus CONFIG REQUIRED)
     target_compile_definitions(veyra_sources PUBLIC VEYRA_ENABLE_XBOX=1)
-    target_sources(veyra_sources PRIVATE src/source/XboxSessionSource.cpp)
-    target_link_libraries(veyra_sources PUBLIC veyra_xbox_protocol PRIVATE Opus::opus)
+    target_sources(veyra_sources PRIVATE src/source/XboxSessionSource.cpp src/source/XboxWebSource.cpp)
+    target_link_libraries(veyra_sources PUBLIC veyra_xbox_protocol veyra_xbox_web PRIVATE Opus::opus)
   endif()
 
   add_executable(veyra_source_tests
@@ -1643,6 +1646,12 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
   target_include_directories(veyra_color_lut_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(veyra_color_lut_tests PRIVATE veyra_base bcrypt)
   # Named colour looks + .vpcolor export/import (CPU only).
+  add_executable(veyra_controller_selection_tests tests/unit/ControllerDeviceSelectionTests.cpp)
+  target_compile_features(veyra_controller_selection_tests PRIVATE cxx_std_20)
+  target_compile_options(veyra_controller_selection_tests PRIVATE /utf-8)
+  target_compile_definitions(veyra_controller_selection_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+  target_include_directories(veyra_controller_selection_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(veyra_controller_selection_tests PRIVATE veyra_base)
   add_executable(veyra_color_look_tests tests/unit/ColorLookTests.cpp src/engine/ColorLookStore.cpp)
   target_compile_features(veyra_color_look_tests PRIVATE cxx_std_20)
   target_compile_options(veyra_color_look_tests PRIVATE /utf-8)
@@ -1743,6 +1752,20 @@ target_link_options(veyra_hdr_tuning_tests PRIVATE /STACK:33554432)
       target_link_libraries(veyra_qml_bridge PUBLIC $<TARGET_LINKER_FILE:SDL3::SDL3-static>)
       target_link_libraries(veyra_qml_bridge PRIVATE SDL3::Headers)
     endif()
+    # Read-only diagnostic: pad identity, live reads, and the exact frame the
+    # production reader would send. Uses the same SDL link shape as the bridge.
+    add_executable(veyra_controller_probe
+      tools/controller_probe/main.cpp
+      src/input/ControllerInput.cpp
+    )
+    target_compile_features(veyra_controller_probe PRIVATE cxx_std_20)
+    target_compile_options(veyra_controller_probe PRIVATE /utf-8)
+    target_compile_definitions(veyra_controller_probe PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_include_directories(veyra_controller_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(veyra_controller_probe PRIVATE
+      veyra_base $<TARGET_LINKER_FILE:SDL3::SDL3-static> SDL3::Headers
+      winmm imm32 setupapi cfgmgr32 dinput8
+    )
   endif()
 
   target_compile_features(veyra PRIVATE cxx_std_20)
