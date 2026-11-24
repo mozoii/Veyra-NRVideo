@@ -16,8 +16,9 @@
 
 #include "veyra/input/ControllerTypes.h"
 #include "veyra/sink/CaptureAudioSession.h"
-#include "veyra/source/IFrameSource.h"
+#include "veyra/source/IXboxSource.h"
 #include "veyra/xbox/ResolutionMode.h"
+#include "veyra/xbox/StreamProfile.h"
 
 struct AVFrame;
 struct ID3D12Device;
@@ -27,33 +28,7 @@ namespace veyra::xbox { class Account; }
 
 namespace veyra::source {
 
-struct XboxConnectDesc {
-    std::shared_ptr<xbox::Account> account;
-    std::string serverId;            // the console
-    std::string consoleName;         // for messages
-    bool gamepad = true;             // forward the PC's controller
-    bool softwareDecode = false;    // opt-in workaround for silent hardware decode corruption
-    std::string locale = "en-US";
-    xbox::ResolutionMode resolutionMode = xbox::ResolutionMode::Auto;
-    std::shared_ptr<ID3D12Device> decodeDevice;
-    std::shared_ptr<ID3D12CommandQueue> decodeQueue;
-    const std::atomic<bool>* stopRequested = nullptr; // engine owner outlives the source
-};
-
-struct XboxStats {
-    enum class State : uint8_t { Idle, Starting, Connecting, Streaming, Ended, Failed };
-    State state = State::Idle;
-    std::wstring message;           // progress while starting; the reason when Ended or Failed
-    std::string disconnectReason;
-    bool reconnectable = false;
-    uint32_t width = 0, height = 0;
-    bool hardwareDecode = false;
-    uint64_t units = 0, decoded = 0, dropped = 0, decodeErrors = 0, keyframeRequests = 0;
-    double receivedFps = 0, decodedFps = 0, videoMbps = 0;
-    double decodeMs = 0, rttMs = 0;
-};
-
-class XboxSessionSource final : public IFrameSource {
+class XboxSessionSource final : public IXboxSource {
 public:
     XboxSessionSource();
     ~XboxSessionSource() override;
@@ -62,8 +37,8 @@ public:
 
     // Starts the console session and connects. Blocks until the stream is up or failed (up to about a
     // minute while the console wakes); false means see stats().message. cancel() aborts it from another thread.
-    bool connect(XboxConnectDesc desc);
-    void cancel() { cancel_ = true; }
+    bool connect(XboxConnectDesc desc) override;
+    void cancel() override { cancel_ = true; }
 
     bool open(const SourceOpenDesc&) override { return false; }
     const SourceInfo& info() const override { return info_; }
@@ -71,18 +46,18 @@ public:
     bool seek(const pipeline::Rational&) override { return false; }
     void close() noexcept override;
 
-    XboxStats stats() const;
-    uint64_t skipped() const;
-    uint64_t unitsReceived() const;
-    sink::CaptureAudioState audioState() const { return audio_.snapshot(); }
-    void setAudioGain(float value) { audio_.setGain(value); }
-    void setAudioSync(unsigned mode, int offset) { audio_.setSync(mode, offset); }
-    void videoPresented(double ptsMs, int64_t host100ns, bool sourceFrame = true);
-    void videoReset(bool resetAudio = true) { audio_.videoReset(resetAudio); }
+    XboxStats stats() const override;
+    uint64_t skipped() const override;
+    uint64_t unitsReceived() const override;
+    sink::CaptureAudioState audioState() const override { return audio_.snapshot(); }
+    void setAudioGain(float value) override { audio_.setGain(value); }
+    void setAudioSync(unsigned mode, int offset) override { audio_.setSync(mode, offset); }
+    void videoPresented(double ptsMs, int64_t host100ns, bool sourceFrame = true) override;
+    void videoReset(bool resetAudio = true) override { audio_.videoReset(resetAudio); }
 
     // Controller 0; sent when it changes and at least every 33 ms (the console expects a heartbeat).
-    void controller(const input::ControllerState& state);
-    input::ControllerFeedback takeFeedback();
+    void controller(const input::ControllerState& state) override;
+    input::ControllerFeedback takeFeedback() override;
 
 private:
     struct Impl;

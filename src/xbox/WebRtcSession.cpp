@@ -104,6 +104,19 @@ bool WebRtcSession::start(Signaling& signaling, std::string* error, std::chrono:
     config.disableAutoNegotiation = true;
     config.maxMessageSize = 256 * 1024;
     if (!bindAddress_.empty()) config.bindAddress = bindAddress_;
+    // ICE servers: the reference clients' public STUN list plus any valid custom
+    // servers. Without them libjuice gathers host candidates only. Ported from PR #289.
+    if (transport_.useStun)
+        for (const auto& s : defaultStunServers()) config.iceServers.emplace_back(s.url);
+    for (const auto& s : transport_.iceServers) {
+        std::string host; uint16_t port = 3478; bool turn = false;
+        if (!parseIceServerUrl(s.url, &host, &port, &turn)) {
+            log::warn("xbox", "ignoring invalid ICE server URL: " + s.url);
+            continue;
+        }
+        if (turn) config.iceServers.emplace_back(host, port, s.username, s.credential);
+        else config.iceServers.emplace_back(host, port);
+    }
     pc_ = std::make_shared<rtc::PeerConnection>(config);
 
     pc_->onStateChange([this, gate=gate_](rtc::PeerConnection::State state) {
@@ -125,15 +138,22 @@ bool WebRtcSession::start(Signaling& signaling, std::string* error, std::chrono:
     // in the reference client's order: Main, Constrained Baseline, Baseline).
     rtc::Description::Audio audio("0", rtc::Description::Direction::SendRecv);
     audio.addOpusCodec(111, std::string("minptime=10;useinbandfec=1;stereo=1"));
+    // b=AS is native to the media description; no hint keeps the historical offer byte for byte.
+    if (transport_.audioBitrateKbps > 0) audio.setBitrate(transport_.audioBitrateKbps);
     audio_ = pc_->addTrack(audio);
     rtc::Description::Video video("1", rtc::Description::Direction::RecvOnly);
     video.addH264Codec(102, std::string("level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d001f"));
     video.addH264Codec(104, std::string("level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"));
     video.addH264Codec(106, std::string("level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f"));
+    if (transport_.videoBitrateKbps > 0) video.setBitrate(transport_.videoBitrateKbps);
     video_ = pc_->addTrack(video);
 
+    // Receive chain order (last chained runs first): RTCP session -> loss recovery
+    // (reorder + NACK) -> depacketizer. Ported from PR #289 by RyanBB (@RyanLookchard).
     auto depacketizer = std::make_shared<rtc::H264RtpDepacketizer>(rtc::NalUnit::Separator::LongStartSequence);
+    lossRecovery_ = std::make_shared<VideoLossRecovery>();
     video_->setMediaHandler(depacketizer);
+    video_->chainMediaHandler(lossRecovery_);
     video_->chainMediaHandler(std::make_shared<rtc::RtcpReceivingSession>());
     video_->onFrame([this, gate=gate_](rtc::binary data, rtc::FrameInfo info) {
         std::lock_guard callbackLock(gate->mutex);if(!gate->open)return;
@@ -192,7 +212,10 @@ bool WebRtcSession::start(Signaling& signaling, std::string* error, std::chrono:
     pc_->setLocalDescription(rtc::Description::Type::Offer);
     {
         std::unique_lock lock(mutex_);
-        changed_.wait_for(lock, std::chrono::seconds(5), [&] { return pc_->gatheringState() == rtc::PeerConnection::GatheringState::Complete; });
+        // Public STUN queries can outlast the old 5 s budget; gathering proceeds with
+        // whatever candidates exist when the budget runs out.
+        const auto budget = config.iceServers.empty() ? std::chrono::seconds(5) : std::chrono::seconds(8);
+        changed_.wait_for(lock, budget, [&] { return pc_->gatheringState() == rtc::PeerConnection::GatheringState::Complete; });
     }
     const auto local = pc_->localDescription();
     if (!local) return fail("no local description");
@@ -314,7 +337,7 @@ void WebRtcSession::onMessageChannel(const std::string& text) {
         initialized &= sendControl(json{{"message", "gamepadChanged"}, {"gamepadIndex", 0}, {"wasAdded", true}}.dump());
         initialized &= sendControl(json{{"message", "userRequestedResolutionUpdate"}, {"resolutionAlias", profile.alias}}.dump());
         if (input_ && input_->isOpen()) {
-            const auto report = clientMetadataReport(0, nowMs(), 1);
+            const auto report = clientMetadataReport(0, nowMs(), 0);
             initialized &= sendBinary(input_,report.data(),report.size());
         }
         initialized &= sendClientConfig();
@@ -326,7 +349,11 @@ void WebRtcSession::onMessageChannel(const std::string& text) {
         const std::string target = j.value("target", "");
         const std::string id = j.value("id", "");
         log::info("xbox-message", target + " " + j.value("content", std::string()).substr(0, 300));
-        if (target == "/streaming/sessionLifetimeManagement/serverInitiatedDisconnect") {
+        if (target.rfind("/streaming/touchcontrols", 0) == 0) {
+            // No touch input here: decline touch layouts so the title keeps reading the gamepad.
+            if (type == "TransactionStart")
+                sendMessageJson(json{{"type", "ReceiverCancel"}, {"id", id}, {"cv", ""}}.dump());
+        } else if (target == "/streaming/sessionLifetimeManagement/serverInitiatedDisconnect") {
             sendMessageJson(json{{"type", "TransactionComplete"}, {"content", "\"\""}, {"id", id}, {"cv", ""}}.dump());
             const auto content = json::parse(j.value("content", std::string()), nullptr, false);
             const std::string reason = content.is_object() && content.contains("reason") && content["reason"].is_string()
@@ -357,23 +384,42 @@ void WebRtcSession::onInputChannel(const uint8_t* data, size_t size) {
     }
 }
 
-void WebRtcSession::sendGamepad(const GamepadFrame& frame) {
+void WebRtcSession::queueGamepad(const GamepadFrame& frame) {
     std::lock_guard lock(gate_->mutex);
     if(!gate_->open||!handshakeDone_)return;
-    const auto report=gamepadReport(++inputSequence_,nowMs(),{frame});
-    sendBinary(input_,report.data(),report.size());
+    queuedPad_=frame;
+}
+
+void WebRtcSession::flushInput() {
+    std::lock_guard lock(gate_->mutex);
+    if(!gate_->open||!handshakeDone_)return;
+    if(!queuedPad_&&metadataQueue_.empty())return;
+    uint16_t types=0;
+    std::vector<VideoFeedback> feedback;
+    uint32_t lastRtp=0;
+    for(const auto& item:metadataQueue_){feedback.push_back(item.second);lastRtp=item.first;}
+    if(!feedback.empty())types|=ReportMetadata;
+    std::vector<GamepadFrame> pads;
+    if(queuedPad_){types|=ReportGamepad;pads.push_back(*queuedPad_);}
+    const auto report=inputReport(types,++inputSequence_,nowMs(),feedback,pads);
+    if(!sendBinary(input_,report.data(),report.size()))return;
+    queuedPad_.reset();
+    metadataQueue_.clear();
+    if(!feedback.empty()){
+        if(!feedbackSent_)log::info("xbox","video presentation feedback started");
+        feedbackSent_=true;lastFeedbackRtp_=lastRtp;
+    }
 }
 
 void WebRtcSession::videoPresented(uint32_t rtp,int64_t arrival,int64_t submitted,int64_t decoded,int64_t presented) {
     std::lock_guard lock(gate_->mutex);
-    if(!gate_->open||!handshakeDone_||(feedbackSent_&&rtp==lastFeedbackRtp_))return;
+    if(!gate_->open||!handshakeDone_)return;
+    if(feedbackSent_&&rtp==lastFeedbackRtp_)return;
+    for(const auto& item:metadataQueue_)if(item.first==rtp)return;
     const auto origin=std::chrono::duration_cast<std::chrono::nanoseconds>(origin_.time_since_epoch()).count()/100;
     const auto ms=[origin](int64_t stamp){return uint32_t(uint64_t(std::max<int64_t>(0,stamp-origin)/10000));};
-    const auto report=videoFeedbackReport(++inputSequence_,nowMs(),{rtp,ms(arrival),ms(submitted),ms(decoded),ms(presented)});
-    if(sendBinary(input_,report.data(),report.size())){
-        if(!feedbackSent_)log::info("xbox","video presentation feedback started");
-        feedbackSent_=true;lastFeedbackRtp_=rtp;
-    }
+    metadataQueue_.push_back({rtp,VideoFeedback{rtp,ms(arrival),ms(submitted),ms(decoded),ms(presented)}});
+    if(metadataQueue_.size()>8)metadataQueue_.pop_front();
 }
 
 void WebRtcSession::requestKeyframe() {
@@ -389,7 +435,7 @@ void WebRtcSession::requestKeyframe() {
 
 void WebRtcSession::close() {
     if (closed_.exchange(true)) return;
-    {std::lock_guard lock(gate_->mutex);gate_->open=false;handshakeDone_=false;connected_=false;}
+    {std::lock_guard lock(gate_->mutex);gate_->open=false;handshakeDone_=false;connected_=false;queuedPad_.reset();metadataQueue_.clear();}
     // Wait for current callbacks via the gate, then detach callbacks before
     // releasing channels. Do not hold the gate while library callbacks reset.
     for(const auto& dc:{chat_,control_,input_,message_})if(dc)dc->resetCallbacks();
@@ -412,6 +458,12 @@ WebRtcStats WebRtcSession::stats() const {
     s.keyframeRequests = keyframeRequests_.load();
     s.videoBytes = videoBytes_.load();
     s.handshakeDone = handshakeDone_.load();
+    if (lossRecovery_) {
+        const auto loss = lossRecovery_->stats();
+        s.nacksSent = loss.nacksSent;
+        s.packetsRecovered = loss.packetsRecovered;
+        s.framesDroppedIncomplete = loss.framesDropped;
+    }
     if (const auto pc = gate_->open?pc_:nullptr) {
         s.bytesReceived = pc->bytesReceived();
         if (const auto rtt = pc->rtt()) s.rttMs = double(rtt->count());

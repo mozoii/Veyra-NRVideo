@@ -8,15 +8,20 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "veyra/xbox/Protocol.h"
 #include "veyra/xbox/ResolutionMode.h"
 #include "veyra/xbox/StreamApi.h"
+#include "veyra/xbox/StreamProfile.h"
+#include "veyra/xbox/VideoLossRecovery.h"
 
 namespace rtc {
 class PeerConnection;
@@ -48,6 +53,7 @@ struct WebRtcStats {
     uint64_t bytesReceived = 0;      // data channels (libdatachannel's count)
     uint64_t videoBytes = 0;         // access units handed to the decoder
     uint64_t videoUnits = 0, audioPackets = 0, keyframeRequests = 0;
+    uint64_t nacksSent = 0, packetsRecovered = 0, framesDroppedIncomplete = 0;
     double rttMs = 0;
     bool handshakeDone = false;
 };
@@ -64,6 +70,8 @@ public:
     void setResolutionProfile(ResolutionMode mode) { profile_ = resolutionDesc(mode); }
     // Tests: gather candidates on this address only (e.g. "127.0.0.1"). Empty: every interface.
     void setBindAddress(std::string address) { bindAddress_ = std::move(address); }
+    // ICE servers, optional b=AS hints and gather budget. Defaults reproduce the historical offer.
+    void setTransportProfile(const TransportProfile& profile) { transport_ = profile; }
 
     // Offer, signalling, ICE; returns once connected, false (with `error`) on failure or timeout.
     bool start(Signaling& signaling, std::string* error, std::chrono::milliseconds timeout = std::chrono::seconds(20));
@@ -71,7 +79,11 @@ public:
     bool ready() const { return handshakeDone_.load(); }
     bool waitReady(std::chrono::milliseconds timeout);
 
-    void sendGamepad(const GamepadFrame& frame);   // sent when it changes, and at least every 33 ms by the caller
+    // Greenlight-shaped input path: queue the latest pad state and video
+    // metadata, then flush both into one packet on the 16 ms input tick.
+    void queueGamepad(const GamepadFrame& frame);
+    void flushInput();
+    void sendGamepad(const GamepadFrame& frame) { queueGamepad(frame); flushInput(); }
     void requestKeyframe();
     void videoPresented(uint32_t rtpTimestamp,int64_t arrival,int64_t submitted,int64_t decoded,int64_t presented);
     void close();
@@ -97,8 +109,11 @@ private:
     std::shared_ptr<CallbackGate> gate_=std::make_shared<CallbackGate>();
     bool sendErrorLogged_=false,feedbackSent_=false;
     uint32_t lastFeedbackRtp_=0;
+    std::optional<GamepadFrame> queuedPad_;
+    std::deque<std::pair<uint32_t, VideoFeedback>> metadataQueue_;
     std::shared_ptr<rtc::PeerConnection> pc_;
     std::shared_ptr<rtc::Track> audio_, video_;
+    std::shared_ptr<VideoLossRecovery> lossRecovery_;
     std::shared_ptr<rtc::DataChannel> chat_, control_, input_, message_;
     std::mutex mutex_;
     std::condition_variable changed_;
@@ -109,6 +124,7 @@ private:
     std::string failure_;
     std::string bindAddress_;
     ResolutionDesc profile_ = resolutionDesc(ResolutionMode::Auto);
+    TransportProfile transport_;
 };
 
 } // namespace veyra::xbox

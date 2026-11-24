@@ -12,6 +12,8 @@ add_library(veyra_xbox_protocol STATIC
   "${VEYRA_ROOT}/src/xbox/Https.cpp"
   "${VEYRA_ROOT}/src/xbox/Account.cpp"
   "${VEYRA_ROOT}/src/xbox/StreamApi.cpp"
+  "${VEYRA_ROOT}/src/xbox/StreamProfile.cpp"
+  "${VEYRA_ROOT}/src/xbox/VideoLossRecovery.cpp"
   "${VEYRA_ROOT}/src/xbox/WebRtcSession.cpp")
 target_compile_features(veyra_xbox_protocol PUBLIC cxx_std_20)
 set_target_properties(veyra_xbox_protocol PROPERTIES CXX_EXTENSIONS OFF)
@@ -27,3 +29,10 @@ target_compile_features(veyra_xbox_tests PRIVATE cxx_std_20)
 target_compile_definitions(veyra_xbox_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(veyra_xbox_tests PRIVATE veyra_xbox_protocol)
 veyra_apply_warnings(veyra_xbox_tests)
+
+# V2 gamepad bridge wire contract: the pure mapper shared with XboxWebSource.
+add_executable(veyra_xbox_web_gamepad_tests "${VEYRA_ROOT}/tests/xbox/XboxWebGamepadTests.cpp")
+target_compile_features(veyra_xbox_web_gamepad_tests PRIVATE cxx_std_20)
+target_compile_definitions(veyra_xbox_web_gamepad_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(veyra_xbox_web_gamepad_tests PRIVATE veyra_xbox_protocol)
+veyra_apply_warnings(veyra_xbox_web_gamepad_tests)
