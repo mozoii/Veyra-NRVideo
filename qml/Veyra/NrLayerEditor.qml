@@ -69,6 +69,19 @@ ColumnLayout {
         {id:"manual",label:qsTr("Manual")}
     ]
     readonly property string sizeLabel: manualSize ? qsTr("Manual") : sizeChoices.find(o => Number(o.id) === layerData.sizePolicy)?.label ?? qsTr("Unknown")
+    // Source-faithful cleanup: NR keeps temporal detail, its colour delta is
+    // removed and lightness change scaled down so the source look is preserved.
+    readonly property bool sourceFaithful: layerData.color === 0 && Math.abs((layerData.luminance ?? 1) - 0.7) < 0.01 && layerData.temporal === true
+    function setSourceFaithful(on) {
+        if (on) {
+            editor.edited(editor.layerData.index, "color", 0)
+            editor.edited(editor.layerData.index, "luminance", 0.7)
+            editor.edited(editor.layerData.index, "temporal", 1)
+        } else {
+            editor.edited(editor.layerData.index, "color", 1)
+            editor.edited(editor.layerData.index, "luminance", 1)
+        }
+    }
     spacing: 6
 
     component NrValueRow: VRow {
@@ -221,6 +234,16 @@ ColumnLayout {
         visible: editor.amdNr || !Support.available(veyra, "nr" + editor.layerData.runtime)
         text: !Support.available(veyra, "nr" + editor.layerData.runtime) ? Support.reason(veyra, "nr" + editor.layerData.runtime) : qsTr("AMD NR (experimental): RX 7000 / 9000 use separate runtimes and require HIP 7. Performance mode selects Small; off selects Original. Internal processing supports percentages within a 1080p pixel budget. RX 7000 uses the default style; RX 9000 retains runtime configuration. Native HDR preserves its base and reconstructs the SDR-proxy enhancement. RX 7000 hardware validation is still required.")
         color: Theme.t3; font.pixelSize: 11; wrapMode: Text.WordWrap
+    }
+    VRow {
+        objectName: "nr-source-faithful-row"
+        label: qsTr("Preserve source look")
+        hint: qsTr("Keep the source colours and limit lightness drift while NR reduces flicker and smear")
+        VSwitch {
+            objectName: "nr-source-faithful"
+            checked: editor.sourceFaithful
+            onToggled: checked => editor.setSourceFaithful(checked)
+        }
     }
     VSubGroup {
         objectName: "nr-model-group"

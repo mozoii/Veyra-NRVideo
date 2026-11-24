@@ -26,7 +26,7 @@ Rectangle {
     // Set by FullscreenBar so upward menus stop above the playback pill.
     property real menuBottomLimit: -1
     // Any popover needs the owner window's full mask, not just the preset menu.
-    readonly property bool menuOpen: presetMenu.visible || ccMenu.visible || audioMenu.visible || loadMenu.visible || playbackRate.menuOpen
+    readonly property bool menuOpen: presetMenu.visible || ccMenu.visible || audioMenu.visible || loadMenu.visible || controllerMenu.visible || playbackRate.menuOpen
     // The pointer is over the pill.
     readonly property bool hovered: barHover.hovered
     readonly property bool seekPreviewOpen: seekMouse.enabled && (seekMouse.containsMouse || seekArea.scrubbing)
@@ -169,6 +169,7 @@ Rectangle {
 
                 // Load (field request 2026-10-02): the home page's sources without leaving Minimal.
                 CBtn { objectName: "cine-load"; glyph: "folder"; tip: qsTr("Load source"); onTapped: loadMenu.openAt(this, "up") }
+                CBtn { objectName: "cine-controller"; glyph: "gamepad"; tip: qsTr("Controller device"); onTapped: controllerMenu.openAt(this, "up") }
                 CBtn { glyph: "cc"; onTapped: ccMenu.openAt(this, "up") }
                 CBtn { glyph: "back10"; onTapped: veyra.seekBy(-10) }
 
@@ -553,6 +554,19 @@ Rectangle {
             case "xbox": veyra.openXboxDialog(); break
             }
         }
+    }
+
+    // The same pad list as the Pro button and the Xbox dialog, bound to the one
+    // shared SDL reader. Opening the menu refreshes the device list.
+    VMenu {
+        id: controllerMenu
+        objectName: "cine-controller-menu"
+        aboveLimit: bar.menuBottomLimit
+        title: qsTr("Controller device")
+        items: (veyra.controllerChoices || []).map(c => ({ label: c.label, guid: c.id,
+                    checked: c.id === ((veyra.xbox && veyra.xbox.state) ? (veyra.xbox.state.controllerGuid || "") : "") }))
+        onAboutToShow: veyra.refreshControllers()
+        onPicked: (i, o) => veyra.setController(o.guid)
     }
 
     // Audio: this one is real - the bridge exposes the file's audio streams and the

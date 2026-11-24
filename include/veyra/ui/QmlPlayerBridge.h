@@ -145,6 +145,10 @@ class QmlPlayerBridge : public QObject {
     Q_PROPERTY(QObject* moonlight READ moonlightModel CONSTANT)
     // Xbox home streaming (unofficial): sign-in, consoles and stream state; null without Xbox support.
     Q_PROPERTY(QObject* xbox READ xboxModel CONSTANT)
+    // Gamepads SDL can see, and the pad the shared reader actually opened.
+    // The choice itself is persisted by XboxModel (controllerGuid).
+    Q_PROPERTY(QVariantList controllerChoices READ controllerChoices NOTIFY controllerDevicesChanged)
+    Q_PROPERTY(QString controllerName READ controllerName NOTIFY controllerDevicesChanged)
     Q_PROPERTY(bool moonlightCaptured READ moonlightCaptured NOTIFY moonlightUiChanged)
     Q_PROPERTY(bool moonlightStatsVisible READ moonlightStatsVisible WRITE setMoonlightStatsVisible NOTIFY moonlightUiChanged)
 
@@ -669,6 +673,10 @@ public:
     QObject* xboxModel() const;
     Q_INVOKABLE void openXboxDialog();
     Q_INVOKABLE void xboxDisconnect();
+    QVariantList controllerChoices() const;
+    QString controllerName() const;
+    Q_INVOKABLE void refreshControllers();
+    Q_INVOKABLE void setController(const QString& guid);
 
     QVariantMap preferences() const;
     QString gpuPriorityStatus() const;
@@ -1276,6 +1284,7 @@ signals:
     void playlistRequested();
     void nodeAnchorsChanged();
     void moonlightUiChanged();
+    void controllerDevicesChanged();
     void imageBatchChanged();
     void audioDevicesChanged();
     void subtitlesChanged();

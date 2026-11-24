@@ -372,6 +372,18 @@ VPage {
                 onClicked: veyra.takeScreenshot()
             }
             VButton {
+                id: controllerBtn
+                objectName: "pro-controller-button"
+                iconName: "gamepad"
+                text: head.compactActions ? "" : (veyra.controllerName.length > 0 ? veyra.controllerName : qsTr("Controller"))
+                icon: head.compactActions
+                tip: qsTr("Controller device")
+                trailingIcon: "down"
+                maxTextWidth: head.compactActions ? 110 : 180
+                Accessible.name: tip
+                onClicked: controllerMenu.openAt(this, "down")
+            }
+            VButton {
                 id: presetBtn
                 iconName: "layers"
                 trailingIcon: "down"
@@ -1978,6 +1990,17 @@ VPage {
             else if (o.act === "moonlight") veyra.openMoonlightDialog()
             else if (o.act === "xbox") veyra.openXboxDialog()
         }
+    }
+    // The same pad list as the cinema pill and the Xbox dialog, bound to the one
+    // shared SDL reader. Opening the menu refreshes the device list.
+    VMenu {
+        id: controllerMenu
+        objectName: "pro-controller-menu"
+        title: qsTr("Controller device")
+        items: (veyra.controllerChoices || []).map(c => ({ label: c.label, guid: c.id,
+                    checked: c.id === ((veyra.xbox && veyra.xbox.state) ? (veyra.xbox.state.controllerGuid || "") : "") }))
+        onAboutToShow: veyra.refreshControllers()
+        onPicked: (i, o) => veyra.setController(o.guid)
     }
     // The design puts Save as / Manage in the professional page's preset menu.
     // presets.js VY.presetMenu(app, anchor, 'list').

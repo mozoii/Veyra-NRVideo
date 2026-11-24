@@ -1,5 +1,7 @@
 #include "veyra/input/ControllerInput.h"
 #include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_joystick.h>
+#include <SDL3/SDL_guid.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_hints.h>
@@ -16,6 +18,32 @@ std::int64_t monotonic100ns() noexcept {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count()/100;
 }
+std::string hex16(uint16_t value) {
+    char text[8]{};
+    std::snprintf(text, sizeof(text), "%04X", value);
+    return text;
+}
+std::string guidString(SDL_JoystickID id) {
+    char text[33]{};
+    SDL_GUIDToString(SDL_GetGamepadGUIDForID(id), text, sizeof(text));
+    return text;
+}
+void closeCompanions(std::vector<SDL_Joystick*>& pads) {
+    for (auto* pad : pads) SDL_CloseJoystick(pad);
+    pads.clear();
+}
+veyra::input::GamepadDevice describe(SDL_JoystickID id) {
+    veyra::input::GamepadDevice d;
+    d.guid = guidString(id);
+    const char* name = SDL_GetGamepadNameForID(id);
+    d.name = name ? name : "";
+    const char* path = SDL_GetGamepadPathForID(id);
+    d.path = path ? path : "";
+    d.vid = SDL_GetJoystickVendorForID(id);
+    d.pid = SDL_GetJoystickProductForID(id);
+    d.connected = SDL_IsGamepad(id) != 0;
+    return d;
+}
 }
 namespace veyra::input {
 bool ControllerInput::start(uint32_t preferredDevice){
@@ -29,22 +57,78 @@ void ControllerInput::stop(){
     releaseEffects();if(hapticStream_){SDL_DestroyAudioStream(hapticStream_);hapticStream_=nullptr;}
     if(audioInitialized_){SDL_QuitSubSystem(SDL_INIT_AUDIO);audioInitialized_=false;}hapticAttempted_=false;
     touchQueue_.clear();touchState_={};haveGyro_=haveAccel_=false;calibrating_=false;gyroBias_={};enumerateAt_=0;
+    closeCompanions(companionJoysticks_);
     if(gamepad_){SDL_CloseGamepad(gamepad_);gamepad_=nullptr;}
     if(initialized_){SDL_QuitSubSystem(SDL_INIT_GAMEPAD);initialized_=false;}
 }
 bool ControllerInput::opened(uint32_t id)const{
     return gamepad_&&SDL_GetGamepadID(gamepad_)==id;
 }
+std::string ControllerInput::openedGuid()const{
+    return gamepad_?guidString(SDL_GetGamepadID(gamepad_)):std::string{};
+}
+void ControllerInput::setPreferredDevice(const std::string& guid){
+    if(preferredGuid_==guid)return;
+    const std::string previous=preferredGuid_;
+    preferredGuid_=guid;
+    preferredDevice_=0;
+    // Do not leave the wrong pad claimed (and its desktop mode disabled).
+    if(gamepad_&&!guid.empty()&&openedGuid()!=guid){
+        deactivate();SDL_CloseGamepad(gamepad_);gamepad_=nullptr;enumerateAt_=0;
+    }
+    veyra::log::info("input","preferred device "+previous+" -> "+guid);
+}
+std::vector<GamepadDevice> ControllerInput::devices()const{
+    // The dialog lists pads while no stream owns the reader, so borrow SDL when
+    // needed and give it straight back. Enumeration never opens a pad.
+    const bool borrowed=!initialized_;
+    if(borrowed){
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"1");
+        if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD))return {};
+    }
+    std::vector<GamepadDevice> out;
+    int count=0;auto* ids=SDL_GetGamepads(&count);
+    if(ids){
+        out.reserve(count);
+        for(int i=0;i<count;++i)out.push_back(describe(ids[i]));
+        SDL_free(ids);
+    }
+    if(borrowed)SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+    return out;
+}
 void ControllerInput::activate(SDL_Gamepad* pad){
     gamepad_=pad;lightsDirty_=haveLed_||havePlayer_;
     triggerFilter_.reset();
     touchQueue_.clear();touchState_={};sensorStamp_=0;haveGyro_=haveAccel_=false;gyroBias_={};calibrating_=false;touchIds_={-1,-1};gyro_=SDL_GamepadHasSensor(gamepad_,SDL_SENSOR_GYRO)&&SDL_SetGamepadSensorEnabled(gamepad_,SDL_SENSOR_GYRO,true);
     accel_=SDL_GamepadHasSensor(gamepad_,SDL_SENSOR_ACCEL)&&SDL_SetGamepadSensorEnabled(gamepad_,SDL_SENSOR_ACCEL,true);
-    std::string line=std::string("device opened gyro=")+(gyro_?"1":"0")+" accel="+(accel_?"1":"0")+" touchpads="+std::to_string(SDL_GetNumGamepadTouchpads(gamepad_));
+    const auto d=describe(SDL_GetGamepadID(gamepad_));
+    std::string line=std::string("device opened guid=")+d.guid+" name="+d.name
+        +" vid=0x"+hex16(d.vid)+" pid=0x"+hex16(d.pid)+" path="+d.path
+        +" gyro="+(gyro_?"1":"0")+" accel="+(accel_?"1":"0")
+        +" touchpads="+std::to_string(SDL_GetNumGamepadTouchpads(gamepad_));
     veyra::log::info("input",line);
+    // A Proteus/Nereid dongle presents four HID interfaces, each with its own
+    // mouse/keyboard collections. SDL sends the "lizard mode off" feature report
+    // only to the interface it is reading. Open the siblings too so the desktop
+    // stops receiving the same button and stick data; they are never polled.
+    if (d.vid == 0x28de && (d.pid == 0x1304 || d.pid == 0x1305)) {
+        int count = 0;
+        auto* ids = SDL_GetJoysticks(&count);
+        for (int i = 0; ids && i < count; ++i) {
+            if (ids[i] == SDL_GetGamepadID(gamepad_)) continue;
+            if (SDL_GetJoystickVendorForID(ids[i]) != d.vid
+                || (SDL_GetJoystickProductForID(ids[i]) != d.pid)) continue;
+            if (auto* sibling = SDL_OpenJoystick(ids[i])) companionJoysticks_.push_back(sibling);
+        }
+        SDL_free(ids);
+        if (!companionJoysticks_.empty())
+            veyra::log::info("input", "steam triton: opened "
+                + std::to_string(companionJoysticks_.size()) + " companion interfaces to disable desktop mode");
+    }
 }
 // The pad stops being read: its rumble/trigger effects and haptic stream end.
 void ControllerInput::deactivate(){
+    closeCompanions(companionJoysticks_);
     releaseEffects();if(hapticStream_){SDL_DestroyAudioStream(hapticStream_);hapticStream_=nullptr;}hapticAttempted_=false;
     if(gamepad_&&SDL_GamepadConnected(gamepad_)){
         if(gyro_)SDL_SetGamepadSensorEnabled(gamepad_,SDL_SENSOR_GYRO,false);
@@ -53,6 +137,14 @@ void ControllerInput::deactivate(){
 }
 ControllerState ControllerInput::poll(bool focused){
     ControllerState state;if(!initialized_)return state;
+    // One line per focus transition: this is the evidence that the explicit
+    // foreground gate is open while a stream is being controlled.
+    if(lastFocused_!=focused){
+        lastFocused_=focused;
+        std::string line=std::string("focus changed focused=")+(focused?"1":"0");
+        if(gamepad_){const auto d=describe(SDL_GetGamepadID(gamepad_));line+=" device="+d.guid+" name="+d.name;}
+        veyra::log::info("input",line);
+    }
     SDL_PumpEvents();SDL_UpdateGamepads();
     // Only this module initializes SDL; drain its input events rather than
     // accumulating an unconsumed second application event queue.
@@ -61,8 +153,15 @@ ControllerState ControllerInput::poll(bool focused){
     const auto now=monotonic100ns();
     if(!gamepad_&&now>=enumerateAt_){
         int count=0;auto* ids=SDL_GetGamepads(&count);
+        uint32_t target=preferredDevice_;
+        if(!preferredGuid_.empty()&&ids){
+            std::vector<std::string> guids;guids.reserve(count);
+            for(int i=0;i<count;++i)guids.push_back(guidString(ids[i]));
+            const int pick=preferredDeviceIndex(guids,preferredGuid_);
+            if(pick>=0)target=ids[pick];
+        }
         for(int i=0;i<count&&!gamepad_;++i){
-            if((preferredDevice_&&ids[i]!=preferredDevice_)||opened(ids[i]))continue;
+            if((target&&ids[i]!=target)||opened(ids[i]))continue;
             auto* pad=SDL_OpenGamepad(ids[i]);if(!pad)continue;
             activate(pad);
         }
@@ -206,9 +305,9 @@ bool ControllerInput::calibrate(){
 }
 ControllerInput::Capabilities ControllerInput::capabilities()const{
     if(!gamepad_)return {};
-    const char* name=SDL_GetGamepadName(gamepad_);
+    const auto d=describe(SDL_GetGamepadID(gamepad_));
     return {true,gyro_,accel_,SDL_GetNumGamepadTouchpads(gamepad_)>0,
-        SDL_GetGamepadType(gamepad_)==SDL_GAMEPAD_TYPE_PS5,hapticStream_!=nullptr,calibrating_,name?name:""};
+        SDL_GetGamepadType(gamepad_)==SDL_GAMEPAD_TYPE_PS5,hapticStream_!=nullptr,calibrating_,d.name,d.guid,d.path};
 }
 
 }

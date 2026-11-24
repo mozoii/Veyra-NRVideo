@@ -1,7 +1,9 @@
 #include "veyra/engine/EngineController.h"
 #include "veyra/engine/FgCompatibilityProbe.h"
 #include "veyra/Log.h"
+#include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -39,6 +41,20 @@ int wmain(int argc,wchar_t** argv){
     {
         EngineController engine;engine.setVolume(0,true);
         EnhancementSettings settings;settings.multiplier=multiplier;
+        // Optional measurement hooks: opt-in only, defaults unchanged when unset.
+        if(const char* backend=std::getenv("VEYRA_TEST_FG_BACKEND"))
+            settings.frameGenerationBackend=static_cast<FrameGenerationBackend>(std::atoi(backend));
+        if(const char* quality=std::getenv("VEYRA_TEST_VFG_QUALITY"))
+            settings.vfgQuality=uint32_t(std::max(0,std::atoi(quality)));
+        if(std::getenv("VEYRA_TEST_HUD_LOCK"))settings.hudLock=true;
+        if(const char* model=std::getenv("VEYRA_TEST_DLSS_SR_MODEL"))
+            settings.dlssSrModel=uint32_t(std::max(0,std::atoi(model)));
+        if(const char* runtime=std::getenv("VEYRA_TEST_NR_RUNTIME"))
+            settings.nrRuntime=static_cast<NrRuntime>(std::clamp(std::atoi(runtime),0,4));
+        if(const char* perf=std::getenv("VEYRA_TEST_NR_PERFORMANCE"))
+            settings.model.performance=std::atoi(perf)!=0;
+        if(const char* policy=std::getenv("VEYRA_TEST_NR_POLICY"))
+            settings.nrPolicy=static_cast<veyra::pipeline::NrSizePolicy>(std::clamp(std::atoi(policy),0,6));
         if(xessProfile)settings.frameGenerationBackend=FrameGenerationBackend::XeSS;
         const std::wstring_view effects=argv[6];
         settings.nr=effects==L"on"||effects==L"nr";

@@ -40,6 +40,10 @@ int main(int argc, char** argv) {
         auto bridge = makeBridge(profile);
         check(bridge->maximumVolume() == 3.0, "production bridge exposes 300 percent maximum");
         check(bridge->volume() == 1.0 && !bridge->muted(), "fresh profile starts at unity, unmuted");
+        // The stream stats HUD is shared by Xbox; its toggle must work when Moonlight is compiled out.
+        bridge->setMoonlightStatsVisible(true);
+        check(bridge->moonlightStatsVisible(), "stream stats toggle works without Moonlight support");
+        bridge->setMoonlightStatsVisible(false);
         bridge->setVolume(3.0);
         check(bridge->volume() == 3.0 && engine->snapshot().volume == 3.0f, "300 percent reaches real engine immediately");
         bridge->setMuted(true);

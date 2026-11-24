@@ -383,6 +383,9 @@ struct QmlPlayerBridge::Impl {
     // and only the last release stops it, so the timer of a source that just
     // ended never cuts off the pad the next source started using.
     input::ControllerInput controller;
+    QVariantList controllerChoices;
+    QString controllerName;
+    bool controllerWasConnected=false;
     enum PadUser : unsigned { PadMoonlight = 1, PadXbox = 2 };
     unsigned padUsers = 0;
     bool acquirePad(unsigned user) {
@@ -816,10 +819,12 @@ struct QmlPlayerBridge::Impl {
         options = engine::PlayerOptions::from(s,order);
         return true;
     }
+    // Shared stream-stats HUD toggle: Xbox needs it even when Moonlight is compiled out.
+    bool moonlightStatsVisible = false;
 #ifdef VEYRA_ENABLE_MOONLIGHT
     // --- PC streaming (Moonlight). Last, so they are destroyed first: the model joins its workers.
     QTimer* moonlightTimer = nullptr;
-    bool moonlightWantCapture = false, moonlightStatsVisible = false, moonlightWasActive = false;
+    bool moonlightWantCapture = false, moonlightWasActive = false;
     int moonlightStatsTicks = 0;
     std::unique_ptr<ui::MoonlightInputCapture> moonlightCapture;
     std::unique_ptr<ui::MoonlightModel> moonlight;

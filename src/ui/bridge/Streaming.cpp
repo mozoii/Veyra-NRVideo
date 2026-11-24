@@ -18,20 +18,12 @@ bool QmlPlayerBridge::moonlightCaptured() const {
 #endif
 }
 bool QmlPlayerBridge::moonlightStatsVisible() const {
-#ifdef VEYRA_ENABLE_MOONLIGHT
     return impl_->moonlightStatsVisible;
-#else
-    return false;
-#endif
 }
 void QmlPlayerBridge::setMoonlightStatsVisible(bool visible) {
-#ifdef VEYRA_ENABLE_MOONLIGHT
     if (impl_->moonlightStatsVisible == visible) return;
     impl_->moonlightStatsVisible = visible;
     emit moonlightUiChanged();
-#else
-    (void)visible;
-#endif
 }
 void QmlPlayerBridge::openMoonlightDialog() { emit navigate(QStringLiteral("moonlight")); }
 
@@ -50,6 +42,42 @@ void QmlPlayerBridge::xboxDisconnect() {
 #endif
 }
 
+QVariantList QmlPlayerBridge::controllerChoices() const { return impl_->controllerChoices; }
+QString QmlPlayerBridge::controllerName() const { return impl_->controllerName; }
+
+void QmlPlayerBridge::refreshControllers() {
+    auto& i = *impl_;
+#ifdef VEYRA_ENABLE_XBOX
+    // The model owns persistence; the reader only owns the live SDL device.
+    // Never change which pad Moonlight is currently reading.
+    if (i.xbox && !(i.padUsers & Impl::PadMoonlight)) {
+        const std::string guid = i.xbox->state().value("controllerGuid").toString().toStdString();
+        if (i.controller.preferredDeviceGuid() != guid) i.controller.setPreferredDevice(guid);
+    }
+#endif
+    QVariantList choices{QVariantMap{{"id", QStringLiteral("")}, {"label", tr("Auto")}}};
+    for (const auto& d : i.controller.devices())
+        choices << QVariantMap{{"id", QString::fromStdString(d.guid)},
+                               {"label", QString::fromStdString(d.name)},
+                               {"vid", int(d.vid)}, {"pid", int(d.pid)}};
+    const auto caps = i.controller.capabilities();
+    const QString name = caps.connected ? QString::fromStdString(caps.name) : QString();
+    if (choices == i.controllerChoices && name == i.controllerName) return;
+    i.controllerChoices = choices;
+    i.controllerName = name;
+    emit controllerDevicesChanged();
+}
+
+void QmlPlayerBridge::setController(const QString& guid) {
+    auto& i = *impl_;
+    // A Moonlight stream owns the shared reader; only persist the choice then.
+    if (!(i.padUsers & Impl::PadMoonlight)) i.controller.setPreferredDevice(guid.toStdString());
+#ifdef VEYRA_ENABLE_XBOX
+    if (i.xbox) i.xbox->set("controllerGuid", guid);
+#endif
+    refreshControllers();
+}
+
 #ifdef VEYRA_ENABLE_XBOX
 void QmlPlayerBridge::setupXbox() {
     auto& i = *impl_;
@@ -65,33 +93,44 @@ void QmlPlayerBridge::setupXbox() {
         j.sourceLabel = L"Xbox · " + launch.label.toStdWString();
         j.resumeSession = 0;
         const bool pad = launch.desc.gamepad;
+        const QString controllerGuid = QString::fromStdString(launch.desc.controllerGuid);
         const QString label = launch.label;
         auto request = std::make_shared<source::XboxConnectDesc>(std::move(launch.desc));
-        openAfterLivePage(tr("Connecting to Xbox · %1").arg(label), [this, request, pad] {
+        openAfterLivePage(tr("Connecting to Xbox · %1").arg(label), [this, request, pad, controllerGuid] {
             auto& k = *impl_;
             if (k.preOpen) k.preOpen();
             k.engine.previewView({});
             k.engine.openXbox(k.videoWindow, std::move(*request), k.options);
             k.openingSessionId = k.engine.snapshot().sessionId;
             refreshSubtitles({});
-            // The pad is polled on the UI thread at 250 Hz; the session sends changes and a 33 ms heartbeat.
+            // Greenlight's input channel queues one gamepad state every 16 ms and
+            // flushes it with any queued video metadata in one input packet.
             if (pad) {
+                k.controller.setPreferredDevice(controllerGuid.toStdString());
                 if (!k.acquirePad(Impl::PadXbox)) veyra::log::warn("xbox-input", "SDL gamepad initialization failed");
                 if (!k.xboxTimer) {
                     k.xboxTimer = new QTimer(this);
                     k.xboxTimer->setTimerType(Qt::PreciseTimer);
                     connect(k.xboxTimer, &QTimer::timeout, this, [this] {
                         auto& m = *impl_;
-                        if (!m.snapshot.xboxActive) { m.releasePad(Impl::PadXbox); m.xboxTimer->stop(); return; }
+                        if (!m.snapshot.xboxActive) {
+                            m.releasePad(Impl::PadXbox); m.xboxTimer->stop();
+                            m.controllerWasConnected = false; refreshControllers(); return;
+                        }
                         const bool focused = QGuiApplication::focusWindow() != nullptr;
                         m.engine.xboxController(m.controller.poll(focused));
                         m.controller.feedback(m.engine.xboxFeedback(), focused);
+                        if (m.controller.connected() != m.controllerWasConnected) {
+                            m.controllerWasConnected = m.controller.connected();
+                            refreshControllers();
+                        }
                     });
                 }
-                k.xboxTimer->start(4);
+                k.xboxTimer->start(16);
             } else {
                 if (k.xboxTimer) k.xboxTimer->stop();
                 k.releasePad(Impl::PadXbox);
+                k.controllerWasConnected = false; refreshControllers();
             }
         });
         rememberSource(QStringLiteral("xbox"), label);
